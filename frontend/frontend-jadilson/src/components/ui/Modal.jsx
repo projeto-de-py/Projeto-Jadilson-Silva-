@@ -32,7 +32,7 @@ export function Modal({
                 <motion.div
                   className={cn(
                     "bg-surface border-border max-h-[calc(100vh-2rem)] w-full max-w-lg",
-                    "overflow-y-auto rounded-modal border p-6 shadow-popover",
+                    "overflow-y-auto rounded-modal border p-7 shadow-popover",
                     className,
                   )}
                   initial={{ opacity: 0, scale: 0.94, y: 12 }}

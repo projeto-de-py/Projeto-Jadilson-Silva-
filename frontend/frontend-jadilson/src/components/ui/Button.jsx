@@ -1,6 +1,6 @@
 import React from "react";
 import { motion } from "motion/react";
-import { Spinner } from "./Spinner";
+import { ThinkingOrb } from "thinking-orbs";
 import { spring } from "@/lib/motion";
 import { cn } from "@/lib/cn";
 
@@ -47,7 +47,7 @@ export function Button({
       aria-busy={loading || undefined}
       {...props}
     >
-      {loading && <Spinner className="size-4" />}
+      {loading && <ThinkingOrb state="working" size={20} theme="dark" />}
       {children}
     </motion.button>
   );

@@ -16,6 +16,8 @@ import {
   TrendingUp,
   TriangleAlert,
 } from "lucide-react";
+import { motion } from "motion/react";
+import { BorderBeam } from "border-beam";
 import { NavLink } from "react-router-dom";
 import {
   Badge,
@@ -24,6 +26,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  Contador,
 } from "@/components/ui";
 import { cn } from "@/lib/cn";
 
@@ -32,6 +35,34 @@ function token(nome) {
     .getPropertyValue(nome)
     .trim();
 }
+
+// Choreografia de entrada (receitas transitions.dev: texts reveal + stagger)
+const pagina = {
+  oculto: {},
+  visivel: { transition: { staggerChildren: 0.1, delayChildren: 0.05 } },
+};
+
+const grupo = {
+  oculto: { opacity: 0, y: 18 },
+  visivel: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.5,
+      ease: [0.22, 1, 0.36, 1],
+      staggerChildren: 0.08,
+    },
+  },
+};
+
+const entrada = {
+  oculto: { opacity: 0, y: 18 },
+  visivel: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] },
+  },
+};
 
 const kpis = [
   {
@@ -161,16 +192,16 @@ function Kpi({ titulo, valor, delta, melhor, icone: Icon }) {
   const Seta = delta.trim().startsWith("-") ? TrendingDown : TrendingUp;
 
   return (
-    <Card className="p-6">
+    <Card interactive className="h-full p-7">
       <div className="flex items-start justify-between gap-4">
         <p className="text-14 font-medium text-ink-muted">{titulo}</p>
         <span className="bg-surface-muted text-ink-muted flex size-9 shrink-0 items-center justify-center rounded-input">
           <Icon className="size-4" aria-hidden="true" />
         </span>
       </div>
-      <div className="mt-4 flex flex-wrap items-end gap-3">
+      <div className="mt-5 flex flex-wrap items-end gap-3">
         <p className="text-40 leading-none font-semibold tabular-nums">
-          {valor}
+          <Contador valor={Number(valor)} />
         </p>
         <span
           className={cn(
@@ -217,17 +248,12 @@ function Ponto({ cor }) {
 
 export function Home() {
   const corCumpridos = token("--color-accent");
-  const corPrevistos = token("--color-status-ok");
+  const corPrevistos = token("--color-primary");
   const corBorda = token("--color-border");
   const corTexto = token("--color-ink-muted");
 
   const estagios = [
-    {
-      rotulo: "Petição inicial",
-      total: 15,
-      pct: 36,
-      cor: corCumpridos,
-    },
+    { rotulo: "Petição inicial", total: 15, pct: 36, cor: corCumpridos },
     { rotulo: "Instrução", total: 13, pct: 31, cor: corPrevistos },
     {
       rotulo: "Sentença",
@@ -244,236 +270,282 @@ export function Home() {
   ];
 
   return (
-    <div className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <motion.div
+      className="space-y-6"
+      variants={pagina}
+      initial="oculto"
+      animate="visivel"
+    >
+      <motion.div
+        className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4"
+        variants={grupo}
+      >
         {kpis.map((kpi) => (
-          <Kpi key={kpi.titulo} {...kpi} />
+          <motion.div key={kpi.titulo} variants={entrada} className="h-full">
+            <Kpi {...kpi} />
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <div className="space-y-1">
-              <CardTitle>Prazos do ano</CardTitle>
-              <CardDescription>Cumpridos vs. previstos por mês</CardDescription>
-            </div>
-            <div className="text-ink-muted flex items-center gap-4 text-14">
-              <span className="flex items-center gap-2">
-                <Ponto cor={corCumpridos} />
-                Cumpridos
-              </span>
-              <span className="flex items-center gap-2">
-                <Ponto cor={corPrevistos} />
-                Previstos
-              </span>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart
-                  data={prazosMes}
-                  margin={{ top: 8, right: 8, left: -12, bottom: 0 }}
-                >
-                  <defs>
-                    <linearGradient
-                      id="gradCumpridos"
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2="1"
-                    >
-                      <stop
-                        offset="0%"
-                        stopColor={corCumpridos}
-                        stopOpacity={0.35}
-                      />
-                      <stop
-                        offset="100%"
-                        stopColor={corCumpridos}
-                        stopOpacity={0}
-                      />
-                    </linearGradient>
-                    <linearGradient
-                      id="gradPrevistos"
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2="1"
-                    >
-                      <stop
-                        offset="0%"
-                        stopColor={corPrevistos}
-                        stopOpacity={0.18}
-                      />
-                      <stop
-                        offset="100%"
-                        stopColor={corPrevistos}
-                        stopOpacity={0}
-                      />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid
-                    stroke={corBorda}
-                    strokeDasharray="3 3"
-                    vertical={false}
-                  />
-                  <XAxis
-                    dataKey="mes"
-                    tickLine={false}
-                    axisLine={false}
-                    tick={{ fill: corTexto, fontSize: 12 }}
-                  />
-                  <YAxis
-                    tickLine={false}
-                    axisLine={false}
-                    tick={{ fill: corTexto, fontSize: 12 }}
-                    width={44}
-                  />
-                  <Tooltip
-                    content={<DicaGrafico />}
-                    cursor={{ stroke: corBorda }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="previstos"
-                    name="Previstos"
-                    stroke={corPrevistos}
-                    strokeWidth={2}
-                    fill="url(#gradPrevistos)"
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="cumpridos"
-                    name="Cumpridos"
-                    stroke={corCumpridos}
-                    strokeWidth={2}
-                    fill="url(#gradCumpridos)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div className="space-y-1">
-              <CardTitle>Estágios dos processos</CardTitle>
-              <CardDescription>Distribuição por estágio</CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            {estagios.map((estagio) => (
-              <div key={estagio.rotulo} className="space-y-2">
-                <div className="flex items-center justify-between text-14">
-                  <span className="font-medium">{estagio.rotulo}</span>
-                  <span className="text-ink-muted tabular-nums">
-                    {estagio.total}
-                    <span className="text-ink ml-2 font-semibold">
-                      {estagio.pct}%
-                    </span>
+      <div className="grid gap-5 lg:grid-cols-3">
+        <BorderBeam
+          className="lg:col-span-2"
+          colorVariant="ocean"
+          size="md"
+          strength={0.6}
+          theme="dark"
+          duration={7}
+        >
+          <motion.div variants={entrada} className="h-full">
+            <Card className="h-full">
+              <CardHeader>
+                <div className="space-y-1">
+                  <CardTitle>Prazos do ano</CardTitle>
+                  <CardDescription>
+                    Cumpridos vs. previstos por mês
+                  </CardDescription>
+                </div>
+                <div className="text-ink-muted flex items-center gap-5 text-14">
+                  <span className="flex items-center gap-2">
+                    <Ponto cor={corCumpridos} />
+                    Cumpridos
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <Ponto cor={corPrevistos} />
+                    Previstos
                   </span>
                 </div>
-                <div className="bg-surface-muted h-2 overflow-hidden rounded-badge">
-                  <div
-                    className="h-full rounded-badge transition-all"
-                    style={{
-                      width: `${estagio.pct}%`,
-                      backgroundColor: estagio.cor,
-                    }}
-                  />
+              </CardHeader>
+              <CardContent>
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart
+                      data={prazosMes}
+                      margin={{ top: 8, right: 8, left: -12, bottom: 0 }}
+                    >
+                      <defs>
+                        <linearGradient
+                          id="gradCumpridos"
+                          x1="0"
+                          y1="0"
+                          x2="0"
+                          y2="1"
+                        >
+                          <stop
+                            offset="0%"
+                            stopColor={corCumpridos}
+                            stopOpacity={0.35}
+                          />
+                          <stop
+                            offset="100%"
+                            stopColor={corCumpridos}
+                            stopOpacity={0}
+                          />
+                        </linearGradient>
+                        <linearGradient
+                          id="gradPrevistos"
+                          x1="0"
+                          y1="0"
+                          x2="0"
+                          y2="1"
+                        >
+                          <stop
+                            offset="0%"
+                            stopColor={corPrevistos}
+                            stopOpacity={0.18}
+                          />
+                          <stop
+                            offset="100%"
+                            stopColor={corPrevistos}
+                            stopOpacity={0}
+                          />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid
+                        stroke={corBorda}
+                        strokeDasharray="3 3"
+                        vertical={false}
+                      />
+                      <XAxis
+                        dataKey="mes"
+                        tickLine={false}
+                        axisLine={false}
+                        tick={{ fill: corTexto, fontSize: 12 }}
+                      />
+                      <YAxis
+                        tickLine={false}
+                        axisLine={false}
+                        tick={{ fill: corTexto, fontSize: 12 }}
+                        width={44}
+                      />
+                      <Tooltip
+                        content={<DicaGrafico />}
+                        cursor={{ stroke: corBorda }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="previstos"
+                        name="Previstos"
+                        stroke={corPrevistos}
+                        strokeWidth={2}
+                        fill="url(#gradPrevistos)"
+                        animationDuration={900}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="cumpridos"
+                        name="Cumpridos"
+                        stroke={corCumpridos}
+                        strokeWidth={2}
+                        fill="url(#gradCumpridos)"
+                        animationDuration={900}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
                 </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </BorderBeam>
+
+        <motion.div variants={entrada} className="h-full">
+          <Card className="h-full">
+            <CardHeader>
+              <div className="space-y-1">
+                <CardTitle>Estágios dos processos</CardTitle>
+                <CardDescription>Distribuição por estágio</CardDescription>
               </div>
-            ))}
-            <div className="border-border flex items-center justify-between border-t pt-4">
-              <p className="text-14 text-ink-muted">Total de processos</p>
-              <p className="text-28 font-semibold tabular-nums">42</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <div className="space-y-1">
-              <CardTitle>Prazos recentes</CardTitle>
-              <CardDescription>Últimas movimentações</CardDescription>
-            </div>
-            <NavLink
-              to="/prazos"
-              className="text-primary hover:text-primary-hover inline-flex items-center gap-1 text-14 font-medium"
-            >
-              Ver todos
-              <ArrowUpRight className="size-4" aria-hidden="true" />
-            </NavLink>
-          </CardHeader>
-          <CardContent>
-            <ul className="divide-border divide-y">
-              {prazosRecentes.map((prazo) => (
-                <li key={prazo.id} className="flex items-center gap-4 py-4">
-                  <span className="bg-surface-muted text-ink flex size-10 shrink-0 items-center justify-center rounded-input text-14 font-semibold">
-                    {prazo.inicial}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-14 font-semibold">
-                      {prazo.titulo}
-                    </p>
-                    <p className="text-ink-muted truncate text-14">
-                      {prazo.sub}
-                    </p>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <p className="text-14 font-medium tabular-nums">
-                      {prazo.data}
-                    </p>
-                    <span className="mt-1 inline-block">
-                      <Badge tone={prazo.tom}>{prazo.rotulo}</Badge>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {estagios.map((estagio) => (
+                <div key={estagio.rotulo} className="space-y-2">
+                  <div className="flex items-center justify-between text-14">
+                    <span className="font-medium">{estagio.rotulo}</span>
+                    <span className="text-ink-muted tabular-nums">
+                      {estagio.total}
+                      <span className="text-ink ml-2 font-semibold">
+                        {estagio.pct}%
+                      </span>
                     </span>
                   </div>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div className="space-y-1">
-              <CardTitle>Próximos compromissos</CardTitle>
-              <CardDescription>Agenda da semana</CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <ul className="divide-border divide-y">
-              {compromissos.map((item) => (
-                <li key={item.id} className="flex items-center gap-4 py-4">
-                  <span className="border-border bg-surface-muted flex size-10 shrink-0 flex-col items-center justify-center rounded-input border leading-none">
-                    <span className="text-14 font-semibold">{item.dia}</span>
-                    <span className="text-12 text-ink-muted">{item.mes}</span>
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-14 font-semibold">
-                      {item.titulo}
-                    </p>
-                    <p className="text-ink-muted truncate text-14">
-                      {item.sub}
-                    </p>
+                  <div className="bg-surface-muted h-2.5 overflow-hidden rounded-badge">
+                    <motion.div
+                      className="h-full rounded-badge"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${estagio.pct}%` }}
+                      transition={{
+                        duration: 0.9,
+                        ease: [0.22, 1, 0.36, 1],
+                        delay: 0.35,
+                      }}
+                      style={{ backgroundColor: estagio.cor }}
+                    />
                   </div>
-                  <div className="shrink-0 text-right">
-                    <p className="text-14 font-semibold tabular-nums">
-                      {item.hora}
-                    </p>
-                    <p className="text-ink-muted text-12">{item.tipo}</p>
-                  </div>
-                </li>
+                </div>
               ))}
-            </ul>
-          </CardContent>
-        </Card>
+              <div className="border-border flex items-center justify-between border-t pt-5">
+                <p className="text-14 text-ink-muted">Total de processos</p>
+                <p className="text-28 font-semibold tabular-nums">
+                  <Contador valor={42} duracao={1100} />
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
-    </div>
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <motion.div variants={entrada}>
+          <Card>
+            <CardHeader>
+              <div className="space-y-1">
+                <CardTitle>Prazos recentes</CardTitle>
+                <CardDescription>Últimas movimentações</CardDescription>
+              </div>
+              <NavLink
+                to="/prazos"
+                className="text-primary hover:text-primary-hover inline-flex items-center gap-1 text-14 font-medium"
+              >
+                Ver todos
+                <ArrowUpRight className="size-4" aria-hidden="true" />
+              </NavLink>
+            </CardHeader>
+            <CardContent>
+              <ul className="divide-border divide-y">
+                {prazosRecentes.map((prazo) => (
+                  <li key={prazo.id} className="flex items-center gap-5 py-5">
+                    <span className="bg-surface-muted text-ink flex size-11 shrink-0 items-center justify-center rounded-input text-14 font-semibold">
+                      {prazo.inicial}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-14 font-semibold">
+                        {prazo.titulo}
+                      </p>
+                      <p className="text-ink-muted truncate text-14">
+                        {prazo.sub}
+                      </p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-14 font-medium tabular-nums">
+                        {prazo.data}
+                      </p>
+                      <span className="mt-1 inline-block">
+                        <Badge tone={prazo.tom}>{prazo.rotulo}</Badge>
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div variants={entrada}>
+          <Card>
+            <CardHeader>
+              <div className="space-y-1">
+                <CardTitle>Próximos compromissos</CardTitle>
+                <CardDescription>Agenda da semana</CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <ul className="divide-border divide-y">
+                {compromissos.map((compromisso) => (
+                  <li
+                    key={compromisso.id}
+                    className="flex items-center gap-5 py-5"
+                  >
+                    <span className="border-border bg-surface-muted flex size-11 shrink-0 flex-col items-center justify-center rounded-input border leading-none">
+                      <span className="text-14 font-semibold">
+                        {compromisso.dia}
+                      </span>
+                      <span className="text-12 text-ink-muted">
+                        {compromisso.mes}
+                      </span>
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-14 font-semibold">
+                        {compromisso.titulo}
+                      </p>
+                      <p className="text-ink-muted truncate text-14">
+                        {compromisso.sub}
+                      </p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-14 font-semibold tabular-nums">
+                        {compromisso.hora}
+                      </p>
+                      <p className="text-ink-muted text-12">
+                        {compromisso.tipo}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
+    </motion.div>
   );
 }

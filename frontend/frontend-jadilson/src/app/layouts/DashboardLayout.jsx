@@ -5,7 +5,6 @@ import { NavList, Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
 import { Drawer } from "@/components/ui";
 import { tituloDaRota } from "@/app/navigation";
-import { spring } from "@/lib/motion";
 
 export function DashboardLayout() {
   const [menuAberto, setMenuAberto] = useState(false);
@@ -17,9 +16,27 @@ export function DashboardLayout() {
   }, [titulo]);
 
   return (
-    <div className="bg-bg min-h-screen">
-      <div className="fixed inset-y-0 left-0 z-40 hidden lg:flex">
-        <Sidebar indicador="nav-ativo-desktop" />
+    <div className="min-h-screen lg:p-4">
+      {/* Janela flutuante sobre o glow azul (referência visual) */}
+      <div className="border-border/70 bg-bg flex min-h-screen flex-col lg:h-[calc(100vh-2rem)] lg:overflow-hidden lg:rounded-modal lg:border lg:shadow-[0_24px_80px_rgb(0_0_0/0.55)]">
+        <div className="flex min-h-0 flex-1">
+          <div className="hidden lg:block">
+            <Sidebar indicador="nav-ativo-desktop" />
+          </div>
+
+          <div className="flex min-w-0 flex-1 flex-col lg:overflow-y-auto">
+            <Topbar titulo={titulo} aoAbrirMenu={() => setMenuAberto(true)} />
+            <motion.main
+              key={pathname}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+              className="mx-auto w-full max-w-content px-5 py-8 lg:px-10 lg:py-10"
+            >
+              <Outlet />
+            </motion.main>
+          </div>
+        </div>
       </div>
 
       <Drawer
@@ -28,26 +45,13 @@ export function DashboardLayout() {
         titulo="Menu"
         className="bg-bg text-ink max-w-xs border-border"
       >
-        <div className="-mx-6 -mt-6">
+        <div className="-mx-7 -mt-7">
           <NavList
             indicador="nav-ativo-mobile"
             aoNavegar={() => setMenuAberto(false)}
           />
         </div>
       </Drawer>
-
-      <div className="lg:pl-64">
-        <Topbar titulo={titulo} aoAbrirMenu={() => setMenuAberto(true)} />
-        <motion.main
-          key={pathname}
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={spring.gentle}
-          className="mx-auto w-full max-w-content px-4 py-6 lg:px-8"
-        >
-          <Outlet />
-        </motion.main>
-      </div>
     </div>
   );
 }

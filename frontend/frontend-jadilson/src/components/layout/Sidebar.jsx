@@ -1,13 +1,14 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
-import { LogOut, Scale } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { navegacao } from "@/app/navigation";
 import { spring } from "@/lib/motion";
 import { cn } from "@/lib/cn";
+import logo from "@/assets/images/Logo_Jadilson.png";
 
 export function NavList({ aoNavegar, indicador = "nav-ativo" }) {
   return (
-    <nav aria-label="Navegação principal" className="space-y-1 px-3 py-4">
+    <nav aria-label="Navegação principal" className="space-y-1.5 px-4 py-5">
       {navegacao.map((item) => (
         <NavLink
           key={item.to}
@@ -16,7 +17,8 @@ export function NavList({ aoNavegar, indicador = "nav-ativo" }) {
           onClick={aoNavegar}
           className={({ isActive }) =>
             cn(
-              "relative flex items-center gap-3 rounded-input px-3 py-2.5 text-14 font-medium transition-colors",
+              "relative flex items-center gap-3 rounded-input px-3.5 py-3 text-14 font-medium",
+              "transition-colors duration-fast ease-out",
               "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
               isActive
                 ? "text-ink"
@@ -55,10 +57,8 @@ export function Sidebar({ aoNavegar, indicador }) {
 
   return (
     <aside className="bg-bg border-border flex h-full w-64 shrink-0 flex-col border-r">
-      <div className="flex h-16 items-center gap-2.5 border-b border-border px-5">
-        <span className="bg-ink text-bg flex size-8 shrink-0 items-center justify-center rounded-input">
-          <Scale className="size-4" aria-hidden="true" />
-        </span>
+      <div className="flex h-18 items-center gap-3 border-b border-border px-6">
+        <img src={logo} alt="" aria-hidden="true" className="size-8 shrink-0" />
         <div className="min-w-0 leading-tight">
           <p className="font-heading text-16 font-bold">Jadilson Silva Adv.</p>
           <p className="text-ink-muted text-12">Escritório de advocacia</p>
@@ -69,7 +69,7 @@ export function Sidebar({ aoNavegar, indicador }) {
         <NavList aoNavegar={aoNavegar} indicador={indicador} />
       </div>
 
-      <div className="flex items-center justify-between gap-2 border-t border-border p-4">
+      <div className="flex items-center justify-between gap-2 border-t border-border px-6 py-5">
         <div className="min-w-0">
           <p className="truncate text-14 font-medium">Jadilson Silva</p>
           <p className="text-ink-muted truncate text-12">

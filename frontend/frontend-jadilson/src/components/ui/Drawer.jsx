@@ -39,7 +39,7 @@ export function Drawer({
                 exit={{ x: "100%", transition: { duration: 0.2 } }}
                 transition={spring.gentle}
               >
-                <header className="border-border flex items-start justify-between gap-4 border-b p-6 pb-4">
+                <header className="border-border flex items-start justify-between gap-4 border-b p-7 pb-5">
                   <div className="space-y-1.5">
                     <Dialog.Title className="text-20 font-semibold">
                       {titulo}
@@ -58,7 +58,7 @@ export function Drawer({
                   </Dialog.Close>
                 </header>
 
-                <div className="flex-1 overflow-y-auto p-6">{children}</div>
+                <div className="flex-1 overflow-y-auto p-7">{children}</div>
 
                 {footer && (
                   <footer className="border-border flex justify-end gap-2 border-t p-4">

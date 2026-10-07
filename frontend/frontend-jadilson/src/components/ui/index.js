@@ -9,10 +9,12 @@ export {
   CardTitle,
 } from "./Card";
 export { Checkbox } from "./Checkbox";
+export { Contador } from "./Contador";
 export { Drawer } from "./Drawer";
 export { EmptyState } from "./EmptyState";
 export { Field } from "./Field";
 export { Input } from "./Input";
+export { KineticTextReveal } from "./KineticTextReveal";
 export { Modal } from "./Modal";
 export { Pagination } from "./Pagination";
 export { Popover } from "./Popover";

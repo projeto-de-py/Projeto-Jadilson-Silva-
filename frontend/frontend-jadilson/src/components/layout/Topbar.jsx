@@ -1,25 +1,33 @@
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Bell, CalendarDays, Menu, Search } from "lucide-react";
-import { Avatar } from "@/components/ui";
+import { Avatar, KineticTextReveal } from "@/components/ui";
 
 export function Topbar({ titulo, aoAbrirMenu }) {
   const hoje = format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
 
   return (
-    <header className="bg-bg/80 border-border sticky top-0 z-30 flex h-16 items-center gap-4 border-b backdrop-blur">
+    <header className="bg-bg/80 border-border sticky top-0 z-30 flex h-18 items-center gap-5 border-b px-5 backdrop-blur lg:px-10">
       <button
         type="button"
         onClick={aoAbrirMenu}
         aria-label="Abrir menu de navegação"
-        className="hover:bg-surface-muted rounded-input p-2 transition-colors lg:hidden"
+        className="hover:bg-surface-muted rounded-input p-2 transition-colors duration-fast ease-out lg:hidden"
       >
         <Menu className="size-5" aria-hidden="true" />
       </button>
 
-      <h1 className="font-heading text-20 font-semibold">{titulo}</h1>
+      <h1 className="font-heading text-20 font-semibold">
+        <KineticTextReveal
+          key={titulo}
+          text={titulo}
+          distance={14}
+          stagger={0.06}
+          delay={0.05}
+        />
+      </h1>
 
-      <span className="border-border bg-surface-muted text-ink-muted hidden items-center gap-2 rounded-badge border px-3 py-1.5 text-14 sm:inline-flex">
+      <span className="border-border bg-surface-muted text-ink-muted hidden items-center gap-2 rounded-badge border px-3.5 py-1.5 text-14 sm:inline-flex">
         <CalendarDays className="size-3.5" aria-hidden="true" />
         {hoje}
       </span>
@@ -34,14 +42,14 @@ export function Topbar({ titulo, aoAbrirMenu }) {
           <input
             type="search"
             placeholder="Buscar processo, cliente…"
-            className="bg-surface-muted border-border text-ink placeholder:text-ink-muted focus:ring-ring h-10 w-64 rounded-input border ps-9 pe-3 text-14 focus:ring-2 focus:outline-none"
+            className="bg-surface-muted border-border text-ink focus:ring-ring h-10 w-72 rounded-input border ps-9 pe-3 text-14 focus:ring-2 focus:outline-none"
           />
         </label>
 
         <button
           type="button"
           aria-label="Notificações"
-          className="text-ink-muted hover:bg-surface-muted hover:text-ink relative rounded-input p-2 transition-colors"
+          className="text-ink-muted hover:bg-surface-muted hover:text-ink relative rounded-input p-2 transition-colors duration-fast ease-out"
         >
           <Bell className="size-5" aria-hidden="true" />
           <span

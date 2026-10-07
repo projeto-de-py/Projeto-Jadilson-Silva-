@@ -1,16 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { BorderBeam } from "border-beam";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { cn } from "@/lib/cn";
+import logo from "@/assets/images/Logo_Jadilson.png";
 
-import {
-  IconAt,
-  IconBuildingColumns,
-  IconEye,
-  IconEyeSlash,
-  IconLock,
-} from "symbols-react";
+import { IconAt, IconEye, IconEyeSlash, IconLock } from "symbols-react";
 
 function SFSymbol({ icon: Icon, className, ...props }) {
   return (
@@ -36,8 +32,8 @@ export function AuthPage() {
     <main className="relative md:h-screen md:overflow-hidden lg:grid lg:grid-cols-2">
       <div className="bg-muted/60 relative hidden h-full flex-col border-r p-10 lg:flex">
         <div className="from-background absolute inset-0 z-10 bg-linear-to-t to-transparent" />
-        <div className="z-10 flex items-center gap-2">
-          <SFSymbol icon={IconBuildingColumns} className="size-6" />
+        <div className="z-10 flex items-center gap-3">
+          <img src={logo} alt="" aria-hidden="true" className="size-10" />
           <p className="text-xl font-semibold">Jadilson Silva Adv.</p>
         </div>
         <div className="absolute inset-0">
@@ -55,8 +51,8 @@ export function AuthPage() {
           <div className="absolute top-0 right-0 h-320 w-60 translate-y-[-87.5%] rounded-full bg-[radial-gradient(50%_50%_at_50%_50%,rgba(148,163,184,0.04)_0,rgba(148,163,184,0.01)_80%,transparent_100%)]" />
         </div>
         <div className="mx-auto space-y-4 sm:w-sm">
-          <div className="flex items-center gap-2 lg:hidden">
-            <SFSymbol icon={IconBuildingColumns} className="size-6" />
+          <div className="flex items-center gap-3 lg:hidden">
+            <img src={logo} alt="" aria-hidden="true" className="size-10" />
             <p className="text-xl font-semibold">Jadilson Silva Adv.</p>
           </div>
           <div className="flex flex-col space-y-1">
@@ -131,9 +127,18 @@ export function AuthPage() {
               </div>
             </div>
 
-            <Button type="submit" className="w-full">
-              <span>Entrar</span>
-            </Button>
+            <BorderBeam
+              className="w-full"
+              colorVariant="ocean"
+              size="md"
+              strength={0.6}
+              theme="dark"
+              duration={7}
+            >
+              <Button type="submit" className="w-full">
+                <span>Entrar</span>
+              </Button>
+            </BorderBeam>
           </form>
           <p className="text-muted-foreground mt-4 text-center text-sm">
             Ao continuar, você concorda com nossos{" "}

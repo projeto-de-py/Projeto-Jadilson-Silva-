@@ -49,7 +49,7 @@ export function Table({
       >
         <div className="divide-y divide-border">
           {Array.from({ length: 4 }).map((_, indice) => (
-            <div key={indice} className="flex items-center gap-4 p-4">
+            <div key={indice} className="flex items-center gap-4 p-5">
               <Skeleton className="h-4 flex-1" />
               <Skeleton className="h-4 w-24" />
               <Skeleton className="h-6 w-20 rounded-badge" />
@@ -97,7 +97,7 @@ export function Table({
                     : undefined
                 }
                 className={cn(
-                  "text-ink-muted px-4 py-3 text-12 font-semibold tracking-wide uppercase",
+                  "text-ink-muted px-5 py-3.5 text-12 font-semibold tracking-wide uppercase",
                   alinhamentos[coluna.alinhar ?? "esquerda"],
                   coluna.largura,
                 )}
@@ -141,7 +141,7 @@ export function Table({
                 <td
                   key={coluna.id}
                   className={cn(
-                    "text-ink px-4 py-3",
+                    "text-ink px-5 py-3.5",
                     alinhamentos[coluna.alinhar ?? "esquerda"],
                   )}
                 >

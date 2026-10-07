@@ -29,7 +29,7 @@ export function CardHeader({ className, children, ...props }) {
   return (
     <div
       className={cn(
-        "flex items-start justify-between gap-4 p-6 pb-3",
+        "flex items-start justify-between gap-4 p-7 pb-4",
         className,
       )}
       {...props}
@@ -57,7 +57,7 @@ export function CardDescription({ className, children, ...props }) {
 
 export function CardContent({ className, children, ...props }) {
   return (
-    <div className={cn("p-6 pt-0", className)} {...props}>
+    <div className={cn("p-7 pt-0", className)} {...props}>
       {children}
     </div>
   );
