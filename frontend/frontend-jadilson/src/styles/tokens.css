@@ -1,0 +1,117 @@
+/* Tokens do design system (guia 5.2–5.4).
+   Componentes usam só estes tokens — nunca hex direto. */
+
+/* `static`: todos os tokens sempre saem no :root — os componentes usam
+   nomes dinâmicos (ex.: var(--color-status-vencido-soft)) que o Tailwind
+   não consegue detectar varrendo o código. */
+
+@theme static {
+  /* ---------- Cores (tema escuro, inspirado na referência SalesOps) ---------- */
+  --color-bg: #0a0a0b;
+  --color-surface: #131316;
+  --color-surface-muted: #1e1e23;
+  --color-border: #2a2a30;
+  --color-ink: #f4f4f5;
+  --color-ink-muted: #9d9da7;
+
+  --color-primary: #2f9e6e;
+  --color-primary-hover: #38b37d;
+  --color-primary-soft: color-mix(
+    in srgb,
+    var(--color-primary) 18%,
+    transparent
+  );
+  --color-primary-foreground: #05130d;
+  --color-accent: #2dd4bf;
+
+  /* ---------- Status de prazo ---------- */
+  --color-status-vencido: #ef4444;
+  --color-status-hoje: #f97316;
+  --color-status-critico: #f59e0b;
+  --color-status-atencao: #eab308;
+  --color-status-ok: #22c55e;
+  --color-status-cumprido: #94a3b8;
+
+  /* variantes -soft: fundo do badge (16% sobre o fundo escuro) */
+  --color-status-vencido-soft: color-mix(
+    in srgb,
+    var(--color-status-vencido) 16%,
+    transparent
+  );
+  --color-status-hoje-soft: color-mix(
+    in srgb,
+    var(--color-status-hoje) 16%,
+    transparent
+  );
+  --color-status-critico-soft: color-mix(
+    in srgb,
+    var(--color-status-critico) 16%,
+    transparent
+  );
+  --color-status-atencao-soft: color-mix(
+    in srgb,
+    var(--color-status-atencao) 16%,
+    transparent
+  );
+  --color-status-ok-soft: color-mix(
+    in srgb,
+    var(--color-status-ok) 16%,
+    transparent
+  );
+  --color-status-cumprido-soft: color-mix(
+    in srgb,
+    var(--color-status-cumprido) 16%,
+    transparent
+  );
+
+  /* variantes -ink: texto do badge (tons claros p/ contraste no escuro) */
+  --color-status-vencido-ink: #fca5a5;
+  --color-status-hoje-ink: #fdba74;
+  --color-status-critico-ink: #fcd34d;
+  --color-status-atencao-ink: #fde047;
+  --color-status-ok-ink: #86efac;
+  --color-status-cumprido-ink: #cbd5e1;
+
+  /* ---------- Compatibilidade (componentes já escritos com tokens shadcn) ---------- */
+  --color-background: var(--color-bg);
+  --color-foreground: var(--color-ink);
+  --color-card: var(--color-surface);
+  --color-card-foreground: var(--color-ink);
+  --color-muted: var(--color-surface-muted);
+  --color-muted-foreground: var(--color-ink-muted);
+  --color-secondary: var(--color-surface-muted);
+  --color-secondary-foreground: var(--color-ink);
+  --color-accent-foreground: var(--color-ink);
+  --color-input: var(--color-border);
+  --color-ring: var(--color-primary);
+  --color-destructive: var(--color-status-vencido);
+  --color-destructive-foreground: #0a0a0b;
+
+  /* ---------- Tipografia ----------
+	   H1/títulos: Inter Bold (via --font-heading + font-bold).
+	   Demais textos: SF Pro (pilha de sistema), com Inter como fallback. */
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter",
+    "Segoe UI", sans-serif;
+  --font-heading: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+
+  /* escala 12 / 14 / 16 / 20 / 28 / 40 */
+  --text-12: 12px;
+  --text-14: 14px;
+  --text-16: 16px;
+  --text-20: 20px;
+  --text-28: 28px;
+  --text-40: 40px;
+
+  /* ---------- Raios por hierarquia ---------- */
+  --radius-input: 8px;
+  --radius-card: 12px;
+  --radius-modal: 16px;
+  --radius-badge: 999px;
+
+  /* ---------- Elevação (só sobreposições: modal, popover, toast) ---------- */
+  --shadow-popover: 0 8px 24px rgb(0 0 0 / 0.55);
+
+  /* ---------- Largura máxima de conteúdo ---------- */
+  --container-content: 1280px;
+}

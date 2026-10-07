@@ -1,58 +1,19 @@
 @import "tailwindcss";
+@import "./styles/tokens.css";
+@import "./styles/globals.css";
 
-@theme {
-	/* Paleta padrão do projeto (página de autenticação) */
-	--color-background: #ffffff;
-	--color-foreground: #0f172a;
-
-	--color-card: #ffffff;
-	--color-card-foreground: #0f172a;
-
-	--color-primary: #0f172a;
-	--color-primary-foreground: #f8fafc;
-
-	--color-secondary: #f1f5f9;
-	--color-secondary-foreground: #0f172a;
-
-	--color-muted: #f1f5f9;
-	--color-muted-foreground: #64748b;
-
-	--color-accent: #f1f5f9;
-	--color-accent-foreground: #0f172a;
-
-	--color-border: #e2e8f0;
-	--color-input: #e2e8f0;
-	--color-ring: #0f172a;
-
-	--color-destructive: #dc2626;
-	--color-destructive-foreground: #f8fafc;
-
-	/* Tipografia: SF Pro (títulos menores e textos) + Inter Bold (h1) */
-	--font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
-		"Inter", "Segoe UI", sans-serif;
-	--font-heading: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
-}
-
-@layer base {
-	body {
-		background-color: var(--color-background);
-		color: var(--color-foreground);
-		font-family: var(--font-sans);
-		-webkit-font-smoothing: antialiased;
-	}
-}
-
+/* Animação de desenho dos caminhos decorativos do login */
 @keyframes floating-path-draw {
-	from {
-		stroke-dashoffset: 1;
-	}
-	to {
-		stroke-dashoffset: 0;
-	}
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
 }
 
 .floating-path {
-	stroke-dasharray: 1;
-	animation: floating-path-draw var(--draw-duration, 3s) ease-out both
-		var(--draw-delay, 0s);
+  stroke-dasharray: 1;
+  animation: floating-path-draw var(--draw-duration, 3s) ease-out both
+    var(--draw-delay, 0s);
 }

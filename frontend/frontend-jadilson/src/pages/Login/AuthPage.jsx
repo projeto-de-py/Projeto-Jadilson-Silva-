@@ -1,12 +1,12 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/cn";
 
 import {
   IconAt,
   IconBuildingColumns,
-  IconChevronLeft,
   IconEye,
   IconEyeSlash,
   IconLock,
@@ -25,6 +25,12 @@ function SFSymbol({ icon: Icon, className, ...props }) {
 
 export function AuthPage() {
   const [showPassword, setShowPassword] = useState(false);
+  const navigate = useNavigate();
+
+  function aoEnviar(evento) {
+    evento.preventDefault();
+    navigate("/home");
+  }
 
   return (
     <main className="relative md:h-screen md:overflow-hidden lg:grid lg:grid-cols-2">
@@ -44,16 +50,10 @@ export function AuthPage() {
           aria-hidden
           className="absolute inset-0 isolate contain-strict -z-10 opacity-60"
         >
-          <div className="absolute top-0 right-0 h-320 w-140 translate-y-[-87.5%] rounded-full bg-[radial-gradient(68.54%_68.72%_at_55.02%_31.46%,rgba(15,23,42,0.06)_0,rgba(148,163,184,0.02)_50%,rgba(15,23,42,0.01)_80%)]" />
-          <div className="absolute top-0 right-0 h-320 w-60 [translate:5%_-50%] rounded-full bg-[radial-gradient(50%_50%_at_50%_50%,rgba(15,23,42,0.04)_0,rgba(15,23,42,0.01)_80%,transparent_100%)]" />
-          <div className="absolute top-0 right-0 h-320 w-60 translate-y-[-87.5%] rounded-full bg-[radial-gradient(50%_50%_at_50%_50%,rgba(15,23,42,0.04)_0,rgba(15,23,42,0.01)_80%,transparent_100%)]" />
+          <div className="absolute top-0 right-0 h-320 w-140 translate-y-[-87.5%] rounded-full bg-[radial-gradient(68.54%_68.72%_at_55.02%_31.46%,rgba(148,163,184,0.06)_0,rgba(148,163,184,0.02)_50%,rgba(148,163,184,0.01)_80%)]" />
+          <div className="absolute top-0 right-0 h-320 w-60 [translate:5%_-50%] rounded-full bg-[radial-gradient(50%_50%_at_50%_50%,rgba(148,163,184,0.04)_0,rgba(148,163,184,0.01)_80%,transparent_100%)]" />
+          <div className="absolute top-0 right-0 h-320 w-60 translate-y-[-87.5%] rounded-full bg-[radial-gradient(50%_50%_at_50%_50%,rgba(148,163,184,0.04)_0,rgba(148,163,184,0.01)_80%,transparent_100%)]" />
         </div>
-        <Button variant="ghost" className="absolute top-7 left-5" asChild>
-          <a href="#">
-            <SFSymbol icon={IconChevronLeft} />
-            Início
-          </a>
-        </Button>
         <div className="mx-auto space-y-4 sm:w-sm">
           <div className="flex items-center gap-2 lg:hidden">
             <SFSymbol icon={IconBuildingColumns} className="size-6" />
@@ -68,7 +68,7 @@ export function AuthPage() {
             </p>
           </div>
 
-          <form className="space-y-3">
+          <form className="space-y-3" onSubmit={aoEnviar}>
             <div className="space-y-1.5">
               <label
                 htmlFor="email"
@@ -131,20 +131,10 @@ export function AuthPage() {
               </div>
             </div>
 
-            <Button type="submit" size="lg" className="w-full">
+            <Button type="submit" className="w-full">
               <span>Entrar</span>
             </Button>
           </form>
-
-          <p className="text-muted-foreground text-center text-sm">
-            Ainda não tem uma conta?{" "}
-            <a
-              href="#"
-              className="hover:text-primary text-foreground font-medium underline underline-offset-4"
-            >
-              Criar conta
-            </a>
-          </p>
           <p className="text-muted-foreground mt-4 text-center text-sm">
             Ao continuar, você concorda com nossos{" "}
             <a
@@ -201,7 +191,7 @@ function FloatingPaths({ position }) {
   return (
     <div className="pointer-events-none absolute inset-0">
       <svg
-        className="h-full w-full text-slate-950"
+        className="h-full w-full text-slate-200/60"
         viewBox="0 0 696 316"
         fill="none"
       >

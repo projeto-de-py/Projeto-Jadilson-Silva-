@@ -1,47 +1,54 @@
-import React from 'react';
-import { cn } from '@/lib/utils';
+import React from "react";
+import { motion } from "motion/react";
+import { Spinner } from "./Spinner";
+import { spring } from "@/lib/motion";
+import { cn } from "@/lib/cn";
 
 const variants = {
-	default:
-		'bg-primary text-primary-foreground shadow-xs hover:bg-primary/90',
-	secondary:
-		'bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/80',
-	ghost: 'hover:bg-muted hover:text-foreground',
-	outline:
-		'border border-input bg-background shadow-xs hover:bg-muted hover:text-foreground',
-};
-
-const sizes = {
-	default: 'h-10 px-4 py-2',
-	sm: 'h-9 rounded-md px-3',
-	lg: 'h-11 rounded-md px-8',
-	icon: 'h-10 w-10',
+  primary: "bg-primary text-primary-foreground hover:bg-primary-hover",
+  secondary:
+    "bg-surface text-ink border border-border hover:bg-surface-muted hover:text-ink",
+  ghost: "text-ink hover:bg-surface-muted",
+  danger:
+    "bg-status-vencido text-destructive-foreground hover:bg-status-vencido-ink",
 };
 
 export function Button({
-	variant = 'default',
-	size = 'default',
-	className,
-	asChild = false,
-	children,
-	...props
+  variant = "primary",
+  loading = false,
+  disabled = false,
+  asChild = false,
+  className,
+  children,
+  ...props
 }) {
-	const classes = cn(
-		'inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors',
-		'focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
-		'disabled:pointer-events-none disabled:opacity-50',
-		variants[variant],
-		sizes[size],
-		className,
-	);
+  const classes = cn(
+    "inline-flex items-center justify-center font-medium whitespace-nowrap transition-colors",
+    "h-10 gap-2 rounded-input px-4 text-14",
+    "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-bg focus-visible:outline-none",
+    "disabled:pointer-events-none disabled:opacity-50",
+    variants[variant] ?? variants.primary,
+    className,
+  );
 
-	if (asChild) {
-		return React.cloneElement(children, { className: cn(classes, children.props.className) });
-	}
+  if (asChild) {
+    return React.cloneElement(children, {
+      className: cn(classes, children.props.className),
+    });
+  }
 
-	return (
-		<button className={classes} {...props}>
-			{children}
-		</button>
-	);
+  return (
+    <motion.button
+      type="button"
+      whileTap={{ scale: 0.96 }}
+      transition={spring.snappy}
+      className={classes}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
+      {...props}
+    >
+      {loading && <Spinner className="size-4" />}
+      {children}
+    </motion.button>
+  );
 }
