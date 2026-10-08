@@ -6,7 +6,7 @@ import { Topbar } from "@/components/layout/Topbar";
 import { Drawer } from "@/components/ui";
 import { tituloDaRota } from "@/app/navigation";
 
-export function DashboardLayout() {
+export function DashboardLayout({ user, onLogout, loading, error }) {
   const [menuAberto, setMenuAberto] = useState(false);
   const { pathname } = useLocation();
   const titulo = tituloDaRota(pathname);
@@ -21,11 +21,12 @@ export function DashboardLayout() {
       <div className="border-border/70 bg-bg flex min-h-screen flex-col lg:h-[calc(100vh-2rem)] lg:overflow-hidden lg:rounded-modal lg:border lg:shadow-[0_24px_80px_rgb(0_0_0/0.55)]">
         <div className="flex min-h-0 flex-1">
           <div className="hidden lg:block">
-            <Sidebar indicador="nav-ativo-desktop" />
+            <Sidebar indicador="nav-ativo-desktop" user={user} onLogout={onLogout} loading={loading} />
           </div>
 
           <div className="flex min-w-0 flex-1 flex-col lg:overflow-y-auto">
-            <Topbar titulo={titulo} aoAbrirMenu={() => setMenuAberto(true)} />
+            <Topbar titulo={titulo} aoAbrirMenu={() => setMenuAberto(true)} user={user} onLogout={onLogout} loading={loading} />
+            {error && <p role="alert" className="text-destructive px-5 py-2 text-sm">{error}</p>}
             <motion.main
               key={pathname}
               initial={{ opacity: 0, y: 10 }}
