@@ -4,6 +4,7 @@ import { BorderBeam } from "border-beam";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { cn } from "@/lib/cn";
+import { useAuth } from "@/context/auth-context";
 import logo from "@/assets/images/Logo_Jadilson.png";
 
 import { IconAt, IconEye, IconEyeSlash, IconLock } from "symbols-react";
@@ -20,12 +21,26 @@ function SFSymbol({ icon: Icon, className, ...props }) {
 }
 
 export function AuthPage() {
+  const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
+  const [erro, setErro] = useState(null);
+  const [carregando, setCarregando] = useState(false);
 
-  function aoEnviar(evento) {
+  async function handleSubmit(evento) {
     evento.preventDefault();
-    navigate("/home");
+    setErro(null);
+    setCarregando(true);
+    try {
+      await login(email, senha);
+      navigate("/home");
+    } catch (e) {
+      setErro(e.message || "Não foi possível entrar. Tente novamente.");
+    } finally {
+      setCarregando(false);
+    }
   }
 
   return (
@@ -64,7 +79,16 @@ export function AuthPage() {
             </p>
           </div>
 
-          <form className="space-y-3" onSubmit={aoEnviar}>
+          <form className="space-y-3" onSubmit={handleSubmit}>
+            {erro && (
+              <div
+                role="alert"
+                className="border-destructive/50 bg-destructive/10 text-destructive rounded-md border px-3 py-2 text-sm"
+              >
+                {erro}
+              </div>
+            )}
+
             <div className="space-y-1.5">
               <label
                 htmlFor="email"
@@ -80,6 +104,8 @@ export function AuthPage() {
                   className="peer ps-9"
                   type="email"
                   autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   required
                 />
                 <div className="text-muted-foreground pointer-events-none absolute inset-y-0 inset-s-0 flex items-center justify-center ps-3 peer-disabled:opacity-50">
@@ -111,6 +137,8 @@ export function AuthPage() {
                   className="peer ps-9 pe-10"
                   type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
+                  value={senha}
+                  onChange={(e) => setSenha(e.target.value)}
                   required
                 />
                 <div className="text-muted-foreground pointer-events-none absolute inset-y-0 inset-s-0 flex items-center justify-center ps-3 peer-disabled:opacity-50">
@@ -135,8 +163,8 @@ export function AuthPage() {
               theme="dark"
               duration={7}
             >
-              <Button type="submit" className="w-full">
-                <span>Entrar</span>
+              <Button type="submit" size="lg" className="w-full" disabled={carregando}>
+                <span>{carregando ? "Entrando..." : "Entrar"}</span>
               </Button>
             </BorderBeam>
           </form>

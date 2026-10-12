@@ -1,0 +1,16 @@
+# Configuracao local (NUNCA commitar - tem senha)
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Banco de teste local
+dev.db
+*.db
+
+# IDE
+.vscode/
+.idea/
