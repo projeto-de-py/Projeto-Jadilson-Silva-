@@ -3,6 +3,7 @@ import { BorderBeam } from "border-beam";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { cn } from "@/lib/cn";
+import { useAuth } from "@/context/auth-context";
 import logo from "@/assets/images/Logo_Jadilson.png";
 
 import { IconAt, IconEye, IconEyeSlash, IconLock } from "symbols-react";
