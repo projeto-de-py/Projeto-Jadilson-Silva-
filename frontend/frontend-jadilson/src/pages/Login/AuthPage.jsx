@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { BorderBeam } from "border-beam";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -20,28 +19,10 @@ function SFSymbol({ icon: Icon, className, ...props }) {
   );
 }
 
-export function AuthPage() {
-  const { login } = useAuth();
+export function AuthPage({ user, onLogin, onLogout, loading, checking, error }) {
   const [showPassword, setShowPassword] = useState(false);
-  const navigate = useNavigate();
-  const [email, setEmail] = useState("");
-  const [senha, setSenha] = useState("");
-  const [erro, setErro] = useState(null);
-  const [carregando, setCarregando] = useState(false);
-
-  async function handleSubmit(evento) {
-    evento.preventDefault();
-    setErro(null);
-    setCarregando(true);
-    try {
-      await login(email, senha);
-      navigate("/home");
-    } catch (e) {
-      setErro(e.message || "Não foi possível entrar. Tente novamente.");
-    } finally {
-      setCarregando(false);
-    }
-  }
+  const [notice, setNotice] = useState("");
+  function unavailable(event, message) { event.preventDefault(); setNotice(message); }
 
   return (
     <main className="relative md:h-screen md:overflow-hidden lg:grid lg:grid-cols-2">
@@ -70,6 +51,15 @@ export function AuthPage() {
             <img src={logo} alt="" aria-hidden="true" className="size-10" />
             <p className="text-xl font-semibold">Jadilson Silva Adv.</p>
           </div>
+          {error && <p id="auth-error" role="alert" className="text-destructive text-sm">{error}</p>}
+          {notice && !user && <p role="status" className="text-muted-foreground text-sm">{notice}</p>}
+          {checking ? <p role="status" className="text-muted-foreground">Verificando sessão…</p> : user ? (
+            <div className="space-y-4">
+              <h1 className="font-heading text-2xl font-bold tracking-wide">Bem-vindo, {user.nome}</h1>
+              <p className="text-muted-foreground text-base">Você está conectado ao portal.</p>
+              <Button size="lg" className="w-full" onClick={onLogout} disabled={loading}>{loading ? 'Saindo…' : 'Sair'}</Button>
+            </div>
+          ) : (<>
           <div className="flex flex-col space-y-1">
             <h1 className="font-heading text-2xl font-bold tracking-wide">
               Entre na sua conta
@@ -79,16 +69,7 @@ export function AuthPage() {
             </p>
           </div>
 
-          <form className="space-y-3" onSubmit={handleSubmit}>
-            {erro && (
-              <div
-                role="alert"
-                className="border-destructive/50 bg-destructive/10 text-destructive rounded-md border px-3 py-2 text-sm"
-              >
-                {erro}
-              </div>
-            )}
-
+          <form className="space-y-3" onSubmit={(event) => { setShowPassword(false); onLogin(event); }} aria-busy={loading} aria-describedby={error ? "auth-error" : undefined}>
             <div className="space-y-1.5">
               <label
                 htmlFor="email"
@@ -104,8 +85,10 @@ export function AuthPage() {
                   className="peer ps-9"
                   type="email"
                   autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onInvalid={(event) => event.currentTarget.setCustomValidity("Informe um e-mail válido.")}
+                  onInput={(event) => event.currentTarget.setCustomValidity("")}
+                  disabled={loading}
+                  maxLength={254}
                   required
                 />
                 <div className="text-muted-foreground pointer-events-none absolute inset-y-0 inset-s-0 flex items-center justify-center ps-3 peer-disabled:opacity-50">
@@ -124,6 +107,7 @@ export function AuthPage() {
                 </label>
                 <a
                   href="#"
+                  onClick={(event) => unavailable(event, "A recuperação de senha ainda não está disponível. Procure o administrador.")}
                   className="text-muted-foreground hover:text-primary text-xs underline underline-offset-4"
                 >
                   Esqueceu a senha?
@@ -137,8 +121,10 @@ export function AuthPage() {
                   className="peer ps-9 pe-10"
                   type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
-                  value={senha}
-                  onChange={(e) => setSenha(e.target.value)}
+                  onInvalid={(event) => event.currentTarget.setCustomValidity("Informe sua senha.")}
+                  onInput={(event) => event.currentTarget.setCustomValidity("")}
+                  disabled={loading}
+                  maxLength={1024}
                   required
                 />
                 <div className="text-muted-foreground pointer-events-none absolute inset-y-0 inset-s-0 flex items-center justify-center ps-3 peer-disabled:opacity-50">
@@ -163,11 +149,12 @@ export function AuthPage() {
               theme="dark"
               duration={7}
             >
-              <Button type="submit" size="lg" className="w-full" disabled={carregando}>
-                <span>{carregando ? "Entrando..." : "Entrar"}</span>
+              <Button type="submit" className="w-full" disabled={loading}>
+                <span>{loading ? "Entrando…" : "Entrar"}</span>
               </Button>
             </BorderBeam>
           </form>
+          </>)}
           <p className="text-muted-foreground mt-4 text-center text-sm">
             Ao continuar, você concorda com nossos{" "}
             <a

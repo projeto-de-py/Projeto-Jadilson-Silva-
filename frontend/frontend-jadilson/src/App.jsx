@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from 'react';
+import { api } from './lib/api';
 import { MotionConfig } from "motion/react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { DashboardLayout } from "./app/layouts/DashboardLayout";
@@ -37,29 +39,87 @@ function LoginOuRedirect() {
 }
 
 function App() {
+  const [session, setSession] = useState(null);
+  const [checking, setChecking] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const busy = useRef(false);
+  const revision = useRef(0);
+
+  useEffect(() => {
+    let active = true;
+    async function restore() {
+      if (busy.current) return;
+      const currentRevision = revision.current;
+      try {
+        const current = await api('session');
+        if (active && !busy.current && revision.current === currentRevision) { setSession(current); setError(''); }
+      } catch (failure) {
+        if (active && !busy.current && revision.current === currentRevision && failure.status === 401) setSession(null);
+        else if (active && !busy.current && revision.current === currentRevision) setError(failure.message);
+      } finally {
+        if (active) setChecking(false);
+      }
+    }
+    restore();
+    const timer = setInterval(restore, 30000);
+    const visible = () => { if (document.visibilityState === 'visible') restore(); };
+    document.addEventListener('visibilitychange', visible);
+    return () => { active = false; clearInterval(timer); document.removeEventListener('visibilitychange', visible); };
+  }, []);
+
+  async function login(event) {
+    event.preventDefault();
+    if (busy.current || checking) return;
+    busy.current = true; revision.current += 1;
+    setLoading(true); setError('');
+    const form = event.currentTarget;
+    const values = new FormData(form);
+    try {
+      const current = await api('login', { method: 'POST', body: { email: values.get('email'), senha: values.get('password') } });
+      form.reset();
+      setSession(current);
+    } catch (failure) {
+      form.elements.password.value = '';
+      setError(failure.message);
+    } finally { busy.current = false; setLoading(false); }
+  }
+
+  async function logout() {
+    if (busy.current) return;
+    busy.current = true; revision.current += 1;
+    setLoading(true); setError('');
+    try {
+      await api('logout', { method: 'POST', csrf: session.csrf_token });
+      setSession(null);
+    } catch (failure) {
+      if (failure.status === 401) setSession(null);
+      setError(failure.message);
+    } finally { busy.current = false; setLoading(false); }
+  }
+
+
   return (
     <MotionConfig reducedMotion="user">
       <ToastProvider>
-        <AuthProvider>
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<LoginOuRedirect />} />
-              <Route path="/login" element={<Navigate to="/" replace />} />
-              <Route path="/design-system" element={<DesignSystemPage />} />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={session ? <Navigate to="/home" replace /> : <AuthPage onLogin={login} loading={loading} checking={checking} error={error} />} />
+            <Route path="/login" element={<Navigate to="/" replace />} />
+            <Route path="/design-system" element={checking ? <AuthPage checking /> : session ? <DesignSystemPage /> : <Navigate to="/" replace />} />
 
-              <Route element={<Protegida><DashboardLayout /></Protegida>}>
-                <Route path="/home" element={<Home />} />
-                <Route path="/processos" element={<Processos />} />
-                <Route path="/prazos" element={<Prazos />} />
-                <Route path="/agenda" element={<Agenda />} />
-                <Route path="/clientes" element={<Clientes />} />
-                <Route path="/configuracoes" element={<Configuracoes />} />
-              </Route>
+            <Route element={checking ? <AuthPage checking /> : session ? <DashboardLayout user={session.usuario} onLogout={logout} loading={loading} error={error} /> : <Navigate to="/" replace />}>
+              <Route path="/home" element={<Home />} />
+              <Route path="/processos" element={<Processos />} />
+              <Route path="/prazos" element={<Prazos />} />
+              <Route path="/agenda" element={<Agenda />} />
+              <Route path="/clientes" element={<Clientes />} />
+              <Route path="/configuracoes" element={<Configuracoes />} />
+            </Route>
 
-              <Route path="*" element={<Navigate to="/home" replace />} />
-            </Routes>
-          </BrowserRouter>
-        </AuthProvider>
+            <Route path="*" element={<Navigate to={session ? "/home" : "/"} replace />} />
+          </Routes>
+        </BrowserRouter>
       </ToastProvider>
     </MotionConfig>
   );

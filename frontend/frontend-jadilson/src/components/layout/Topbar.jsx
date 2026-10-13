@@ -3,7 +3,7 @@ import { ptBR } from "date-fns/locale";
 import { Bell, CalendarDays, Menu, Search } from "lucide-react";
 import { Avatar, KineticTextReveal } from "@/components/ui";
 
-export function Topbar({ titulo, aoAbrirMenu }) {
+export function Topbar({ titulo, aoAbrirMenu, user, onLogout, loading }) {
   const hoje = format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
 
   return (
@@ -58,7 +58,8 @@ export function Topbar({ titulo, aoAbrirMenu }) {
           />
         </button>
 
-        <Avatar nome="Jadilson Silva" size="sm" />
+        <Avatar nome={user.nome} size="sm" />
+        <button type="button" onClick={onLogout} disabled={loading} className="text-ink-muted hover:text-ink rounded-input p-2 lg:hidden">{loading ? "Saindo…" : "Sair"}</button>
       </div>
     </header>
   );
