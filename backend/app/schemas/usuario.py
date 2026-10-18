@@ -1,6 +1,6 @@
 """Schemas (DTOs) de Usuario."""
 
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class UsuarioOut(BaseModel):
@@ -18,7 +18,8 @@ class UsuarioOut(BaseModel):
 class UsuarioCreate(BaseModel):
     """Cadastro de usuario (apenas Admin)."""
 
-    nome: str
+    nome: str = Field(min_length=1, max_length=120)  # coluna String(120)
     email: EmailStr
-    senha: str
+    # bcrypt aceita no maximo 72 bytes - limita aqui para nao estourar 500
+    senha: str = Field(min_length=6, max_length=72)
     perfil: str = "PADRAO"

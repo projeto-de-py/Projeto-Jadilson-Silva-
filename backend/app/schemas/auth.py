@@ -12,7 +12,13 @@ class LoginRequest(BaseModel):
     senha: str = Field(min_length=6, max_length=128)
 
 
-class TokenResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
+class LoginResponse(BaseModel):
+    """Resposta do login/me.
+
+    O JWT NUNCA aparece aqui - ele vai em cookie HttpOnly (inacessivel ao
+    JavaScript). O `csrf_token` e o claim embutido no JWT, devolvido ao front
+    para que ele o envie no header X-CSRF-Token nas requisicoes mutantes.
+    """
+
     usuario: UsuarioOut
+    csrf_token: str

@@ -1,6 +1,7 @@
 """Hash de senha (bcrypt) e tokens JWT."""
 
 from datetime import datetime, timedelta, timezone
+import secrets
 
 import bcrypt
 import jwt
@@ -27,12 +28,24 @@ def verificar_senha(senha: str, senha_hash: str) -> bool:
 
 # ------------------------------------------------------------------ JWT
 
-def criar_token(subject: str, perfil: str) -> str:
-    """Gera o access token (JWT) com sub, perfil, iat e exp."""
+def criar_token(subject: str, perfil: str, csrf: str) -> str:
+    """Gera o access token (JWT) com sub, perfil, csrf, jti, iat e exp.
+
+    O claim `csrf` embute o token sincronizador: o front o recebe no login/me
+    e o devolve no header X-CSRF-Token em requisicoes mutantes. Como o JWT vai
+    em cookie HttpOnly, o browser envia a sessao sozinho e o CSRF impede que
+    um site malicioso consiga forcar acoes em nome do usuario.
+
+    O claim `jti` identifica unicamente a sessao e permite revogar o token no
+    logout (ver core/revogados.py) - sem ele, um token roubado continuaria
+    valido ate expirar mesmo apos o usuario deslogar.
+    """
     agora = datetime.now(timezone.utc)
     payload = {
         "sub": subject,
         "perfil": perfil,
+        "csrf": csrf,
+        "jti": secrets.token_urlsafe(16),
         "iat": agora,
         "exp": agora + timedelta(minutes=settings.jwt_expire_minutes),
     }

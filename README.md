@@ -56,7 +56,7 @@ npm install
 npm run dev                 # http://localhost:5173
 ```
 
-**Login inicial (seed):** `admin@jadilson.adv` / `Admin@123` — troque após o 1º acesso.
+**Login inicial (seed):** `admin@jadilson.adv` — a senha é **gerada aleatoriamente e impressa no terminal** pelo `python -m app.seed` (ou defina `ADMIN_SENHA_INICIAL` no `.env`). Troque após o 1º acesso.
 
 > A pasta `backend/.env` contém as credenciais locais e está no `.gitignore`;
 > nunca commitar senhas.

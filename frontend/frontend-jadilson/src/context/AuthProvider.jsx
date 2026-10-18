@@ -1,27 +1,33 @@
 import { useCallback, useEffect, useState } from "react";
-import { api } from "@/api/client";
+import { api, setCsrfToken } from "@/api/client";
 import { AuthContext } from "@/context/auth-context";
 
-const STORAGE_KEY = "jadilson_token";
-
+/**
+ * Sessao gerenciada por cookie HttpOnly no servidor.
+ * Nada de token no localStorage: no carregamento, /auth/me valida o cookie e
+ * devolve o usuario + o token CSRF atual (para as proximas mutacoes).
+ */
 export function AuthProvider({ children }) {
-  const [token, setToken] = useState(() => localStorage.getItem(STORAGE_KEY));
   const [user, setUser] = useState(null);
-  // sem token salvo, ja comeca em false (nao ha nada a validar)
-  const [loading, setLoading] = useState(() => Boolean(localStorage.getItem(STORAGE_KEY)));
+  const [csrf, setCsrf] = useState(null);
+  // sempre comeca em true: precisa perguntar ao backend se ha sessao valida
+  const [loading, setLoading] = useState(true);
 
-  // Valida o token salvo no navegador ao carregar a aplicacao
   useEffect(() => {
-    if (!token) return;
     let ativo = true;
     api
-      .get("/auth/me", token)
-      .then((u) => ativo && setUser(u))
+      .get("/auth/me")
+      .then((data) => {
+        if (!ativo) return;
+        setCsrfToken(data.csrf_token);
+        setCsrf(data.csrf_token);
+        setUser(data.usuario);
+      })
       .catch(() => {
-        // token expirado/invalido -> limpa
-        localStorage.removeItem(STORAGE_KEY);
+        // sem cookie ou expirado -> apenas segue no login
+        setCsrfToken(null);
         if (ativo) {
-          setToken(null);
+          setCsrf(null);
           setUser(null);
         }
       })
@@ -31,25 +37,30 @@ export function AuthProvider({ children }) {
     return () => {
       ativo = false;
     };
-  }, [token]);
+  }, []);
 
   const login = useCallback(async (email, senha) => {
     const data = await api.post("/auth/login", { email, senha });
-    localStorage.setItem(STORAGE_KEY, data.access_token);
-    setToken(data.access_token);
+    setCsrfToken(data.csrf_token);
+    setCsrf(data.csrf_token);
     setUser(data.usuario);
     return data.usuario;
   }, []);
 
-  const logout = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY);
-    setToken(null);
+  const logout = useCallback(async () => {
+    try {
+      await api.post("/auth/logout"); // backend apaga o cookie (exige CSRF)
+    } catch {
+      /* sessao ja invalida - segue limpando o estado local */
+    }
+    setCsrfToken(null);
+    setCsrf(null);
     setUser(null);
     setLoading(false);
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, csrf, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
