@@ -74,7 +74,7 @@ npm run build
 npm run lint
 ```
 
-Os testes unitários não substituem os testes reais. A validação HTTP dos testes reais usa TestClient com MySQL; a conferência visual no navegador é manual.
+**Login inicial (seed):** `admin@jadilson.adv` — a senha é **gerada aleatoriamente e impressa no terminal** pelo `python -m app.seed` (ou defina `ADMIN_SENHA_INICIAL` no `.env`). Troque após o 1º acesso.
 
 ## Sessões e produção futura
 

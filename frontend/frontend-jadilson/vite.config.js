@@ -12,4 +12,14 @@ export default defineConfig({
       "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
+  server: {
+    strictPort: true, // recusa outra porta (evita Vite "fantasma" em 5173)
+    proxy: {
+      // Cookie de sessao exige mesma origem: o browser so ve localhost:5173
+      "/api": {
+        target: "http://127.0.0.1:8000",
+        changeOrigin: false,
+      },
+    },
+  },
 });

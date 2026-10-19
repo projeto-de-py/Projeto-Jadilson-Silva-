@@ -6,6 +6,7 @@ Uso:
 Em producao prefira o Alembic:  alembic upgrade head
 """
 
+import secrets
 import sys
 
 from sqlalchemy.exc import OperationalError
@@ -18,7 +19,6 @@ from app.repositories.usuario_repository import UsuarioRepository
 
 ADMIN_NOME = "Jadilson Silva"
 ADMIN_EMAIL = "admin@jadilson.adv"
-ADMIN_SENHA = "Admin@123"  # troque apos o primeiro acesso
 
 
 def _erro_conexao(exc: OperationalError) -> None:
@@ -62,18 +62,27 @@ def main() -> None:
             print(f"Admin ja cadastrado: {ADMIN_EMAIL}")
             return
 
+        # Senha vem de ADMIN_SENHA_INICIAL no .env (dev) ou e gerada aleatoria
+        # (recomendado) - nunca hardcoded no codigo.
+        senha_inicial = (get_settings().admin_senha_inicial or "").strip()
+        senha_gerada = not senha_inicial
+        if senha_gerada:
+            senha_inicial = secrets.token_urlsafe(15)  # ~90 bits de entropia
+
         repo.criar(
             Usuario(
                 nome=ADMIN_NOME,
                 email=ADMIN_EMAIL,
-                senha_hash=hash_senha(ADMIN_SENHA),
+                senha_hash=hash_senha(senha_inicial),
                 perfil=Perfil.ADMIN.value,
                 ativo=True,
             )
         )
         print("Admin criado com sucesso:")
         print(f"  e-mail: {ADMIN_EMAIL}")
-        print(f"  senha : {ADMIN_SENHA}")
+        print(f"  senha : {senha_inicial}")
+        if senha_gerada:
+            print("  -> Anote esta senha (gerada aleatoriamente).")
         print("  -> Troque a senha apos o primeiro login.")
     finally:
         db.close()

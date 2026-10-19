@@ -1,20 +1,39 @@
 /**
  * Facade de acesso a API (padrao Facade).
  * Todo fetch passa por aqui - nenhum componente chama fetch direto.
+ *
+ * Autenticacao via cookie HttpOnly (setado pelo backend no login). O JS nunca
+ * ve o JWT; ele carrega sozinho nas requisicoes (same-origin via proxy Vite).
+ * Requisicoes mutantes (POST/PUT/PATCH/DELETE) enviam o header X-CSRF-Token,
+ * que o backend confere contra o claim `csrf` embutido no JWT.
  */
 
-const BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
+const BASE_URL = "/api"; // proxy do Vite -> http://127.0.0.1:8000/api
 
-async function request(path, { method = "GET", body, token } = {}) {
-  const headers = { "Content-Type": "application/json" };
-  if (token) headers.Authorization = `Bearer ${token}`;
+let csrfToken = null; // em memoria (nao em localStorage - evita vazamento)
+
+export function setCsrfToken(token) {
+  csrfToken = token || null;
+}
+
+export function getCsrfToken() {
+  return csrfToken;
+}
+
+const MUTANTES = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+async function request(path, { method = "GET", body } = {}) {
+  const headers = {};
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+  if (MUTANTES.has(method) && csrfToken) headers["X-CSRF-Token"] = csrfToken;
 
   let res;
   try {
     res = await fetch(`${BASE_URL}${path}`, {
       method,
       headers,
-      body: body ? JSON.stringify(body) : undefined,
+      credentials: "same-origin", // envia/recebe o cookie de sessao
+      body: body !== undefined ? JSON.stringify(body) : undefined,
     });
   } catch {
     throw new Error(
@@ -30,7 +49,12 @@ async function request(path, { method = "GET", body, token } = {}) {
     } catch {
       /* corpo sem JSON */
     }
-    const erro = new Error(detalhe || `Erro ${res.status}`);
+    const errosComuns = {
+      401: "Sessão expirada. Entre novamente.",
+      403: "Não foi possível autorizar esta ação.",
+      429: "Muitas tentativas. Aguarde alguns minutos e tente novamente.",
+    };
+    const erro = new Error(detalhe || errosComuns[res.status] || `Erro ${res.status}`);
     erro.status = res.status;
     throw erro;
   }
@@ -40,10 +64,8 @@ async function request(path, { method = "GET", body, token } = {}) {
 }
 
 export const api = {
-  get: (path, token) => request(path, { token }),
-  post: (path, body, token) => request(path, { method: "POST", body, token }),
-  put: (path, body, token) => request(path, { method: "PUT", body, token }),
-  del: (path, token) => request(path, { method: "DELETE", token }),
+  get: (path) => request(path),
+  post: (path, body) => request(path, { method: "POST", body }),
+  put: (path, body) => request(path, { method: "PUT", body }),
+  del: (path) => request(path, { method: "DELETE" }),
 };
-
-export { BASE_URL };

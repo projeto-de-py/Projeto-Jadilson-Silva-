@@ -1,3 +1,3 @@
--r requirements.txt
-pytest>=8,<10
-httpx>=0.27,<1
+# Ferramentas de teste (instale com: python -m pip install -r requirements-dev.txt)
+pytest>=8.3
+httpx>=0.27
