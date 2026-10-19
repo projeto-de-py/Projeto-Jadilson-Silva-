@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import { motion } from "motion/react";
 import { LogOut } from "lucide-react";
 import { navegacao } from "@/app/navigation";
@@ -52,8 +52,7 @@ export function NavList({ aoNavegar, indicador = "nav-ativo" }) {
   );
 }
 
-export function Sidebar({ aoNavegar, indicador }) {
-  const navigate = useNavigate();
+export function Sidebar({ aoNavegar, indicador, user, onLogout, loading }) {
 
   return (
     <aside className="bg-bg border-border flex h-full w-64 shrink-0 flex-col border-r">
@@ -71,14 +70,15 @@ export function Sidebar({ aoNavegar, indicador }) {
 
       <div className="flex items-center justify-between gap-2 border-t border-border px-6 py-5">
         <div className="min-w-0">
-          <p className="truncate text-14 font-medium">Jadilson Silva</p>
+          <p className="truncate text-14 font-medium">{user.nome}</p>
           <p className="text-ink-muted truncate text-12">
-            jadilson@escritorio.adv.br
+            {user.email}
           </p>
         </div>
         <button
           type="button"
-          onClick={() => navigate("/")}
+          onClick={onLogout}
+          disabled={loading}
           aria-label="Sair da conta"
           className="text-ink-muted hover:bg-surface-muted hover:text-ink rounded-input p-2 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >

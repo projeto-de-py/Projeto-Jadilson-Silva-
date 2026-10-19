@@ -1,9 +1,6 @@
-fastapi>=0.115
-uvicorn[standard]>=0.30
-SQLAlchemy>=2.0.36
-pydantic-settings>=2.6
-email-validator>=2.2
-PyJWT>=2.9
-bcrypt>=4.2
-PyMySQL>=1.1
-alembic>=1.14
+fastapi>=0.115,<1
+uvicorn>=0.30,<1
+pydantic[email]>=2.10,<3
+mysql-connector-python>=9,<27
+argon2-cffi>=23.1,<26
+python-dotenv>=1,<2
