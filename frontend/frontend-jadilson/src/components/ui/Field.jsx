@@ -5,7 +5,7 @@ import { cn } from "@/lib/cn";
  */
 export function Field({ label, hint, error, id, children, className }) {
   return (
-    <div className={cn("space-y-1.5", className)}>
+    <div className={cn("space-y-2", className)}>
       {label && (
         <label htmlFor={id} className="text-14 block font-medium">
           {label}

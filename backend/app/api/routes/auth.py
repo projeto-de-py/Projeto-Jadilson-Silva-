@@ -118,6 +118,11 @@ def login(
     response_model=LoginResponse,
     summary="Dados do usuario logado (e novo token CSRF)",
 )
+@router.get(
+    "/session",
+    response_model=LoginResponse,
+    summary="Alias para /me (compatibilidade com frontend)",
+)
 def me(
     request: Request,
     usuario: Usuario = Depends(get_current_user),

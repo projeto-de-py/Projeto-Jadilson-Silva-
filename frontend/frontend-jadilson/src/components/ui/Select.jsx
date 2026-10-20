@@ -1,9 +1,9 @@
-import { ChevronDown } from "lucide-react";
+import { IconChevronDown } from "symbols-react";
 import { Field } from "./Field";
 import { cn } from "@/lib/cn";
 
 const baseClasses = [
-  "h-10 w-full appearance-none rounded-input border border-input bg-surface px-3 pe-9 text-14",
+  "h-10 w-full appearance-none rounded-input border border-input bg-surface px-4 pe-9 text-14",
   "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
   "disabled:cursor-not-allowed disabled:opacity-50",
 ].join(" ");
@@ -31,8 +31,9 @@ export function Select({
       >
         {children}
       </select>
-      <ChevronDown
+      <IconChevronDown
         aria-hidden="true"
+        fill="currentColor"
         className="text-ink-muted pointer-events-none absolute end-3 top-1/2 size-4 -translate-y-1/2"
       />
     </div>

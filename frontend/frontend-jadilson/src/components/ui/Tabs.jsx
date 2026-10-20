@@ -24,7 +24,7 @@ export function Tabs({ tabs, defaultValue, value, onValueChange, className }) {
           <TabsPrimitive.Trigger
             key={tab.value}
             value={tab.value}
-            className="relative rounded-input px-3 py-1.5 text-14 font-medium text-ink-muted transition-colors data-[state=active]:text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className="relative rounded-input px-4 py-2 text-14 font-medium text-ink-muted transition-colors data-[state=active]:text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             {tab.value === atual && (
               <motion.span
