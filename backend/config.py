@@ -14,6 +14,10 @@ class Config:
     origin: str
     production: bool
     session_seconds: int
+    mysql_connect_timeout: int = 5
+    mysql_read_timeout: int = 10
+    mysql_write_timeout: int = 10
+    mysql_ssl_ca: str | None = None
     @classmethod
     def load(cls):
         load_dotenv(Path(__file__).parent/'.env',override=False)
@@ -31,4 +35,19 @@ class Config:
         if user!='sistema_app': raise RuntimeError('Backend exige a conta restrita sistema_app')
         seconds=int(os.getenv('SESSION_SECONDS','3600'))
         if not 60<=seconds<=86400: raise RuntimeError('SESSION_SECONDS fora dos limites')
-        return cls(os.getenv('MYSQL_HOST','127.0.0.1'),int(os.getenv('MYSQL_PORT','3306')),os.getenv('MYSQL_DATABASE','sistema'),user,password,origin,production,seconds)
+        timeouts = {}
+        for name, default in (("CONNECT", 5), ("READ", 10), ("WRITE", 10)):
+            try:
+                value = int(os.getenv(f"MYSQL_{name}_TIMEOUT", str(default)))
+            except ValueError:
+                raise RuntimeError(f"MYSQL_{name}_TIMEOUT deve ser inteiro") from None
+            if not 1 <= value <= 120:
+                raise RuntimeError(f"MYSQL_{name}_TIMEOUT deve estar entre 1 e 120 segundos")
+            timeouts[f"mysql_{name.lower()}_timeout"] = value
+        ca = os.getenv("MYSQL_SSL_CA", "").strip() or None
+        if ca and not Path(ca).is_file():
+            raise RuntimeError("MYSQL_SSL_CA deve apontar para um arquivo CA existente")
+        host = os.getenv("MYSQL_HOST", "127.0.0.1")
+        if production and host not in ("127.0.0.1", "localhost", "::1") and not ca:
+            raise RuntimeError("MySQL remoto em producao exige MYSQL_SSL_CA e identidade TLS validada")
+        return cls(os.getenv('MYSQL_HOST','127.0.0.1'),int(os.getenv('MYSQL_PORT','3306')),os.getenv('MYSQL_DATABASE','sistema'),user,password,origin,production,seconds,**timeouts,mysql_ssl_ca=ca)

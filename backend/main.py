@@ -72,9 +72,9 @@ def create_app(config=None,db=None):
         if not row or not valid or not row['ativo']: raise HTTPException(401,'E-mail ou senha invalidos.')
         token=secrets.token_urlsafe(32); csrf=secrets.token_hex(32)
         old=request.cookies.get(COOKIE)
-        if old and 40<=len(old)<=128: app.state.db.revoke(digest(old))
+        previous_digest=digest(old) if old and 40<=len(old)<=128 else None
         expires=datetime.now(timezone.utc).replace(tzinfo=None)+timedelta(seconds=config.session_seconds)
-        app.state.db.create_session(digest(token),row['id'],csrf,expires)
+        app.state.db.create_session(digest(token),row['id'],csrf,expires,previous_digest=previous_digest)
         response.set_cookie(COOKIE,token,max_age=config.session_seconds,httponly=True,secure=config.production,samesite='strict',path='/api')
         return {'usuario':row,'csrf_token':csrf}
     @app.get('/api/auth/session',response_model=SessionPublic)
