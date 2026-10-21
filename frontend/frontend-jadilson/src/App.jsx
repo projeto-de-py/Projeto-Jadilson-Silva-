@@ -52,7 +52,7 @@ function App() {
       if (busy.current) return;
       const currentRevision = revision.current;
       try {
-        const current = await api('session');
+        const current = await api('me');
         if (active && !busy.current && revision.current === currentRevision) { setSession(current); setError(''); }
       } catch (failure) {
         if (active && !busy.current && revision.current === currentRevision && failure.status === 401) setSession(null);
