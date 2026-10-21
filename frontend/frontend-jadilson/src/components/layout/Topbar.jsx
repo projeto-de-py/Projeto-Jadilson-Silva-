@@ -1,20 +1,42 @@
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { Bell, CalendarDays, Menu, Search } from "lucide-react";
+import { useState } from "react";
+import { IconMagnifyingglass, IconBell, IconLine3Horizontal, IconSunMax, IconMoon } from "symbols-react";
 import { Avatar, KineticTextReveal } from "@/components/ui";
 
-export function Topbar({ titulo, aoAbrirMenu, user, onLogout, loading }) {
-  const hoje = format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
+function temaInicial() {
+  try {
+    return localStorage.getItem("tema") === "light" ? "light" : "dark";
+  } catch {
+    return "dark";
+  }
+}
+
+export function Topbar({ titulo, aoAbrirMenu, aoAbrirBusca, user, onLogout, loading }) {
+  const [tema, setTema] = useState(() => {
+    const t = temaInicial();
+    document.documentElement.dataset.theme = t;
+    return t;
+  });
+
+  function alternarTema() {
+    const novo = tema === "dark" ? "light" : "dark";
+    document.documentElement.dataset.theme = novo;
+    try {
+      localStorage.setItem("tema", novo);
+    } catch {
+      /* sem persistência */
+    }
+    setTema(novo);
+  }
 
   return (
-    <header className="bg-bg/80 border-border sticky top-0 z-30 flex h-18 items-center gap-5 border-b px-5 backdrop-blur lg:px-10">
+    <header className="bg-bg/80 border-border sticky top-0 z-30 flex h-24 items-center gap-12 border-b px-6 backdrop-blur lg:px-12">
       <button
         type="button"
         onClick={aoAbrirMenu}
         aria-label="Abrir menu de navegação"
-        className="hover:bg-surface-muted rounded-input p-2 transition-colors duration-fast ease-out lg:hidden"
+        className="hover:bg-surface-muted flex size-12 items-center justify-center rounded-input transition-colors duration-fast ease-out lg:hidden"
       >
-        <Menu className="size-5" aria-hidden="true" />
+        <IconLine3Horizontal className="size-5" fill="currentColor" aria-hidden="true" />
       </button>
 
       <h1 className="font-heading text-20 font-semibold">
@@ -27,34 +49,39 @@ export function Topbar({ titulo, aoAbrirMenu, user, onLogout, loading }) {
         />
       </h1>
 
-      <span className="border-border bg-surface-muted text-ink-muted hidden items-center gap-2 rounded-badge border px-3.5 py-1.5 text-14 sm:inline-flex">
-        <CalendarDays className="size-3.5" aria-hidden="true" />
-        {hoje}
-      </span>
+      <div className="ml-auto flex items-center gap-6">
+        <button
+          type="button"
+          onClick={aoAbrirBusca}
+          className="bg-surface-muted border-border text-ink-muted hover:text-ink hover:border-primary/50 hidden h-10 w-80 items-center gap-3 rounded-input border px-4 text-14 whitespace-nowrap transition-colors md:flex"
+        >
+          <IconMagnifyingglass aria-hidden="true" fill="currentColor" className="size-4 shrink-0" />
+          <span className="flex-1 truncate text-left">Buscar processo, cliente…</span>
+          <kbd className="border-border shrink-0 rounded-md border px-2 py-1 text-11">Ctrl K</kbd>
+        </button>
 
-      <div className="ml-auto flex items-center gap-2">
-        <label className="relative hidden md:block">
-          <span className="sr-only">Buscar</span>
-          <Search
-            aria-hidden="true"
-            className="text-ink-muted pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
-          />
-          <input
-            type="search"
-            placeholder="Buscar processo, cliente…"
-            className="bg-surface-muted border-border text-ink focus:ring-ring h-10 w-72 rounded-input border ps-9 pe-3 text-14 focus:ring-2 focus:outline-none"
-          />
-        </label>
+        <button
+          type="button"
+          onClick={alternarTema}
+          aria-label={tema === "dark" ? "Usar tema claro" : "Usar tema escuro"}
+          className="text-ink-muted hover:bg-surface-muted hover:text-ink flex size-12 items-center justify-center rounded-input transition-colors duration-fast ease-out"
+        >
+          {tema === "dark" ? (
+            <IconSunMax className="size-5 shrink-0" fill="currentColor" aria-hidden="true" />
+          ) : (
+            <IconMoon className="size-5 shrink-0" fill="currentColor" aria-hidden="true" />
+          )}
+        </button>
 
         <button
           type="button"
           aria-label="Notificações"
-          className="text-ink-muted hover:bg-surface-muted hover:text-ink relative rounded-input p-2 transition-colors duration-fast ease-out"
+          className="text-ink-muted hover:bg-surface-muted hover:text-ink relative flex size-12 items-center justify-center rounded-input transition-colors duration-fast ease-out"
         >
-          <Bell className="size-5" aria-hidden="true" />
+          <IconBell className="size-5 shrink-0" fill="currentColor" aria-hidden="true" />
           <span
             aria-hidden="true"
-            className="bg-status-vencido absolute top-1.5 right-1.5 size-2 rounded-badge"
+            className="bg-status-vencido absolute top-3 right-3 size-2 rounded-badge"
           />
         </button>
 

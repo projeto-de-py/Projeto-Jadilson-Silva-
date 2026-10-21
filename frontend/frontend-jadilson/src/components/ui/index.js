@@ -26,4 +26,8 @@ export { Table } from "./Table";
 export { Tabs } from "./Tabs";
 export { Textarea } from "./Textarea";
 export { ToastProvider } from "./Toast";
+export { useToast } from "./toastContext";
+export { SFSymbol } from "./SFSymbol";
 export { Tooltip } from "./Tooltip";
+
+export { RotatingText } from "./RotatingText";

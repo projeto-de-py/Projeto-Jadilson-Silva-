@@ -1,5 +1,5 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { X } from "lucide-react";
+import { IconXmark } from "symbols-react";
 import { AnimatePresence, motion } from "motion/react";
 import { spring } from "@/lib/motion";
 import { cn } from "@/lib/cn";
@@ -20,7 +20,7 @@ export function Modal({
           <Dialog.Portal forceMount>
             <Dialog.Overlay asChild forceMount>
               <motion.div
-                className="bg-ink/40 fixed inset-0 z-50"
+                className="bg-black/60 fixed inset-0 z-50 backdrop-blur-sm"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
@@ -32,7 +32,7 @@ export function Modal({
                 <motion.div
                   className={cn(
                     "bg-surface border-border max-h-[calc(100vh-2rem)] w-full max-w-lg",
-                    "overflow-y-auto rounded-modal border p-7 shadow-popover",
+                    "overflow-y-auto rounded-modal border p-8 shadow-popover",
                     className,
                   )}
                   initial={{ opacity: 0, scale: 0.94, y: 12 }}
@@ -46,7 +46,7 @@ export function Modal({
                   transition={spring.bouncy}
                 >
                   <div className="flex items-start justify-between gap-4">
-                    <div className="space-y-1.5">
+                    <div className="space-y-2">
                       <Dialog.Title className="text-20 font-semibold">
                         {titulo}
                       </Dialog.Title>
@@ -58,9 +58,9 @@ export function Modal({
                     </div>
                     <Dialog.Close
                       aria-label="Fechar"
-                      className="text-ink-muted hover:text-ink hover:bg-surface-muted rounded-input p-1.5 transition-colors"
+                      className="text-ink-muted hover:text-ink hover:bg-surface-muted rounded-input p-2 transition-colors"
                     >
-                      <X className="size-4" />
+                      <IconXmark className="size-4" fill="currentColor" />
                     </Dialog.Close>
                   </div>
 

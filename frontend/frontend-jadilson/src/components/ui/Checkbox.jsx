@@ -1,5 +1,5 @@
 import * as CheckboxPrimitive from "@radix-ui/react-checkbox";
-import { Check } from "lucide-react";
+import { IconCheckmark } from "symbols-react";
 import { cn } from "@/lib/cn";
 
 export function Checkbox({ className, ...props }) {
@@ -15,7 +15,7 @@ export function Checkbox({ className, ...props }) {
       {...props}
     >
       <CheckboxPrimitive.Indicator className="text-primary-foreground">
-        <Check className="size-3.5" strokeWidth={3} />
+        <IconCheckmark className="size-3.5" fill="currentColor" />
       </CheckboxPrimitive.Indicator>
     </CheckboxPrimitive.Root>
   );

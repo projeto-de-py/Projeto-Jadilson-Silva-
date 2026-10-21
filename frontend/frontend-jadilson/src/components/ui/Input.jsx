@@ -2,7 +2,7 @@ import { Field } from "./Field";
 import { cn } from "@/lib/cn";
 
 const baseClasses = [
-  "flex h-10 w-full rounded-input border border-input bg-surface px-3 py-2 text-14",
+  "flex h-10 w-full rounded-input border border-input bg-surface px-4 py-2 text-14",
   "placeholder:text-ink-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
   "disabled:cursor-not-allowed disabled:opacity-50",
 ].join(" ");

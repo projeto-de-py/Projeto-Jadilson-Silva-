@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
+import { IconArrowDown, IconArrowUp, IconArrowUpArrowDown } from "symbols-react";
 import { Skeleton } from "./Skeleton";
 import { cn } from "@/lib/cn";
 
@@ -11,19 +11,19 @@ const alinhamentos = {
 function OrdenarBotao({ coluna, ordenacao, onOrdenar }) {
   const ativa = ordenacao?.campo === coluna.id;
   const Icone = !ativa
-    ? ArrowUpDown
+    ? IconArrowUpArrowDown
     : ordenacao?.direcao === "asc"
-      ? ArrowUp
-      : ArrowDown;
+      ? IconArrowUp
+      : IconArrowDown;
 
   return (
     <button
       type="button"
       onClick={() => onOrdenar(coluna.id)}
-      className="inline-flex items-center gap-1.5 font-medium text-inherit transition-colors hover:text-primary"
+      className="inline-flex items-center gap-2 font-medium text-inherit transition-colors hover:text-primary"
     >
       {coluna.rotulo}
-      <Icone aria-hidden="true" className="size-3.5 opacity-60" />
+      <Icone aria-hidden="true" fill="currentColor" className="size-3.5 opacity-60" />
     </button>
   );
 }
@@ -49,7 +49,7 @@ export function Table({
       >
         <div className="divide-y divide-border">
           {Array.from({ length: 4 }).map((_, indice) => (
-            <div key={indice} className="flex items-center gap-4 p-5">
+            <div key={indice} className="flex items-center gap-4 p-6">
               <Skeleton className="h-4 flex-1" />
               <Skeleton className="h-4 w-24" />
               <Skeleton className="h-6 w-20 rounded-badge" />
@@ -97,7 +97,7 @@ export function Table({
                     : undefined
                 }
                 className={cn(
-                  "text-ink-muted px-5 py-3.5 text-12 font-semibold tracking-wide uppercase",
+                  "text-ink-muted px-6 py-4 text-12 font-semibold tracking-wide uppercase",
                   alinhamentos[coluna.alinhar ?? "esquerda"],
                   coluna.largura,
                 )}
@@ -141,7 +141,7 @@ export function Table({
                 <td
                   key={coluna.id}
                   className={cn(
-                    "text-ink px-5 py-3.5",
+                    "text-ink px-6 py-4",
                     alinhamentos[coluna.alinhar ?? "esquerda"],
                   )}
                 >

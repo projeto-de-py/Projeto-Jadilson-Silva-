@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { IconChevronLeft, IconChevronRight } from "symbols-react";
 import { cn } from "@/lib/cn";
 
 function janela(pagina, totalPaginas) {
@@ -26,7 +26,7 @@ export function Pagination({
     <nav
       aria-label="Paginação"
       className={cn(
-        "flex flex-wrap items-center justify-between gap-3",
+        "flex flex-wrap items-center justify-between gap-4",
         className,
       )}
     >
@@ -42,9 +42,9 @@ export function Pagination({
           aria-label="Página anterior"
           disabled={atual <= 1}
           onClick={() => onMudar?.(atual - 1)}
-          className="border-border text-ink hover:bg-surface-muted flex size-9 items-center justify-center rounded-input border transition-colors disabled:pointer-events-none disabled:opacity-40"
+          className="border-border text-ink hover:bg-surface-muted flex size-10 items-center justify-center rounded-input border transition-colors disabled:pointer-events-none disabled:opacity-40"
         >
-          <ChevronLeft className="size-4" />
+          <IconChevronLeft className="size-4" fill="currentColor" />
         </button>
 
         {janela(atual, total).map((numero) => (
@@ -55,7 +55,7 @@ export function Pagination({
             aria-current={numero === atual ? "page" : undefined}
             onClick={() => onMudar?.(numero)}
             className={cn(
-              "flex size-9 items-center justify-center rounded-input text-14 font-medium transition-colors",
+              "flex size-10 items-center justify-center rounded-input text-14 font-medium transition-colors",
               numero === atual
                 ? "bg-primary text-primary-foreground"
                 : "text-ink hover:bg-surface-muted",
@@ -70,9 +70,9 @@ export function Pagination({
           aria-label="Próxima página"
           disabled={atual >= total}
           onClick={() => onMudar?.(atual + 1)}
-          className="border-border text-ink hover:bg-surface-muted flex size-9 items-center justify-center rounded-input border transition-colors disabled:pointer-events-none disabled:opacity-40"
+          className="border-border text-ink hover:bg-surface-muted flex size-10 items-center justify-center rounded-input border transition-colors disabled:pointer-events-none disabled:opacity-40"
         >
-          <ChevronRight className="size-4" />
+          <IconChevronRight className="size-4" fill="currentColor" />
         </button>
       </div>
     </nav>
