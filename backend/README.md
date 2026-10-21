@@ -114,3 +114,11 @@ Tabela `usuario` (DER: USUARIO): `id, nome, email (unique), senha_hash, perfil (
 2. Filtros de busca (RF09)
 3. Agenda de prazos (RF10/RF11)
 4. Módulo MinutaIA (Port/Adapter com mock)
+## Casos e prazos
+
+A migração Alembic `0002_casos_prazos` cria as tabelas `casos`, `andamentos` e `prazos` sem alterar as tabelas existentes. Após `alembic upgrade head`, execute `python -m app.seed` para carregar seis processos e quatro prazos fictícios; o seed pode ser repetido sem duplicar os registros demonstrativos.
+
+- `GET /api/casos?q=&status=&pagina=1&limite=20`: busca por número do processo, cliente ou parte contrária, com filtros e paginação.
+- `GET /api/prazos/urgentes?dias=7&pagina=1&limite=20`: prazos em aberto vencidos ou com vencimento no intervalo informado.
+
+As duas rotas exigem sessão autenticada. O limite máximo da página é 100 itens.

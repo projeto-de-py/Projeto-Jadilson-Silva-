@@ -3,10 +3,13 @@
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
-    color-scheme: dark;
     background-color: var(--color-bg);
+    height: 100%;
   }
 
+  /* Sem isso, a margem padrão de 8px do navegador no <body> empurra o
+     layout além de 100vh e cria uma segunda barra de rolagem na página
+     inteira, além da barra de rolagem interna do conteúdo do dashboard. */
   body {
     background-color: var(--color-bg);
     color: var(--color-ink);
@@ -14,9 +17,15 @@
     font-size: 16px;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
+    margin: 0;
+    height: 100%;
   }
 
-  /* Glow azul ambiente atrás da janela do app (referência visual) */
+  #root {
+    height: 100%;
+  }
+
+  /* Brilho neutro e sutil atrás da janela (acompanha os tokens). */
   body::before {
     content: "";
     position: fixed;
@@ -26,24 +35,22 @@
     background:
       radial-gradient(
         46% 42% at 50% 112%,
-        rgb(72 104 245 / 0.55),
+        color-mix(in srgb, var(--color-ink) 14%, transparent),
         transparent 72%
       ),
       radial-gradient(
         36% 30% at 96% 4%,
-        rgb(72 104 245 / 0.2),
+        color-mix(in srgb, var(--color-ink) 7%, transparent),
         transparent 70%
-      ),
-      radial-gradient(
-        30% 34% at -4% 58%,
-        rgb(109 141 255 / 0.14),
-        transparent 70%
-      ),
-      radial-gradient(
-        28% 24% at 86% 94%,
-        rgb(109 141 255 / 0.3),
-        transparent 72%
       );
+  }
+
+  /* Squircle (curvatura contínua, como nos cantos do macOS/iOS).
+     Pílulas e círculos ficam de fora: squircle deformaria o formato. */
+  @supports (corner-shape: squircle) {
+    [class*="rounded-"]:not([class*="rounded-full"]):not([class*="rounded-badge"]) {
+      corner-shape: squircle;
+    }
   }
 
   /* Foco visível em tudo (anel 2px primary com offset) */

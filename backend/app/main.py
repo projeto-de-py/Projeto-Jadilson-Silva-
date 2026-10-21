@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.routes import auth, usuarios
+from app.api.routes import auth, usuarios, casos, prazos
 from app.config import get_settings, eh_producao, validar_configuracao_seguranca
 from app.core import security
 from app.core.ratelimit import Limiter
@@ -96,6 +96,8 @@ def create_app() -> FastAPI:
     prefix = settings.api_prefix
     app.include_router(auth.router, prefix=f"{prefix}/auth", tags=["auth"])
     app.include_router(usuarios.router, prefix=f"{prefix}/usuarios", tags=["usuarios"])
+    app.include_router(casos.router, prefix=f"{prefix}/casos", tags=["casos"])
+    app.include_router(prazos.router, prefix=f"{prefix}/prazos", tags=["prazos"])
 
     @app.get("/health", tags=["status"])
     def health() -> dict:

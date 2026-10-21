@@ -5,14 +5,9 @@ import { fileURLToPath } from "node:url";
 
 // https://vite.dev/config/
 export default defineConfig({
-  server: { host: '127.0.0.1', port: 5173, strictPort: true, proxy: { '/api': { target: 'http://127.0.0.1:8000', changeOrigin: false } } },
-  plugins: [react(), tailwindcss()],
-  resolve: {
-    alias: {
-      "@": fileURLToPath(new URL("./src", import.meta.url)),
-    },
-  },
   server: {
+    host: "127.0.0.1",
+    port: 5173,
     strictPort: true, // recusa outra porta (evita Vite "fantasma" em 5173)
     proxy: {
       // Cookie de sessao exige mesma origem: o browser so ve localhost:5173
@@ -20,6 +15,12 @@ export default defineConfig({
         target: "http://127.0.0.1:8000",
         changeOrigin: false,
       },
+    },
+  },
+  plugins: [react(), tailwindcss()],
+  resolve: {
+    alias: {
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
 });

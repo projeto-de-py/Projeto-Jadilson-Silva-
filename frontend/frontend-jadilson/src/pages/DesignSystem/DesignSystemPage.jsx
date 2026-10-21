@@ -93,7 +93,7 @@ const processosDemo = [
     id: 1,
     numero: "0000001-12.2026.8.00.0100",
     cliente: "Maria Conceição",
-    comarca: "Maceió",
+    comarca: "Paulo Afonso",
     status: "Ativo",
     prazo: "10/10/2026",
     tom: "hoje",
@@ -111,7 +111,7 @@ const processosDemo = [
     id: 3,
     numero: "0000110-05.2026.8.00.0100",
     cliente: "Construtora Alagoas",
-    comarca: "Maceió",
+    comarca: "Paulo Afonso",
     status: "Suspenso",
     prazo: "28/10/2026",
     tom: "ok",
@@ -134,7 +134,7 @@ function Sobreposicoes() {
 
   return (
     <Secao titulo="Sobreposições: Modal, Drawer, Popover, Tooltip e Toast">
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-4">
         <Button onClick={() => setModalAberto(true)}>Abrir modal</Button>
         <Button variant="secondary" onClick={() => setDrawerAberto(true)}>
           Abrir drawer
@@ -143,7 +143,7 @@ function Sobreposicoes() {
           trigger={<Button variant="secondary">Abrir popover</Button>}
           align="start"
         >
-          <div className="space-y-3">
+          <div className="space-y-4">
             <p className="text-14 font-medium">Ações rápidas</p>
             <p className="text-14 text-ink-muted">
               Anexar peça, gerar minuta ou exportar o processo.
@@ -272,17 +272,17 @@ function TabsDemo() {
         ]}
       />
       <div className="flex flex-wrap items-center gap-6 pt-2">
-        <label className="flex items-center gap-3 text-14">
+        <label className="flex items-center gap-4 text-14">
           <Switch id="ds-switch" defaultChecked />
           Alertas de prazo por e-mail
         </label>
-        <label className="flex items-center gap-3 text-14">
+        <label className="flex items-center gap-4 text-14">
           <Checkbox id="ds-checkbox" defaultChecked />
           Lembrar 7 dias antes
         </label>
-        <label className="flex items-center gap-3 text-14">
+        <label className="flex items-center gap-4 text-14">
           <Checkbox id="ds-checkbox-2" />
-          Incluir feriados de Maceió
+          Incluir feriados de Paulo Afonso
         </label>
       </div>
     </Secao>
@@ -341,7 +341,7 @@ function TabelaDemo() {
 
   return (
     <Secao titulo="Table e Pagination">
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-4">
         <Button variant="secondary" onClick={simularCarregamento}>
           Simular carregamento
         </Button>
@@ -413,7 +413,7 @@ export function DesignSystemPage() {
               {status.map((item) => (
                 <span
                   key={item.token}
-                  className="rounded-badge px-3 py-1 text-12 font-medium"
+                  className="rounded-badge px-4 py-1 text-12 font-medium"
                   style={{
                     background: `var(${item.token}-soft)`,
                     color: `var(${item.token}-ink)`,
@@ -427,7 +427,7 @@ export function DesignSystemPage() {
         </Secao>
 
         <Secao titulo="Tipografia">
-          <div className="space-y-3">
+          <div className="space-y-4">
             <p className="font-heading text-28 font-bold">
               Inter Bold — H1 e títulos de página
             </p>
@@ -475,7 +475,7 @@ export function DesignSystemPage() {
         <Secao titulo="Espaçamento (grade de 4px)">
           <div className="space-y-2">
             {espacamentos.map((px) => (
-              <div key={px} className="flex items-center gap-3">
+              <div key={px} className="flex items-center gap-4">
                 <span className="text-12 text-ink-muted w-10 tabular-nums">
                   {px}px
                 </span>
@@ -489,7 +489,7 @@ export function DesignSystemPage() {
         </Secao>
 
         <Secao titulo="Button">
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-4">
             <Button>Salvar processo</Button>
             <Button variant="secondary">Cancelar</Button>
             <Button variant="ghost">Voltar</Button>
@@ -500,11 +500,11 @@ export function DesignSystemPage() {
             <Button loading>Salvando</Button>
             <Button disabled>Indisponível</Button>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <Button className="h-9 px-3">Pequeno</Button>
+          <div className="flex flex-wrap items-center gap-4">
+            <Button className="h-10 px-4">Pequeno</Button>
             <Button>Médio</Button>
-            <Button className="h-11 px-6 text-16">Grande</Button>
-            <Button className="h-11 px-6 text-16">
+            <Button className="h-12 px-6 text-16">Grande</Button>
+            <Button className="h-12 px-6 text-16">
               <Plus className="size-4" />
               Novo prazo
             </Button>
@@ -558,7 +558,7 @@ export function DesignSystemPage() {
                 <div className="space-y-1">
                   <CardTitle>Ação de cobrança</CardTitle>
                   <CardDescription>
-                    0000000-00.0000.0.00.0000 · Comarca de Maceió
+                    0000000-00.0000.0.00.0000 · Comarca de Paulo Afonso
                   </CardDescription>
                 </div>
                 <Badge tone="primary">Ativo</Badge>
@@ -589,7 +589,7 @@ export function DesignSystemPage() {
 
         <Secao titulo="Skeleton, Spinner, Avatar e EmptyState">
           <div className="grid gap-6 sm:grid-cols-2">
-            <div className="space-y-5">
+            <div className="space-y-6">
               <div className="space-y-2">
                 <Skeleton className="h-4 w-1/3" />
                 <Skeleton className="h-4 w-2/3" />
@@ -602,7 +602,7 @@ export function DesignSystemPage() {
                   rótulo próprio via aria-label
                 </span>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-4">
                 <Avatar nome="Jadilson Silva" size="sm" />
                 <Avatar nome="Jadilson Silva" />
                 <Avatar nome="Maria Conceição" size="lg" />

@@ -1,13 +1,3 @@
-/**
- * Facade de acesso a API (padrao Facade).
- * Todo fetch passa por aqui - nenhum componente chama fetch direto.
- *
- * Autenticacao via cookie HttpOnly (setado pelo backend no login). O JS nunca
- * ve o JWT; ele carrega sozinho nas requisicoes (same-origin via proxy Vite).
- * Requisicoes mutantes (POST/PUT/PATCH/DELETE) enviam o header X-CSRF-Token,
- * que o backend confere contra o claim `csrf` embutido no JWT.
- */
-
 const BASE_URL = "/api"; // proxy do Vite -> http://127.0.0.1:8000/api
 
 let csrfToken = null; // em memoria (nao em localStorage - evita vazamento)
