@@ -99,9 +99,7 @@ Projeto-Jadilson-Silva-/
 │   ├── .env.example              # template com placeholders
 │   ├── requirements.txt / requirements-dev.txt / requirements-lock.txt
 │   ├── README.md                 # instruções da API
-│   ├── auth.py, config.py, database.py, criar_usuario.py   # ⚠️ SISTEMA B (raiz)
-│   ├── banco/                    # ⚠️ scripts SQL + preparação do Sistema B
-│   └── tests/                    # ⚠️ testes do Sistema B (unit + integração MySQL)
+│   └── tests/                    # pytest: test_unit + test_api (SQLite em memória)
 └── frontend/frontend-jadilson/
     ├── vite.config.js            # alias @→src, proxy /api→8000, strictPort 5173
     ├── jsconfig.json             # paths p/ editor
@@ -140,7 +138,7 @@ Projeto-Jadilson-Silva-/
 | **DTO / Adapter (Pydantic)** | `app/schemas/` (`UsuarioOut`, `LoginRequest`) | Contrato de API ≠ modelo do banco; nunca expõe `senha_hash` |
 | **Dependency Injection** | FastAPI `Depends`: `get_db`, `get_usuario_repo`, `get_current_user`, `require_admin` | Injetar sessão, usuário JWT e permissões |
 | **Guard de perfil** | `app/api/deps.py → require_admin` | Autorização **sempre no servidor** (RF02/RF07/RF08) |
-| **Factory** | `app/main.py → create_app()`, `Sistema B main.py → create_app()` | App configurável/testável |
+| **Factory** | `app/main.py → create_app()` | App configurável/testável |
 | **Facade** | `frontend/src/api/client.js` (A) e `src/lib/api.js` (B) | Ponto único de HTTP; nenhum `fetch` solto em componente |
 | **Context (State)** | `src/context/AuthProvider.jsx` + `auth-context.js` | Sessão JWT global, `login/logout`, persistência em `localStorage` |
 | **Guard / Protected Route** | `App.jsx`: `Protegida` e `LoginOuRedirect` (A) · gate por `session` (B) | Rotas privadas; redireciona para `/` sem sessão |
@@ -194,8 +192,8 @@ POST /api/auth/login  {email, senha}
 | Método | Rota | Acesso | Observação |
 |---|---|---|---|
 | GET | `/health` | público | status da API |
-| POST | `/api/auth/login` | público | retorna JWT + usuário |
-| GET | `/api/auth/me` | JWT Bearer | valida sessão (o front A chamava isto) |
+| POST | `/api/auth/login` | público | retorna `{usuario, csrf_token}` + cookie HttpOnly |
+| GET | `/api/auth/me` | cookie | valida sessão (devolve usuário + CSRF atual) |
 | GET | `/api/usuarios` | Admin | lista usuários (RF02) |
 | POST | `/api/usuarios` | Admin | cadastra (ADMIN ou PADRAO) |
 
@@ -205,7 +203,7 @@ POST /api/auth/login  {email, senha}
 - Token: **JWT** HS256, `JWT_SECRET` do `.env`, expiração `JWT_EXPIRE_MINUTES=480`.
 - Erro de login **genérico** (não revela se email existe); inativo → 403.
 - `require_admin` protege rotas; CORS restrito a `localhost:5173`.
-- Seed: `python -m app.seed` → cria Admin **`admin@jadilson.adv` / `Admin@123`** (idempotente; trocar senha em produção). Seed imprime guia amigável se o MySQL recusar (erros 1045/1049/2003).
+- Seed: `python -m app.seed` → cria Admin **`admin@jadilson.adv`** com senha **aleatória impressa uma única vez no terminal** (ou `ADMIN_SENHA_INICIAL` no `.env`; idempotente; trocar senha em produção). Seed imprime guia amigável se o MySQL recusar (erros 1045/1049/2003).
 
 ### Banco/migrações
 
@@ -215,42 +213,36 @@ POST /api/auth/login  {email, senha}
 
 ---
 
-## 7. Backend Sistema B (raiz de `backend/`) — o paralelo novo
+## 7. Backend Sistema B (raiz de `backend/`) — REMOVIDO em 21/10/2026
 
-Adicionado pelo time em **`240b213 feat: integra login com MySQL e sessões`** (merge `9d7bb8a`, ~15/10). **Substituiu o conteúdo de `backend/main.py`** (nosso entrypoint uvicorn saiu).
+Adicionado pelo time em **`240b213 feat: integra login com MySQL e sessões`** (merge `9d7bb8a`, ~15/10) e **removido em 21/10/2026**, com a decisão de consolidar o Sistema A (§8):
 
-- **Modelo de sessão, não JWT:** `POST /api/auth/login` cria sessão no banco e devolve **cookie HttpOnly (`samesite=strict`, path `/api`)** + `csrf_token` na resposta. Rotas: `/api/auth/login`, `GET /api/auth/session`, `POST /api/auth/logout` (exige header `X-CSRF-Token`).
-- **Arquivos:** `auth.py` (digest/verify hash, `current_user`, `require_csrf`, `Limiter`), `config.py` (`Config.load()`), `database.py` (driver **mysql-connector**, não PyMySQL), `criar_usuario.py`, `banco/*.sql` + `preparar_autenticacao.py` + `verificacao.sql`, `tests/test_unit.py` e `tests/test_mysql_auth_real.py` (pytest), `requirements-dev.txt`, `requirements-lock.txt`.
-- **Proteções extras:** rate limit (20 req/min por IP e 5/min por email no login), checagem de `Origin`, `Content-Type: application/json`, limite de 4 KB no body, `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, validação de erro que **nunca ecoa a senha**.
-- **Como rodar:** `uvicorn main:create_app --factory --port 8000` (o arquivo tem factory; `python main.py` sozinho não sobe nada).
-- **Fronte integrado:** `src/lib/api.js` chama **relative `/api/...`** com `credentials: 'same-origin'` e header CSRF → Vite **faz proxy `/api` → `127.0.0.1:8000`**.
-- `backend/.env.example` foi **esvaziado** no remoto; Sistema B lê config via `Config.load()`.
+- **Arquivos removidos:** `backend/auth.py`, `config.py`, `database.py`, `main.py`, `criar_usuario.py`, `smoke.db`, `banco/` (scripts SQL de preparação) e `tests/test_mysql_auth_real.py`.
+- **`requirements.txt`/`requirements-lock.txt` restaurados** para o Sistema A: `SQLAlchemy`, `pydantic-settings`, `PyMySQL`, `PyJWT`, `bcrypt`, `alembic` (o merge do B havia trazido `mysql-connector-python` + `argon2-cffi`, que não são usados pelo `app/`).
+- **Proteções valiosas do B já estavam portadas para o A** no commit `161afbf`: rate limit por IP/e-mail, checagem de `X-CSRF-Token`, headers (`Cache-Control: no-store`, `nosniff`, `X-Frame-Options`, etc.) e resposta genérica de erro.
+- **Frontend ajustado:** `App.jsx` chamava `api('session')` (rota `GET /api/auth/session`, exclusiva do B) → passou para `api('me')` (rota do A). `login` e `logout` já batiam (contrato idêntico: `{usuario, csrf_token}` + cookie).
+- **Resíduos possíveis no MySQL:** o B criava as tabelas `sistema.usuarios` e `sistema.sessoes` (e talvez coluna `atualizado_em`); o A usa a tabela `usuarios` via Alembic. `DROP` manual se necessário — nunca automatizado.
+- Histórico no git: arquivos recuperáveis com `git show 449b3e1` / `git log --all`.
 
 ---
 
-## 8. ⚠️ PONTO CRÍTICO — dois sistemas de autenticação coexistindo
+## 8. ✅ RESOLVIDO (21/10/2026) — Sistema A prevalece; B removido
 
-Este é o fato **mais importante** do documento. Em 12/10 o repositório tinha **apenas** o Sistema A (JWT + camadas). Entre 12 e 16/10 o time mergeou o Sistema B por cima:
+Histórico: em 12/10 o repositório tinha **apenas** o Sistema A (JWT + camadas). Entre 12 e 16/10 o time mergeou o Sistema B por cima (dois sistemas coexistindo). **Em 21/10/2026 a consolidação foi feita: o Sistema B foi removido (§7) e o Sistema A é o único backend.**
 
-| | Sistema A (nosso) | Sistema B (do time) |
+| | Sistema A (ativo) | Sistema B (removido em 21/10) |
 |---|---|---|
 | Arquitetura | camadas (`app/`) | scripts na raiz |
-| Credencial | JWT no `localStorage` | cookie HttpOnly + CSRF no banco |
-| Entry | `python main.py` → `uvicorn app.main:app` | `uvicorn main:create_app --factory` |
-| Driver | PyMySQL | mysql-connector |
-| Testes | nenhum | pytest (unit + real MySQL) |
-| Extras | escopo de perfil, seed | rate limit, CSRF, headers |
+| Credencial | JWT em cookie HttpOnly + CSRF + revogação de `jti` | cookie HttpOnly + sessão no banco |
+| Entry | `python -m uvicorn app.main:app` | ~~`uvicorn main:create_app --factory`~~ |
+| Driver | PyMySQL (SQLAlchemy) | ~~mysql-connector (SQL cru)~~ |
+| Testes | pytest (unit + API em SQLite) | ~~pytest + integração MySQL real~~ |
+| Extras | rate limit, CSRF, headers (portados do B) | proteções migradas no `161afbf` |
 
-**O que está ativo HOJE no frontend (remote `main`):**
-- `App.jsx` foi reescrito para usar **`session` + `api('login'|'session'|'logout')` do Sistema B** (com polling de sessão a cada 30 s e ao voltar à aba). As rotas fazem gate por `session`.
-- `AuthPage.jsx` agora recebe **props** (`onLogin`, `loading`, `checking`, `error`) e usa `FormData` — o `onSubmit={handleSubmit}` do Sistema A saiu.
-- `AuthProvider`, `auth-context`, `src/api/client.js` (Sistema A) continuam **no repo mas provavelmente órfãos/sem wrapper `<AuthProvider>`** — o `App.jsx` remoto ainda os importa (código morto possível → pode acusar lint).
-- `backend/main.py` (entry antigo) foi **sobrescrito** pelo app do Sistema B; `backend/app/` continua intacto e funcional.
-
-**Ação recomendada para a próxima sessão:** decidir com o time **qual sistema prevalece** e consolidar:
-1. Se prevalecer **B** (tem testes + proteções): portar a autorização por perfil (RF02–RF08) para `auth.py`/services do B, reaproveitar o design de rotas do A, **remover** `AuthProvider`/`auth-context`/`api/client.js` órfãos e restaurar `.env.example`;
-2. Se prevalecer **A**: rejeitar/repensar B, manter JWT, migrar as proteções valiosas de B (rate limit, CSRF/origin, headers) para o A.
-3. Em qualquer caso: **um único `/api/auth/login`**, uma única tabela de sessão/usuário e docs de run atualizados (hoje `backend/README.md` e o root README descrevem o A, mas o que roda é o B).
+**O que mudou na consolidação:**
+- Backend: removidos `auth.py`, `config.py`, `database.py`, `main.py`, `criar_usuario.py`, `smoke.db`, `banco/`, `tests/test_mysql_auth_real.py`; requirements restaurados para SQLAlchemy/PyMySQL/PyJWT/bcrypt.
+- Frontend: `App.jsx` passou de `api('session')` para `api('me')` (rota do A; `login`/`logout` já batiam). A integração ativa usa `lib/api.js` (cookies + CSRF via proxy Vite `/api` → 8000).
+- `AuthProvider`/`auth-context`/`api/client.js` (variantes antigas) **continuam no repo** — avaliar se ainda são usados ou se são código morto (lint/build acusam).
 
 ---
 
@@ -271,16 +263,13 @@ Este é o fato **mais importante** do documento. Em 12/10 o repositório tinha *
 # Banco (uma vez) — MySQL80 do Windows
 mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS advocacia CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 
-# Backend — SISTEMA B (o que o front chama hoje)
+# Backend (Sistema A — único sistema desde 21/10)
 cd backend
 python -m pip install -r requirements.txt -r requirements-dev.txt
-uvicorn main:create_app --factory --port 8000
-
-# Backend — SISTEMA A (alternativa/documentação)
-# backend/.env com DATABASE_URL (ver .env.example), depois:
+# .env com DATABASE_URL e JWT_SECRET (ver .env.example), depois:
 python -c "from alembic.config import main; main(['upgrade','head'])"   # AppLocker bloqueia alembic.exe
-python -m app.seed                                                      # admin@jadilson.adv / Admin@123
-python -c "import uvicorn; uvicorn.run('app.main:app', port=8000)"      # ou python main.py (versão antiga)
+python -m app.seed                                                      # admin@jadilson.adv (senha impressa no terminal)
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 
 # Frontend
 cd frontend/frontend-jadilson
@@ -288,7 +277,7 @@ npm install
 npm run dev        # 5173 strict; proxy /api -> 8000
 ```
 
-**Teste rápido:** `POST http://127.0.0.1:8000/api/auth/login` com JSON `{"email":"admin@jadilson.adv","senha":"Admin@123"}` — Sistema A devolve JSON com `access_token`; Sistema B devolve `usuario` + `csrf_token` e seta cookie.
+**Teste rápido:** `POST http://127.0.0.1:8000/api/auth/login` com JSON `{"email":"admin@jadilson.adv","senha":"<senha do seed>"}` — devolve `{usuario, csrf_token}` e seta o cookie HttpOnly.
 
 ---
 
@@ -309,10 +298,9 @@ branch extra remota: origin/integracao/mysql-autenticacao
 
 **Primeiro passo da próxima sessão (antes de codar):**
 ```powershell
-git restore backend/.env.example      # desfaz a exclusão local
-git pull --rebase origin main         # traz o Sistema B; resolve conflito do .env.example (manter o deles vazio ou regenerar com placeholders)
 npm install                           # dependências podem ter mudado
 npm run lint                          # conferir
+python -m pytest                      # backend em SQLite em memória
 ```
 
 **Histórico de integração (lição):** em 12/10 houve conflitos pesados entre nosso login e o dashboard do colega; resolvemos com `git pull --rebase` + resolução manual preservando os dois lados (App.jsx = roteamento deles + guard nosso; AuthPage = design deles + submit real nosso). Workflow recomendado agora: branches `feat/*` + Pull Request em vez de push direto no `main`.
@@ -322,7 +310,7 @@ npm run lint                          # conferir
 ## 12. Roadmap acordado (fases)
 
 1. ~~Fase 1: fundação + login (RF01/RF02)~~ ✅ (com ressalva do §8)
-2. **Fase 1.5: consolidar autenticação** (decisão A vs B, §8) — BLOQUEIA o resto
+2. ~~**Fase 1.5: consolidar autenticação** (decisão A vs B, §8)~~ ✅ resolvido em 21/10 (Sistema A único)
 3. **Fase 2 — Casos (RF03–RF08):** tabela `casos` + `casos_usuarios` (N:N), CRUD com **Strategy de visibilidade** (`AdminVêTodos`/`PadraoVêAtribuidos`), `require_admin` em editar/excluir, **auditoria** (middleware/decorator gravando `auditoria`)
 4. **Fase 3 — Busca (RF09):** filtros + paginação (RNF03: índices em `numero_processo`, `status`, `responsavel`)
 5. **Fase 4 — Andamentos (RF06):** timeline no detalhe do caso
@@ -346,21 +334,22 @@ npm run lint                          # conferir
 1. **MySQL** (não Postgres/SQLite em produção) — obrigatório.
 2. Tabela **`usuarios` plural** (DER diz USUARIO; time renomeou; decisão explícita 12/10).
 3. Backend em **FastAPI + SQLAlchemy + Alembic** (nunca `create_all` como fonte da verdade).
-4. Senhas **bcrypt**; JWT com 8h (Sistema A) / cookie session (Sistema B) — *pendente consolidar (§8)*.
+4. Senhas **bcrypt**; JWT com 8h em **cookie HttpOnly** (Sistema A — consolidado em 21/10, §8; Sistema B removido).
 5. **Autorização sempre no servidor**; front só esconde botões.
 6. `.env` nunca versionado; `.env.example` com placeholders.
-7. Front fala `localhost:5173` (CORS) ou proxy `/api` (Sistema B).
+7. Front fala `localhost:5173` (CORS) ou proxy `/api` (Vite → 8000, mesma origem).
 8. MinutaIA entra por **adapter/mock**, sem presa a provedor específico de LLM.
 
 ---
 
 ## 14. Checklist da próxima sessão de IA (ordem sugerida)
 
-1. `git restore backend/.env.example` + `git pull --rebase origin main` + `npm install` + `npm run lint`.
-2. **Levantar a questão do §8 com o time** (qual autenticação fica) — não implementar RF03+ antes disso.
-3. Conferir schema real das tabelas (`SHOW TABLES`/`DESCRIBE usuarios`) — o Sistema B pode ter criado tabela de sessões e/ou coluna `atualizado_em` (o DTO deles já declara `atualizado_em`, que **não** existia no nosso DDL).
-4. Só então Fase 2 (casos) seguindo as convenções da §5 e os padrões da §4.
-5. Guardas de qualidade: `npm run lint` em 0 erros; testar login E2E (senha errada → alerta; certo → dashboard; rota privada sem sessão → redirect).
+1. `npm install` + `npm run lint` + `python -m pytest` (guardas de qualidade após a consolidação de 21/10).
+2. ~~Levantar a questão do §8 com o time~~ — **resolvido**: Sistema A consolidado, B removido (§7/§8).
+3. Conferir schema real das tabelas (`SHOW TABLES`/`DESCRIBE usuarios`) — **limpar resíduos do B** no MySQL se existirem (`sistema.usuarios`, `sistema.sessoes`, coluna `atualizado_em`) e conferir o stamp do Alembic.
+4. Avaliar `AuthProvider`/`auth-context`/`api/client.js` no frontend: são usados ou são código morto pós-consolidação?
+5. Só então Fase 2 (casos) seguindo as convenções da §5 e os padrões da §4.
+6. Guardas de qualidade: `npm run lint` em 0 erros; testar login E2E (senha errada → alerta; certo → dashboard; recarregar a página mantém a sessão via `GET /api/auth/me`; logout → volta ao login).
 
 ---
-*Documento gerado em 16/10/2026 a partir da análise do código, do PDF de documentação e do histórico Git. Quando o projeto mudar, atualizar as seções 1 (status dos RFs), 8 (conflito) e 11 (Git).*
+*Documento gerado em 16/10/2026 a partir da análise do código, do PDF de documentação e do histórico Git. Atualizado em 21/10/2026: Sistema B removido, Sistema A consolidado (§7, §8, §10, §14). Quando o projeto mudar, atualizar as seções 1 (status dos RFs), 8 (consolidação) e 11 (Git).*

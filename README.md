@@ -1,6 +1,6 @@
-# Login com MySQL e sessões
+# Sistema de Gestão de Casos e Agenda — Advocacia Jadilson Silva
 
-O frontend React/Vite usa a API FastAPI para permitir acesso somente a pessoas cadastradas e ativas, com e-mail e senha corretos. As rotas internas exigem sessão; recarregar a página restaura a sessão, e sair a revoga no MySQL. Os estilos, animações e dados demonstrativos existentes foram preservados. Não há cadastro público, recuperação de senha ou integração das demais funcionalidades.
+Projeto com **backend FastAPI + SQLAlchemy + MySQL** (autenticação JWT em cookie HttpOnly com CSRF, rate limit e autorização por perfil) e **frontend React + Vite + Tailwind CSS**. A API segue arquitetura em camadas (routes → services → repositories → models). Instruções detalhadas da API: [`backend/README.md`](backend/README.md).
 
 ## Dependências e configuração
 
@@ -15,38 +15,57 @@ npm ci
 cd ../..
 ```
 
-O MySQL 8.4 deve estar instalado e funcionando, com `bind-address=127.0.0.1`, `mysqlx-bind-address=127.0.0.1` e `general-log=0`. No Homebrew, confira `brew services list` antes de usar `brew services start mysql@8.4`. Preserve outros serviços e bancos. A compilação no macOS 12 pode exigir ajustes de compatibilidade do Homebrew; os scripts abaixo não instalam nem substituem o servidor.
+No Windows (PowerShell):
 
-## Preparação local do banco
-
-```bash
-source backend/.venv/bin/activate
-python backend/banco/preparar_autenticacao.py
-python backend/banco/testar_real.py
+```powershell
+python -m venv backend\venv
+backend\venv\Scripts\Activate.ps1
+python -m pip install -r backend\requirements-lock.txt
+cd frontend\frontend-jadilson
+npm install
+cd ..\..
 ```
 
-O preparador solicita a senha administrativa com entrada oculta (Enter para uma senha vazia em instalação nova). Usa o socket `/tmp/mysql.sock`; defina `MYSQL_ADMIN_SOCKET` se seu servidor usar outro caminho. Não passe senhas em argumentos, SQL, histórico ou mensagens.
+## Preparação do banco (MySQL)
 
-O script prepara apenas `sistema.usuarios` e `sistema.sessoes`, com InnoDB, charset `utf8mb4` e collation `utf8mb4_unicode_ci`. Compara estruturas existentes antes de executar DDL. Se houver divergência, preserva os registros e interrompe para revisão; não apaga, recria ou migra tabelas existentes automaticamente. As demais tabelas, se existirem, permanecem preservadas.
+```bash
+mysql -u root -p -e "CREATE DATABASE advocacia CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+```
 
-A conta de conexão é `sistema_app@localhost`, com apenas `SELECT`, `INSERT` e `UPDATE` nas duas tabelas. Para conta nova, a senha forte é gerada em memória. Para conta existente, a credencial é verificada antes de qualquer ajuste; acessos fora do escopo interrompem a preparação para preservar outros sistemas.
+Crie o arquivo de configuração do backend (não versionado) a partir do template e ajuste `DATABASE_URL` (usuário/senha do MySQL) e gere um `JWT_SECRET` forte:
 
-As credenciais reais são gravadas em `backend/.env` com permissão `0600`. Credenciais diferentes já configuradas são preservadas para revisão. Use `backend/.env.example` como referência sem segredos. Locks, relatórios, planos de revisão e a cópia privada das credenciais ficam em `backend/.local/mysql/`, ignorada pelo Git. Os SQL em `backend/banco/` não contêm senhas reais; `preparacao.sql` é uma referência comentada, e o preparador é o fluxo recomendado para conferir estruturas antes do DDL.
+```bash
+cd backend
+copy .env.example .env
+python -c "import secrets; print(secrets.token_urlsafe(64))"   # valor para JWT_SECRET
+```
 
-`sistema_app` é a conta de conexão MySQL, não uma pessoa do portal. As senhas das pessoas são diferentes e armazenadas somente como hash Argon2id. Nenhuma pessoa ou senha padrão é criada.
+## Migrações e usuário inicial
 
-## Criar pessoa e iniciar o sistema
+```bash
+cd backend
+source .venv/bin/activate   # Windows: .venv\Scripts\Activate.ps1
+
+# cria/atualiza as tabelas via Alembic (AppLocker bloqueia alembic.exe? use este formato)
+python -c "from alembic.config import main; main(['upgrade','head'])"
+
+# cria o administrador inicial (idempotente)
+python -m app.seed
+```
+
+**Login inicial (seed):** `admin@jadilson.adv` — a senha é **gerada aleatoriamente e impressa no terminal** pelo `python -m app.seed` (ou defina `ADMIN_SENHA_INICIAL` no `.env`). Troque após o 1º acesso.
+
+## Iniciar o sistema
 
 Terminal do backend:
 
 ```bash
 cd backend
 source .venv/bin/activate
-python criar_usuario.py
-python -m uvicorn main:create_app --factory --host 127.0.0.1 --port 8000 --no-proxy-headers --no-access-log
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-O cadastro administrativo pede nome, e-mail, perfil (`padrao` ou `admin`) e senha com confirmação oculta. Não é um endpoint público.
+Documentação interativa: `http://127.0.0.1:8000/docs` (desativada em produção com `APP_ENV=production`).
 
 Em outro terminal, a partir da raiz:
 
@@ -55,18 +74,15 @@ cd frontend/frontend-jadilson
 npm run dev
 ```
 
-Abra `http://127.0.0.1:5173` (use essa origem exata). Vite encaminha `/api` para `127.0.0.1:8000`. Entre com a pessoa cadastrada, recarregue para verificar persistência e clique em **Sair** para confirmar o retorno ao login. Se usar o Node local já preparado neste Mac, acrescente `.tools/node-v22.23.3-darwin-x64/bin` ao `PATH` antes de executar npm.
+Abra `http://127.0.0.1:5173`. O Vite encaminha `/api` para `127.0.0.1:8000`, então o frontend fala com a API pela mesma origem (o cookie de sessão funciona sem CORS em desenvolvimento).
 
 ## Verificação
 
 ```bash
 cd backend
 source .venv/bin/activate
-python -m pytest tests/test_unit.py -q
-python banco/testar_real.py
+python -m pytest          # testes unit + API — rodam em SQLite em memória, sem tocar o MySQL
 ```
-
-Se o administrador do MySQL tiver senha, use `python banco/testar_real.py --admin-password`; a entrada é oculta e passa ao teste apenas em memória. Os seis testes reais verificam conexão, estrutura, permissões mínimas, defaults, e-mail duplicado, hashes Argon2, usuários ativos, credenciais inválidas, persistência/expiração, CSRF, logout, rotação e limite de tentativas. Criam registros temporários identificáveis e removem somente seus próprios registros, inclusive sessões, usando acesso administrativo. O relatório é aprovado apenas se os seis testes e a limpeza final passarem; não registra senhas, hashes, cookies ou tokens.
 
 ```bash
 cd frontend/frontend-jadilson
@@ -74,10 +90,28 @@ npm run build
 npm run lint
 ```
 
-**Login inicial (seed):** `admin@jadilson.adv` — a senha é **gerada aleatoriamente e impressa no terminal** pelo `python -m app.seed` (ou defina `ADMIN_SENHA_INICIAL` no `.env`). Troque após o 1º acesso.
-
 ## Sessões e produção futura
 
-O cookie é HttpOnly/SameSite Strict, com path `/api`; somente o SHA256 do identificador aleatório fica no MySQL. O backend verifica usuário ativo, expiração e revogação em cada consulta. O frontend revalida a sessão a cada 30 segundos e ao voltar à aba. Logout só é confirmado na interface após a revogação; senha e sessão não ficam em localStorage.
+O login entrega um **JWT (HS256, 8h)** em cookie `HttpOnly` + `SameSite`; o JavaScript não acessa o token. O `logout` revoga o `jti` no servidor, então um token roubado deixa de valer. Todo `POST/PUT/PATCH/DELETE` sob `/api` exige o header `X-CSRF-Token` (claim embutido no JWT). Rate limit de login: 5 falhas por e-mail e 20 por IP a cada 5 minutos.
 
-Todos os POSTs exigem a origem configurada e JSON; logout também exige CSRF. Use um único worker enquanto o limite de tentativas estiver em memória. Para produção futura, configure `APP_ENV=production`, `APP_ORIGIN` com HTTPS e frontend/API na mesma origem; o cookie passa a ser Secure. Proteja o comando administrativo e os arquivos `.env`. Esta preparação não realiza deploy.
+Para produção futura: `APP_ENV=production` (a API aborta o startup se `JWT_SECRET` for fraco, cookie sem `Secure` ou CORS com curinga e desativa `/docs`), `AUTH_COOKIE_SECURE=true` (HTTPS), origem real em `CORS_ORIGINS` (nunca `*`), nginx à frente do uvicorn e um único worker (rate limit e blocklist de tokens moram em memória).
+
+## Estrutura do projeto
+
+```
+backend/
+  app/                 # API em camadas
+    api/               # rotas + dependências (get_current_user, require_admin)
+    services/          # regras de negócio (auth, usuários)
+    repositories/      # todo SQL mora aqui
+    models/            # tabelas SQLAlchemy
+    schemas/           # contratos de entrada/saída (Pydantic)
+    core/              # security (bcrypt + JWT), ratelimit, revogação de tokens
+    main.py            # fábrica create_app (CORS, middleware, routers)
+    config.py          # Settings (pydantic-settings, lê .env)
+    seed.py            # administrador inicial (idempotente)
+  alembic/             # migrações
+  tests/               # pytest (SQLite em memória via dependency_overrides)
+frontend/frontend-jadilson/   # React + Vite + Tailwind
+docs/                  # documentação (CONTEXTO_IA.md, DER, etc.)
+```

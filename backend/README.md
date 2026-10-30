@@ -51,7 +51,7 @@ python -c "from alembic.config import main; main(['upgrade','head'])"
 python -m app.seed
 
 # 6. Subir a API
-python main.py
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
 > **AppLocker bloqueia `alembic.exe`?** Use o comando do passo 4 (`python -c ...`) como alternativa.
