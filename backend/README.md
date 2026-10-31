@@ -28,7 +28,21 @@ HTTP → Router (api/routes) → Service (services) → Repository (repositories
 | GET | `/api/auth/me` | cookie | Dados do usuário logado + CSRF atual |
 | POST | `/api/auth/logout` | cookie + CSRF | Encerra a sessão (apaga o cookie) |
 | GET | `/api/usuarios` | **Admin** | Lista usuários |
-| POST | `/api/usuarios` | **Admin** + CSRF | Cadastra usuário (ADMIN ou PADRAO) |
+| POST | `/api/usuarios` | **Admin** + CSRF | Cadastra usuário (`ADVOGADO` ou `FUNCIONARIO`) |
+| PATCH | `/api/usuarios/{id}` | **Admin** + CSRF | Ativa/desativa ou troca o perfil (nunca aceita `administrador`) |
+| GET | `/api/casos` | cookie | Lista casos **do escopo do usuário** (Admin vê todos) com filtros (`q`, `cliente_id`, `area`, `status`, `prioridade`, `responsavel_id`, `tipo_demanda`) e ordenação (`ordenar=abertura|prioridade`) |
+| GET | `/api/casos/arquivados` | cookie | Lista casos **arquivados** do escopo (declarada antes de `/{id}`) |
+| POST | `/api/casos` | **Advogado** + CSRF | Cria caso (judicial/extrajudicial/administrativo — `numero_processo` opcional) |
+| GET | `/api/casos/{id}` | cookie | Detalhe do caso (`404` se fora do escopo; arquivados continuam consultáveis) |
+| PATCH | `/api/casos/{id}` | **Admin ou responsável** + CSRF | Atualiza dados gerais (`extra="forbid"`: sem campos administrativos) |
+| POST | `/api/casos/{id}/arquivar` | **Admin** + CSRF | Arquivamento lógico (soft delete, rastreável; repetido → `409`) |
+| GET | `/api/casos/{id}/historico` | cookie | Auditoria do caso (CRIACAO/ATUALIZACAO/ARQUIVAMENTO; somente leitura) |
+| GET | `/api/casos/{id}/usuarios` | **Admin** | Usuários com acesso ao caso (`?incluir_revogados=true` mostra o histórico) |
+| POST | `/api/casos/{id}/usuarios` | **Admin** + CSRF | Concede acesso de um usuário ao caso |
+| DELETE | `/api/casos/{id}/usuarios/{usuario_id}` | **Admin** + CSRF | Revoga o acesso (soft delete, com rastreabilidade) |
+| GET | `/api/clientes` | cookie | Lista clientes (Admin: todos; comum: só os dos casos autorizados) |
+| POST | `/api/clientes` | **Admin** + CSRF | Cadastra cliente (PF/PJ, CPF/CNPJ validado) |
+| GET | `/api/clientes/{id}` | cookie | Detalhe do cliente (`404` se fora do escopo) |
 
 Documentação interativa: **http://127.0.0.1:8000/docs**
 
@@ -56,11 +70,15 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 
 > **AppLocker bloqueia `alembic.exe`?** Use o comando do passo 4 (`python -c ...`) como alternativa.
 
-### Credenciais do seed
+### Credenciais do seed (advogado principal)
 
 O `python -m app.seed` **nao usa senha fixa no codigo**: se voce nao definir
 `ADMIN_SENHA_INICIAL` no `.env`, ele gera uma senha aleatoria forte e imprime
 uma unica vez no terminal (anote-a). Troque a senha apos o primeiro login.
+
+A conta administrativa (`ADMIN_EMAIL`, padrao `admin@jadilson.adv`) e o **unico
+ponto de provisionamento** da permissao `administrador` — nenhum cadastro ou
+login permite que alguem escolha ser administrador.
 
 ```
 e-mail: admin@jadilson.adv
@@ -85,7 +103,9 @@ Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/api/auth/login `
 - Resposta **genérica** em login inválido, com **tempo equalizado** (bcrypt roda mesmo com e-mail inexistente → impede enumeração por timing)
 - Usuário inativo bloqueado com 403
 - Headers `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy` (e `Strict-Transport-Security` quando `AUTH_COOKIE_SECURE=true`)
-- Permissões **sempre no servidor**: `require_admin` protege rotas Admin (RF02/RF07/RF08)
+- Permissões **sempre no servidor**: `require_admin` protege rotas Admin (RF02/RF07/RF08) e a autorização por caso é decidida em `app/repositories/escopo.py` — esconder botão no frontend não conta como controle de acesso
+- **Escalada de privilégio impedida**: `administrador` não é aceito em nenhum payload (`extra="forbid"`) e `UsuarioUpdate` só aceita `ativo`/`perfil`; a permissao nasce apenas no provisionamento (`ADMIN_EMAIL`/seed)
+- **404 em vez de 403** para casos/clientes fora do escopo: um usuário não descobre a existência de registros de outros advogados trocando o id da URL
 - CORS liberado apenas para as origens configuradas (`CORS_ORIGINS`) com `allow_credentials`; as respostas de erro do CSRF também recebem os headers CORS
 - **Fail-fast em produção** (`APP_ENV=production`): a API aborta o startup se o `JWT_SECRET` for fraco/default, se o cookie não for `Secure` ou se houver curinga no CORS; `/docs` e `/openapi.json` ficam desativados
 
@@ -93,32 +113,74 @@ Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/api/auth/login `
 
 ```powershell
 python -m pip install -r requirements-dev.txt
-python -m pytest          # 73 testes (unit + API) — rodam em SQLite em memoria
+python -m pytest          # 198 testes (unit + API + Fase 1 + Fase 2 + migrations) — rodam em SQLite em memoria
 ```
 
 - `tests/test_unit.py`: bcrypt, JWT (assinatura falsa/expirada), `Limiter`, services
 - `tests/test_api.py`: login, cookie HttpOnly, CSRF, rate limit, `/me`, logout, autorização Admin
+- `tests/test_fase1.py`: usuários, clientes (CPF/CNPJ) e permissões por caso (status HTTP reais)
+- `tests/test_fase2.py`: casos — criação, filtros/paginação, atualização, arquivamento e histórico (52 testes)
+- `tests/test_validacao.py`: CPF/CNPJ/telefone (unidade)
+- `tests/test_migracoes.py`: upgrade/downgrade das migrations 0003 e 0004 em subprocesso (banco descartável)
 - As fixtures (`tests/conftest.py`) sobrepõem `get_db` com SQLite em memoria — **nenhum teste toca no MySQL**
 
 ## Banco de dados
 
-Tabela `usuario` (DER: USUARIO): `id, nome, email (unique), senha_hash, perfil (ADMIN|PADRAO), ativo, criado_em`.
+Tabelas: `usuarios` (`id, nome, email unique, senha_hash, perfil ADVOGADO|FUNCIONARIO, administrador, ativo, criado_em, atualizado_em`), `clientes` (`id, nome, cpf_cnpj unique (anulavel), email, telefone, data_nascimento, ativo, ...`), `usuario_casos` (`usuario_id + caso_id unique, pode_visualizar, pode_registrar_andamento, pode_gerenciar_prazos, ativo, concedido_por/em, revogado_por/em`), `casos` (Fase 2: `titulo, numero_processo anulavel unique, cliente_id FK, area, tipo_demanda, status, prioridade, data_abertura, responsavel_id FK, observacoes, arquivado/por/em, criado_por FK, atualizado_em, ...`), `caso_historicos` (auditoria imutavel: `caso_id FK, usuario_id FK, operacao, dados JSON, criado_em`), `andamentos` e `prazos`.
 
 - **Produção/desenvolvimento:** MySQL (InnoDB, utf8mb4) via `DATABASE_URL` no `.env`
 - **Teste local sem MySQL:** `$env:DATABASE_URL="sqlite:///./dev.db"`
 - Migrações com **Alembic** (`alembic/versions/`) — nunca alterar tabela na mão
 
+## Fase 1 - Cadastros e controle de acesso
+
+A migration `0003_fase1_cadastros` (ver `docs/FASE1_CADASTROS.md`) evolui o `usuarios`
+e cria `clientes` e `usuario_casos`:
+
+- **Advogado principal** = conta `ADVOGADO` com a permissao `administrador` (provisionada
+  pelo `ADMIN_EMAIL`/seed, nunca escolhida em cadastro ou login).
+- **Visibilidade por caso**: colaborador e funcionário veem apenas os casos com concessao
+  ativa em `usuario_casos` — e os clientes/prazos desses casos.
+- **Revogação com rastreabilidade**: `DELETE /api/casos/{id}/usuarios/{usuario_id}` faz soft
+  delete (`ativo=False` + `revogado_por/em`); re-conceder reativa a mesma linha (UNIQUE).
+- **CPF/CNPJ validado** (dígitos verificadores, PF e PJ) com unicidade apenas para
+  documentos presentes (ausente = NULL, permitido).
+
+## Fase 2 - Gerenciamento de casos juridicos
+
+A migration `0004_casos_gestao` (ver `docs/FASE2_GERENCIAMENTO_CASOS.md`) evolui `casos`
+e cria a auditoria `caso_historicos`:
+
+- **Caso nao e processo judicial**: `numero_processo` e opcional (demandas
+  administrativas/extrajudiciais nao tem numero); o UNIQUE permanece e ignora NULL.
+- **Criacao/editacao sao de advogado**: `POST /api/casos` e `PATCH /api/casos/{id}`
+  exigem perfil `ADVOGADO` (funcionario → 403); a edicao e de **admin ou do responsavel**
+  pelo caso.
+- **Cliente acessivel**: a criacao/troca de cliente valida o escopo da Fase 1
+  (admin: qualquer cliente ativo; comum: cliente dos casos autorizados → 404 fora do escopo).
+- **Responsavel validado**: usuario ativo com perfil `ADVOGADO`; comum so pode assumir a
+  propria responsabilidade (atribuir terceiros e do admin); criacao/troca garantem o
+  acesso do responsavel e do criador (`concedido_por` = operador).
+- **Arquivamento logico** (admin): `arquivado/por/em`, fora das listagens padrao,
+  consultavel por `/arquivados` e por detalhe; sem exclusao fisica (prazos, andamentos e
+  acessos preservados); repetido → 409.
+- **Auditoria imutavel**: `GET /api/casos/{id}/historico` (CRIACAO/ATUALIZACAO/ARQUIVAMENTO
+  com antes/depois por campo); nao ha endpoint de escrita.
+
 ## Próximos passos (fases)
 
-1. Tabelas `caso`, `caso_usuario`, `andamento`, `prazo` + escopo de visibilidade (Strategy: Admin vê tudo / Padrão vê os atribuídos)
-2. Filtros de busca (RF09)
-3. Agenda de prazos (RF10/RF11)
-4. Módulo MinutaIA (Port/Adapter com mock)
+1. ~~Tabelas `caso`, `caso_usuario`, `andamento`, `prazo` + escopo de visibilidade~~ ✅ Fase 1
+2. ~~Edição de casos, vínculo cliente↔caso e arquivamento~~ ✅ Fase 2
+3. Andamentos e documentos por caso (respeitando o mesmo escopo)
+4. Prazos completos e agenda (RF10/RF11)
+5. Tarefas
+6. Módulo MinutaIA (Port/Adapter com mock)
+
 ## Casos e prazos
 
 A migração Alembic `0002_casos_prazos` cria as tabelas `casos`, `andamentos` e `prazos` sem alterar as tabelas existentes. Após `alembic upgrade head`, execute `python -m app.seed` para carregar seis processos e quatro prazos fictícios; o seed pode ser repetido sem duplicar os registros demonstrativos.
 
-- `GET /api/casos?q=&status=&pagina=1&limite=20`: busca por número do processo, cliente ou parte contrária, com filtros e paginação.
+- `GET /api/casos?q=&status=&area=&prioridade=&tipo_demanda=&responsavel_id=&cliente_id=&ordenar=&pagina=1&limite=20`: busca por título, número do processo, cliente ou parte contrária, com filtros, ordenação (abertura/prioridade) e paginação no banco.
 - `GET /api/prazos/urgentes?dias=7&pagina=1&limite=20`: prazos em aberto vencidos ou com vencimento no intervalo informado.
 
 As duas rotas exigem sessão autenticada. O limite máximo da página é 100 itens.

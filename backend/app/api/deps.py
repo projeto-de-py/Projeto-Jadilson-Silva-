@@ -8,14 +8,71 @@ from app.core import security
 from app.core.revogados import TokenRevogados
 from app.database import get_db
 from app.models.usuario import Perfil, Usuario
+from app.repositories.caso_historico_repository import CasoHistoricoRepository
+from app.repositories.caso_repository import CasoRepository
+from app.repositories.cliente_repository import ClienteRepository
+from app.repositories.prazo_repository import PrazoRepository
+from app.repositories.usuario_caso_repository import UsuarioCasoRepository
 from app.repositories.usuario_repository import UsuarioRepository
+from app.services.caso_service import CasoService
+from app.services.permissao_service import PermissaoCasoService
 
 settings = get_settings()
 
 
+# ------------------------------------------------------------ repositories
+
 def get_usuario_repo(db: Session = Depends(get_db)) -> UsuarioRepository:
     return UsuarioRepository(db)
 
+
+def get_caso_repo(db: Session = Depends(get_db)) -> CasoRepository:
+    return CasoRepository(db)
+
+
+def get_caso_historico_repo(db: Session = Depends(get_db)) -> CasoHistoricoRepository:
+    return CasoHistoricoRepository(db)
+
+
+def get_cliente_repo(db: Session = Depends(get_db)) -> ClienteRepository:
+    return ClienteRepository(db)
+
+
+def get_prazo_repo(db: Session = Depends(get_db)) -> PrazoRepository:
+    return PrazoRepository(db)
+
+
+def get_usuario_caso_repo(db: Session = Depends(get_db)) -> UsuarioCasoRepository:
+    return UsuarioCasoRepository(db)
+
+
+# --------------------------------------------------------------- services
+
+def get_permissao_service(
+    permissoes: UsuarioCasoRepository = Depends(get_usuario_caso_repo),
+    usuarios: UsuarioRepository = Depends(get_usuario_repo),
+    casos: CasoRepository = Depends(get_caso_repo),
+) -> PermissaoCasoService:
+    return PermissaoCasoService(permissoes=permissoes, usuarios=usuarios, casos=casos)
+
+
+def get_caso_service(
+    casos: CasoRepository = Depends(get_caso_repo),
+    historico: CasoHistoricoRepository = Depends(get_caso_historico_repo),
+    clientes: ClienteRepository = Depends(get_cliente_repo),
+    usuarios: UsuarioRepository = Depends(get_usuario_repo),
+    permissoes: UsuarioCasoRepository = Depends(get_usuario_caso_repo),
+) -> CasoService:
+    return CasoService(
+        casos=casos,
+        historico=historico,
+        clientes=clientes,
+        usuarios=usuarios,
+        permissoes=permissoes,
+    )
+
+
+# ------------------------------------------------------- autenticacao/autorizacao
 
 def _get_revogados(request: Request) -> TokenRevogados:
     return request.app.state.revogados
@@ -45,6 +102,9 @@ def get_current_user(
     O payload tambem e guardado em request.state para o handler de /me
     recuperar o claim `csrf` (o cookie e invisivel para o JavaScript) e para o
     logout recuperar `jti`/`exp` e revogar a sessao.
+
+    Usuario desativado tambem cai aqui (401): quem foi bloqueado pelo
+    advogado principal perde imediatamente o acesso a toda rota protegida.
     """
     if not token:
         raise HTTPException(
@@ -86,10 +146,28 @@ def get_current_user(
 
 
 def require_admin(usuario: Usuario = Depends(get_current_user)) -> Usuario:
-    """Bloqueia acesso de quem nao for Admin (RF02/RF07/RF08)."""
-    if usuario.perfil != Perfil.ADMIN.value:
+    """Bloqueia quem nao for advogado principal (RF02/RF07/RF08).
+
+    A condicao e a permissao administrativa da conta (`usuario.administrador`),
+    nao o perfil funcional - colaborador e funcionario nunca passam por aqui.
+    """
+    if not usuario.administrador:
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
-            "Acesso restrito ao advogado principal (Admin)",
+            "Acesso restrito ao advogado principal (administrador)",
+        )
+    return usuario
+
+
+def require_advogado(usuario: Usuario = Depends(get_current_user)) -> Usuario:
+    """Bloqueia funcionarios de operacoes que exigem formacao juridica.
+
+    Criar/editar caso e ato de advogado (Fase 2): o administrador tambem passa
+    por aqui, pois o perfil dele e ADVOGADO.
+    """
+    if usuario.perfil != Perfil.ADVOGADO.value:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Operacao restrita a advogados",
         )
     return usuario

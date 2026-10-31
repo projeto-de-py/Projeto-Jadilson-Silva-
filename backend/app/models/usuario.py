@@ -10,10 +10,14 @@ from app.database import Base
 
 
 class Perfil(str, enum.Enum):
-    """RF02: dois perfis de acesso."""
+    """Perfis funcionais (Fase 1).
 
-    ADMIN = "ADMIN"    # advogado principal (RF04, RF07, RF08)
-    PADRAO = "PADRAO"  # demais advogados/funcionarios (RF03)
+    O advogado principal NAO possui perfil proprio: e um ADVOGADO que tambem
+    detem a permissao administrativa adicional (`Usuario.administrador`).
+    """
+
+    ADVOGADO = "ADVOGADO"
+    FUNCIONARIO = "FUNCIONARIO"
 
 
 def utcnow() -> datetime:
@@ -29,14 +33,23 @@ class Usuario(Base):
     email: Mapped[str] = mapped_column(String(160), nullable=False, unique=True)
     senha_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     perfil: Mapped[str] = mapped_column(
-        String(10), nullable=False, default=Perfil.PADRAO.value
+        String(20), nullable=False, default=Perfil.ADVOGADO.value
     )
+    # Advogado principal: permissao administrativa adicional (RF02/RF04).
+    # Nunca vem de cadastro nem de atualizacao via API - so do provisionamento
+    # controlado (seed/admin_email), para impedir escalada de privilegios.
+    administrador: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     ativo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     criado_em: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utcnow)
+    atualizado_em: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, default=utcnow, onupdate=utcnow
+    )
 
     @property
     def is_admin(self) -> bool:
-        return self.perfil == Perfil.ADMIN.value
+        """True apenas para o advogado principal (conta provisionada)."""
+        return bool(self.administrador)
 
     def __repr__(self) -> str:
-        return f"<Usuario {self.id} {self.email} ({self.perfil})>"
+        sufixo = ", admin" if self.administrador else ""
+        return f"<Usuario {self.id} {self.email} ({self.perfil}{sufixo})>"
