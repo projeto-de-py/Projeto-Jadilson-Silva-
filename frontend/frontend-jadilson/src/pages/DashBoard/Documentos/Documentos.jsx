@@ -186,6 +186,7 @@ function ModalNovoDocumento({ open, onOpenChange, aoCriar }) {
     e.preventDefault();
     if (!modelo) return;
     aoCriar({
+      processoId: processo?.id,
       titulo: titulo.trim() || `${modelo.rotulo}${processo ? ` – ${processo.cliente}` : ""}`,
       area: modelo.area,
       tipo: modelo.rotulo,

@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.routes import auth, usuarios, casos, clientes, prazos
+from app.api.routes import assinaturas, auth, casos, clientes, consultas, financeiro, ia, prazos, usuarios, webhooks
 from app.config import get_settings, eh_producao, validar_configuracao_seguranca
 from app.core import security
 from app.core.ratelimit import Limiter
@@ -56,7 +56,9 @@ def create_app() -> FastAPI:
         """
         if request.method in _MUTANTES and request.url.path.startswith(
             settings.api_prefix
-        ) and request.url.path != f"{settings.api_prefix}/auth/login":
+        ) and request.url.path != f"{settings.api_prefix}/auth/login" and not request.url.path.startswith(
+            f"{settings.api_prefix}/v1/webhooks/"
+        ):
             token = request.cookies.get(settings.auth_cookie_name)
             payload = security.decodificar_token(token) if token else None
             if payload is None:
@@ -99,6 +101,12 @@ def create_app() -> FastAPI:
     app.include_router(casos.router, prefix=f"{prefix}/casos", tags=["casos"])
     app.include_router(clientes.router, prefix=f"{prefix}/clientes", tags=["clientes"])
     app.include_router(prazos.router, prefix=f"{prefix}/prazos", tags=["prazos"])
+    app.include_router(ia.router, prefix=f"{prefix}/ia", tags=["ia"])
+    app.include_router(consultas.router, prefix=f"{prefix}/consultas", tags=["consultas"])
+    app.include_router(assinaturas.router, prefix=f"{prefix}/assinaturas", tags=["assinaturas"])
+    app.include_router(financeiro.router, prefix=f"{prefix}/financeiro", tags=["financeiro"])
+    # Webhooks: sem sessao/CSRF (autenticados por segredo do provedor) - ver routes/webhooks.py
+    app.include_router(webhooks.router, prefix=f"{prefix}/v1/webhooks", tags=["webhooks"])
 
     @app.get("/health", tags=["status"])
     def health() -> dict:

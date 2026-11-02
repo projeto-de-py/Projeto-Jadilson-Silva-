@@ -24,8 +24,9 @@ function gravar(docs) {
 
 function exemplos() {
   const agora = Date.now();
-  const novo = (id, modelo, titulo, dados, atraso) => ({
+  const novo = (id, modelo, titulo, dados, atraso, processoId) => ({
     id,
+    processoId,
     titulo,
     area: modelo.area,
     tipo: modelo.rotulo,
@@ -35,9 +36,9 @@ function exemplos() {
   const m = (id) => MODELOS.find((x) => x.id === id);
   return [
     novo("doc-exemplo-1", m("revisional-contrato"), "Revisional – Maria da Conceição Silva",
-      { cliente: "Maria da Conceição Silva", numero: "0000001-12.2026.8.00.0100" }, 3600_000),
+      { cliente: "Maria da Conceição Silva", numero: "0000001-12.2026.8.00.0100" }, 3600_000, 1),
     novo("doc-exemplo-2", m("auxilio-incapacidade"), "Auxílio por incapacidade – Carlos Eduardo Lima",
-      { cliente: "Carlos Eduardo Lima", numero: "0000311-88.2026.8.00.0100" }, 86_400_000),
+      { cliente: "Carlos Eduardo Lima", numero: "0000311-88.2026.8.00.0100" }, 86_400_000, 5),
   ];
 }
 
@@ -110,4 +111,32 @@ export function exportarDocumentoPdf(titulo, html) {
     </body></html>`);
   janela.document.close();
   return true;
+}
+
+/**
+ * Gera o PDF do documento NO NAVEGADOR e devolve em base64 (sem o prefixo "data:").
+ * Usado para enviar à assinatura eletrônica. O PDF é de imagem (cada página é uma
+ * foto do texto): serve para assinar, mas o texto não é selecionável.
+ */
+export async function gerarPdfBase64(html) {
+  const { default: html2pdf } = await import("html2pdf.js");
+  const raiz = document.createElement("div");
+  raiz.style.cssText = "position:fixed;left:-10000px;top:0;background:#fff";
+  raiz.innerHTML = `<style>${ESTILO_DOCUMENTO} .doc { width: 160mm; }</style><div class="doc">${html}</div>`;
+  document.body.appendChild(raiz);
+  try {
+    const uri = await html2pdf()
+      .set({
+        margin: [30, 30, 20, 20], // topo, esquerda, base, direita (mm) = padrão do escritório
+        image: { type: "jpeg", quality: 0.92 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+        pagebreak: { mode: ["css", "legacy"] },
+      })
+      .from(raiz.lastElementChild)
+      .outputPdf("datauristring");
+    return uri.split(",")[1];
+  } finally {
+    raiz.remove();
+  }
 }

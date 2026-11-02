@@ -2,15 +2,10 @@ import { useCallback, useEffect, useState } from "react";
 import { api, setCsrfToken } from "@/api/client";
 import { AuthContext } from "@/context/auth-context";
 
-/**
- * Sessao gerenciada por cookie HttpOnly no servidor.
- * Nada de token no localStorage: no carregamento, /auth/me valida o cookie e
- * devolve o usuario + o token CSRF atual (para as proximas mutacoes).
- */
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [csrf, setCsrf] = useState(null);
-  // sempre comeca em true: precisa perguntar ao backend se ha sessao valida
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -24,7 +19,6 @@ export function AuthProvider({ children }) {
         setUser(data.usuario);
       })
       .catch(() => {
-        // sem cookie ou expirado -> apenas segue no login
         setCsrfToken(null);
         if (ativo) {
           setCsrf(null);

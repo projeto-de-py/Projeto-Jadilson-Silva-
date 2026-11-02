@@ -9,8 +9,18 @@ const FERIADOS = [
   "2026-11-15", "2026-11-20", "2026-12-25",
 ];
 
+// Feriados carregados do servidor (BrasilAPI). Somam-se à lista fixa acima, que continua
+// valendo como plano B quando o servidor não responde.
+const feriadosDoServidor = new Set();
+
+/** Registra feriados vindos da API: aceita [{ data: "2026-01-01" }, ...]. */
+export function definirFeriados(lista) {
+  lista.forEach((f) => feriadosDoServidor.add(f.data));
+}
+
 export function ehFeriado(data) {
-  return FERIADOS.includes(format(data, "yyyy-MM-dd"));
+  const iso = format(data, "yyyy-MM-dd");
+  return feriadosDoServidor.has(iso) || FERIADOS.includes(iso);
 }
 
 export function ehDiaUtil(data) {
@@ -35,24 +45,23 @@ export function somarPrazo(inicio, dias, uteis) {
   return { fim: atual, pulados };
 }
 
+// Situação do prazo em linguagem simples (substitui a antiga nota de risco).
+export function situacaoPrazo(dias) {
+  if (dias < 0) return { tom: "vencido", rotulo: "Vencido" };
+  if (dias === 0) return { tom: "hoje", rotulo: "Vence hoje" };
+  if (dias <= 3) return { tom: "atencao", rotulo: "Perto de vencer" };
+  return { tom: "ok", rotulo: "No prazo" };
+}
+
+export function textoDias(dias) {
+  if (dias < 0) return `Venceu há ${-dias} ${-dias === 1 ? "dia" : "dias"}`;
+  if (dias === 0) return "Vence hoje";
+  if (dias === 1) return "Falta 1 dia";
+  return `Faltam ${dias} dias`;
+}
+
 export function classificar(dias) {
-  if (dias < 0) return { tom: "vencido", rotulo: "Vencido", grupo: "vencidos" };
-  if (dias === 0) return { tom: "hoje", rotulo: "Vence hoje", grupo: "hoje" };
-  if (dias <= 3) return { tom: "atencao", rotulo: `Faltam ${dias} dias`, grupo: "proximos" };
-  return { tom: "ok", rotulo: `Faltam ${dias} dias`, grupo: "proximos" };
-}
-
-// Pontua o risco de cada prazo: peso por urgência, audiência e atraso.
-export function pontuarRisco(prazo) {
-  const d = prazo.diasRestantes;
-  let pontos = d < 0 ? 100 : d === 0 ? 90 : d <= 2 ? 70 : d <= 5 ? 45 : d <= 10 ? 20 : 8;
-  if (prazo.tipo === "Audiência") pontos += 5;
-  return Math.min(100, pontos);
-}
-
-export function nivelRisco(pontos) {
-  if (pontos >= 85) return { rotulo: "Crítico", tom: "vencido" };
-  if (pontos >= 60) return { rotulo: "Alto", tom: "hoje" };
-  if (pontos >= 35) return { rotulo: "Moderado", tom: "atencao" };
-  return { rotulo: "Baixo", tom: "ok" };
+  const situacao = situacaoPrazo(dias);
+  const grupo = dias < 0 ? "vencidos" : dias === 0 ? "hoje" : "proximos";
+  return { ...situacao, grupo, detalhe: textoDias(dias) };
 }

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { motion } from "motion/react";
 import { NavList, Sidebar } from "@/components/layout/Sidebar";
+import { SessaoContext } from "@/context/sessao";
 import { Topbar } from "@/components/layout/Topbar";
 import { Drawer } from "@/components/ui";
 import { tituloDaRota } from "@/app/navigation";
@@ -9,7 +10,7 @@ import { BuscaGlobal } from "@/components/layout/BuscaGlobal";
 import { ModalCalculadoraPrazos } from "@/components/modais/ModalCalculadoraPrazos";
 import { ModalConfirmacaoLogout } from "@/components/modais/ModalConfirmacaoLogout";
 
-export function DashboardLayout({ user, onLogout, loading, error }) {
+export function DashboardLayout({ user, csrf, onLogout, loading, error }) {
   const [menuAberto, setMenuAberto] = useState(false);
   const [modalLogoutAberto, setModalLogoutAberto] = useState(false);
   const [buscaAberta, setBuscaAberta] = useState(false);
@@ -62,7 +63,9 @@ export function DashboardLayout({ user, onLogout, loading, error }) {
               transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
               className="mx-auto w-full max-w-content px-6 py-8 lg:px-12 lg:py-12"
             >
-              <Outlet />
+              <SessaoContext.Provider value={{ csrf }}>
+                <Outlet />
+              </SessaoContext.Provider>
             </motion.main>
           </div>
         </div>

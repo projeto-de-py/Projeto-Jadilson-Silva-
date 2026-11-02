@@ -28,6 +28,8 @@ class Cliente(Base):
     telefone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     data_nascimento: Mapped[date | None] = mapped_column(Date, nullable=True)
     ativo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # Id do cliente no Asaas (preenchido na primeira cobranca; evita cadastro duplicado).
+    asaas_customer_id: Mapped[str | None] = mapped_column(String(40), nullable=True, unique=True)
     criado_em: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=utcnow)
     atualizado_em: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, default=utcnow, onupdate=utcnow

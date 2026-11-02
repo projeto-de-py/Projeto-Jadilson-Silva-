@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { IconFunction, IconCalendar, IconInfoCircle } from "symbols-react";
 import { Modal, Input, Field, Select, Badge } from "@/components/ui";
-import { HOJE, somarPrazo } from "@/lib/prazos";
+import { HOJE, definirFeriados, somarPrazo } from "@/lib/prazos";
+import { consultas } from "@/lib/consultas";
 
 const PRAZOS_COMUNS = [
   { rotulo: "Contestação (15)", dias: 15 },
@@ -17,12 +18,28 @@ export function ModalCalculadoraPrazos({ open, onOpenChange }) {
   const [inicio, setInicio] = useState(format(HOJE, "yyyy-MM-dd"));
   const [dias, setDias] = useState(15);
   const [contagem, setContagem] = useState("uteis");
+  const [origemFeriados, setOrigemFeriados] = useState("local"); // "servidor" quando a BrasilAPI respondeu
 
-  const resultado = useMemo(() => {
-    const n = Number(dias);
-    if (!inicio || !Number.isFinite(n) || n < 1) return null;
-    return somarPrazo(parseISO(inicio), n, contagem === "uteis");
-  }, [inicio, dias, contagem]);
+  // Ao abrir, busca os feriados nacionais (3 anos) no servidor; se falhar, vale a lista fixa.
+  useEffect(() => {
+    if (!open) return undefined;
+    let ativo = true;
+    consultas
+      .feriados(HOJE.getFullYear(), 3)
+      .then((lista) => {
+        if (!ativo) return;
+        definirFeriados(lista);
+        setOrigemFeriados("servidor"); // o novo estado re-renderiza e a conta usa os feriados novos
+      })
+      .catch(() => ativo && setOrigemFeriados("local"));
+    return () => {
+      ativo = false;
+    };
+  }, [open]);
+
+  // Conta barata: recalcula a cada render (inclusive quando chegam os feriados do servidor).
+  const n = Number(dias);
+  const resultado = !inicio || !Number.isFinite(n) || n < 1 ? null : somarPrazo(parseISO(inicio), n, contagem === "uteis");
 
   return (
     <Modal
@@ -87,7 +104,7 @@ export function ModalCalculadoraPrazos({ open, onOpenChange }) {
 
         <p className="flex items-start gap-2 text-12 text-ink-muted">
           <IconInfoCircle className="mt-0.5 size-3.5 shrink-0" fill="currentColor" />
-          Considera feriados nacionais de 2026. Confira feriados locais e suspensões de prazo no tribunal.
+          {origemFeriados === "servidor" ? "Feriados nacionais atualizados pela BrasilAPI." : "Feriados nacionais de 2026 (lista local)."} Confira feriados locais e suspensões de prazo no tribunal.
         </p>
       </div>
     </Modal>

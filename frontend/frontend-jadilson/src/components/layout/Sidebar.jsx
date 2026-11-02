@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from "motion/react";
 import {
   IconChevronDown,
   IconChevronUpChevronDown,
-  IconSparkles,
   IconQuestionmarkCircle,
   IconDocument,
 } from "symbols-react";
@@ -189,19 +188,6 @@ export function Sidebar({ aoNavegar, indicador, user, onLogout, loading }) {
       </div>
 
       <div className="border-border space-y-4 border-t p-4">
-        <div className="border-border bg-surface-muted/40 space-y-2 rounded-card border p-4">
-          <p className="text-ink-muted/80 flex items-center gap-2 text-11 font-semibold tracking-wide uppercase">
-            <IconSparkles fill="currentColor" className="size-3" />
-            Novidades
-          </p>
-          <p className="text-13 font-medium text-ink leading-snug">
-            Redator IA e exportação em PDF chegaram aos processos.
-          </p>
-          <NavLink to="/processos" className="text-primary hover:text-primary-hover text-12 font-medium">
-            Experimentar
-          </NavLink>
-        </div>
-
         <div className="space-y-0.5">
           <button
             type="button"

@@ -10,20 +10,12 @@ import {
   IconCheckmarkCircle,
   IconCheckmarkCircleFill,
   IconFunction,
-  IconFlameFill,
 } from "symbols-react";
 import { Card, Badge, Button, Input, Select, EmptyState } from "@/components/ui";
 import { ModalCalculadoraPrazos } from "@/components/modais/ModalCalculadoraPrazos";
 import { PRAZOS } from "@/data/escritorio";
-import { classificar, nivelRisco, pontuarRisco } from "@/lib/prazos";
+import { classificar } from "@/lib/prazos";
 import { cn } from "@/lib/cn";
-
-const BARRA_RISCO = {
-  vencido: "bg-status-vencido",
-  hoje: "bg-status-hoje",
-  atencao: "bg-status-atencao",
-  ok: "bg-status-ok",
-};
 
 function formatarData(iso) {
   return new Date(iso).toLocaleString("pt-BR", {
@@ -81,7 +73,7 @@ export function Prazos() {
         <div>
           <h2 className="font-heading text-24 font-bold tracking-tight text-ink">Central de Prazos</h2>
           <p className="text-14 text-ink-muted">
-            Prazos e audiências ordenados por urgência, com pontuação de risco.
+            Prazos e audiências ordenados por urgência: vencidos, perto de vencer e no prazo.
           </p>
         </div>
         <Button variant="primary" onClick={() => setCalcAberta(true)} className="gap-2 shrink-0">
@@ -193,8 +185,6 @@ export function Prazos() {
 }
 
 function LinhaPrazo({ prazo, barra, cumprido = false, aoAlternar }) {
-  const pontos = pontuarRisco(prazo);
-  const nivel = nivelRisco(pontos);
   return (
     <motion.div
       layout
@@ -230,25 +220,10 @@ function LinhaPrazo({ prazo, barra, cumprido = false, aoAlternar }) {
           </p>
         </div>
 
-        {!cumprido && (
-          <div className="hidden w-28 shrink-0 md:block">
-            <div className="flex items-center justify-between text-11 text-ink-muted">
-              <span className="inline-flex items-center gap-1">
-                <IconFlameFill className="size-3" fill="currentColor" />
-                Risco
-              </span>
-              <span className="tabular-nums">{pontos}</span>
-            </div>
-            <div className="bg-surface-muted mt-1 h-1.5 overflow-hidden rounded-badge">
-              <div className={cn("h-full rounded-badge", BARRA_RISCO[nivel.tom])} style={{ width: `${pontos}%` }} />
-            </div>
-            <p className="text-11 text-ink-muted mt-1">{nivel.rotulo}</p>
-          </div>
-        )}
-
         <div className="flex shrink-0 items-center justify-between gap-1 sm:flex-col sm:items-end sm:justify-center">
           <Badge tone={cumprido ? "cumprido" : prazo.tom}>{cumprido ? "Cumprido" : prazo.rotulo}</Badge>
           <span className="text-12 font-medium text-ink-muted tabular-nums">{formatarData(prazo.dataLimite)}</span>
+          {!cumprido && <span className="text-11 text-ink-muted">{prazo.detalhe}</span>}
         </div>
       </Card>
     </motion.div>

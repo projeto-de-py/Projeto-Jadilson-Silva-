@@ -7,6 +7,10 @@ from app.models.caso import Caso
 from app.models.caso_historico import CasoHistorico
 from app.models.andamento import Andamento
 from app.models.prazo import Prazo
+from app.models.uso_ia import UsoIA
+from app.models.assinatura import Assinatura
+from app.models.cobranca import Cobranca
+from app.models.evento_webhook import EventoWebhook
 
 __all__ = [
     "Perfil",
@@ -17,4 +21,8 @@ __all__ = [
     "CasoHistorico",
     "Andamento",
     "Prazo",
+    "UsoIA",
+    "Assinatura",
+    "Cobranca",
+    "EventoWebhook",
 ]

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link, Navigate, useParams } from "react-router-dom";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -27,10 +28,17 @@ import {
   IconChevronLeft,
   IconArrowDownDocument,
   IconCheckmark,
-  IconWandAndSparkles,
+  IconSquareAndArrowUp,
 } from "symbols-react";
-import { Button, Select, Badge } from "@/components/ui";
-import { ModalRedatorIA } from "@/components/modais/ModalRedatorIA";
+import { Button, Select, Badge, useToast } from "@/components/ui";
+import { CaixaIA } from "@/components/ia/CaixaIA";
+import { CartaoSugestao } from "@/components/ia/CartaoSugestao";
+import { ModalAssinatura } from "@/components/financeiro/ModalAssinatura";
+import { ModalCompararJuros } from "@/components/consultas/ModalCompararJuros";
+import { SugestoesIA, TextoFantasma, adicionarBlocos, definirFantasma, posicaoDoBloco, posicaoDoBlocoSalvo, removerBloco } from "@/components/ia/extensoes";
+import { completarTexto } from "@/lib/ia";
+import { useSessao } from "@/context/sessao";
+import { LogoIA } from "@/components/ia/LogoIA";
 import { PROCESSOS_INICIAIS } from "@/data/escritorio";
 import { AREAS_DOC } from "@/data/modelos";
 import { ESTILO_DOCUMENTO, PADRAO_PAGINA, exportarDocumentoPdf, useDocumentos } from "@/lib/documentos";
@@ -45,24 +53,6 @@ const FONTES = [
 const TAMANHOS = [10, 11, 12, 13, 14, 16, 18, 20, 24];
 const ENTRELINHAS = ["1", "1.15", "1.5", "2"];
 const ZOOMS = [75, 100, 125];
-// Converte o texto da IA em parágrafos; linhas como "I – DOS FATOS" viram seções.
-function textoParaHtml(texto) {
-  const escapar = (t) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  return texto
-    .split(/\n{2,}/)
-    .map((bloco) => bloco.trim())
-    .filter(Boolean)
-    .map((bloco) => {
-      const [primeira, ...resto] = bloco.split("\n");
-      if (/^[IVX]+\s+[–-]\s+/.test(primeira)) {
-        const corpo = resto.length ? `<p>${escapar(resto.join(" "))}</p>` : "";
-        return `<h2>${escapar(primeira)}</h2>${corpo}`;
-      }
-      return `<p>${escapar(bloco).replace(/\n/g, "<br>")}</p>`;
-    })
-    .join("");
-}
-
 const PAGINA_PX = 1122.5; // 297 mm a 96 dpi
 
 function Botao({ ativo, aoClicar, rotulo, children, disabled }) {
@@ -87,7 +77,7 @@ function Botao({ ativo, aoClicar, rotulo, children, disabled }) {
 
 const Divisor = () => <span aria-hidden="true" className="bg-border mx-1 h-5 w-px shrink-0" />;
 
-const seletor = "border-border bg-surface text-ink focus-visible:ring-ring h-8 rounded-[8px] border px-2 text-13 focus-visible:ring-2 focus-visible:outline-none";
+const seletor = "h-8 rounded-[8px] px-3 text-13";
 
 export function EditorDocumento() {
   const { id } = useParams();
@@ -102,10 +92,36 @@ function Editor({ doc, atualizar }) {
   const [salvo, setSalvo] = useState(true);
   const [zoom, setZoom] = useState(100);
   const [paginas, setPaginas] = useState(1);
-  const [processoId, setProcessoId] = useState("");
+  const { toast } = useToast();
+  const { csrf } = useSessao();
+  const [processoId, setProcessoId] = useState(doc.processoId ? String(doc.processoId) : "");
+  const [sugestoes, setSugestoes] = useState([]);
   const [iaAberta, setIaAberta] = useState(false);
+  const [assinaturaAberta, setAssinaturaAberta] = useState(false);
+  const [jurosAberto, setJurosAberto] = useState(false);
+  const [iaOcupada, setIaOcupada] = useState(false); // o autocompletar não conseguiu resposta da IA
+  const [alvos, setAlvos] = useState({}); // id da sugestão -> elemento onde o cartão é desenhado
+  const [autoCompletar, setAutoCompletar] = useState(() => {
+    try {
+      return localStorage.getItem("autocompletar-ia") !== "desligado";
+    } catch {
+      return true;
+    }
+  });
   const folha = useRef(null);
   const timer = useRef(null);
+
+  const registrarAlvo = useCallback((id, el) => {
+    setAlvos((atual) => {
+      if (!el) {
+        if (!(id in atual)) return atual;
+        const resto = { ...atual };
+        delete resto[id];
+        return resto;
+      }
+      return atual[id] === el ? atual : { ...atual, [id]: el };
+    });
+  }, []);
 
   const editor = useEditor({
     extensions: [
@@ -119,6 +135,8 @@ function Editor({ doc, atualizar }) {
       TableCell,
       CharacterCount,
       Placeholder.configure({ placeholder: "Comece a escrever a peça…" }),
+      SugestoesIA.configure({ aoRegistrar: registrarAlvo }),
+      TextoFantasma,
     ],
     content: doc.html,
     shouldRerenderOnTransaction: true,
@@ -134,6 +152,58 @@ function Editor({ doc, atualizar }) {
   });
 
   useEffect(() => () => clearTimeout(timer.current), []);
+
+  // Autocompletar: ao parar de digitar no fim de um parágrafo, pede a continuação.
+  useEffect(() => {
+    if (!editor || !autoCompletar) return undefined;
+    let temporizador;
+    let pedido = 0;
+    let controle = null;
+    const aoEditar = () => {
+      clearTimeout(temporizador);
+      controle?.abort(); // qualquer tecla cancela o pedido anterior
+      pedido += 1;
+      const meu = pedido;
+      temporizador = setTimeout(async () => {
+        const { state } = editor;
+        const { $from, empty } = state.selection;
+        if (!empty || !$from.parent.isTextblock || $from.parentOffset !== $from.parent.content.size) return;
+        const textoAntes = $from.parent.textContent;
+        if (textoAntes.trim().length < 12) return;
+        const docNoPedido = state.doc;
+        controle = new AbortController();
+        let continuacao = null;
+        try {
+          continuacao = await completarTexto({ textoAntes, area: doc.area, csrf, sinal: controle.signal });
+          if (meu === pedido) setIaOcupada(false);
+        } catch {
+          if (meu === pedido) setIaOcupada(true);
+        }
+        // Só mostra se nada mudou enquanto a resposta chegava e o cursor ainda está no editor.
+        if (continuacao && meu === pedido && editor.state.doc === docNoPedido && document.activeElement === editor.view.dom) {
+          definirFantasma(editor, { texto: continuacao, pos: editor.state.selection.to });
+        }
+      }, 800);
+    };
+    editor.on("update", aoEditar);
+    return () => {
+      editor.off("update", aoEditar);
+      clearTimeout(temporizador);
+      controle?.abort();
+      pedido += 1;
+    };
+  }, [editor, autoCompletar, doc.area, csrf]);
+
+  function alternarAutoCompletar() {
+    const novo = !autoCompletar;
+    setAutoCompletar(novo);
+    if (!novo && editor) definirFantasma(editor, null);
+    try {
+      localStorage.setItem("autocompletar-ia", novo ? "ligado" : "desligado");
+    } catch {
+      /* sem persistência */
+    }
+  }
 
   // Páginas estimadas a partir da altura real da folha.
   useEffect(() => {
@@ -168,6 +238,33 @@ function Editor({ doc, atualizar }) {
   editor.state.doc.descendants((no, pos) => {
     if (no.type.name === "heading") titulos.push({ nivel: no.attrs.level, texto: no.textContent, pos });
   });
+
+  function receberSugestoes(resultado) {
+    const lista = resultado.sugestoes;
+    if (resultado.avisos?.length) {
+      toast({ tipo: "info", titulo: "Atenção", descricao: resultado.avisos.join(" ") });
+    }
+    if (lista.length === 0) {
+      toast({ tipo: "info", titulo: "Nenhuma sugestão", descricao: "A IA não encontrou nada a acrescentar neste texto." });
+      return;
+    }
+    const pos = posicaoDoBloco(editor.state);
+    setSugestoes((atual) => [...atual, ...lista]);
+    adicionarBlocos(editor, lista.map((s) => ({ id: s.id, pos })));
+    toast({ tipo: "sucesso", titulo: `${lista.length} ${lista.length === 1 ? "sugestão pronta" : "sugestões prontas"}`, descricao: "Estão no texto, logo abaixo do parágrafo." });
+  }
+
+  function ignorarSugestao(sug) {
+    removerBloco(editor, sug.id);
+    setSugestoes((atual) => atual.filter((x) => x.id !== sug.id));
+  }
+
+  function adicionarSugestao(sug) {
+    const pos = posicaoDoBlocoSalvo(editor, sug.id);
+    removerBloco(editor, sug.id);
+    setSugestoes((atual) => atual.filter((x) => x.id !== sug.id));
+    if (pos !== null) editor.chain().focus().insertContentAt(pos, sug.html).run();
+  }
 
   function salvarTitulo(valor) {
     setTitulo(valor);
@@ -204,8 +301,13 @@ function Editor({ doc, atualizar }) {
           </div>
         </div>
         <Button variant="secondary" className="gap-2" onClick={() => setIaAberta(true)}>
-          <IconWandAndSparkles className="size-4 text-accent" fill="currentColor" />
-          Redigir com IA
+          <LogoIA tamanho={20} />
+          Perguntar à IA
+          {sugestoes.length > 0 && <span className="bg-primary text-primary-foreground text-11 flex size-5 items-center justify-center rounded-full tabular-nums">{sugestoes.length}</span>}
+        </Button>
+        <Button variant="secondary" className="gap-2" onClick={() => setAssinaturaAberta(true)}>
+          <IconSquareAndArrowUp className="size-4" fill="currentColor" />
+          Enviar para assinatura
         </Button>
         <Button variant="primary" className="gap-2" onClick={() => exportarDocumentoPdf(titulo, editor.getHTML())}>
           <IconArrowDownDocument className="size-4" fill="currentColor" />
@@ -220,7 +322,7 @@ function Editor({ doc, atualizar }) {
           <Botao rotulo="Refazer" aoClicar={() => cmd().redo().run()} disabled={!editor.can().redo()}><IconArrowUturnForward className="size-4" fill="currentColor" /></Botao>
           <Divisor />
 
-          <select
+          <Select
             aria-label="Estilo do parágrafo"
             className={cn(seletor, "w-32")}
             value={blocoAtual}
@@ -234,8 +336,8 @@ function Editor({ doc, atualizar }) {
             <option value="h1">Título</option>
             <option value="h2">Seção</option>
             <option value="h3">Subseção</option>
-          </select>
-          <select
+          </Select>
+          <Select
             aria-label="Fonte"
             className={cn(seletor, "w-40")}
             value={fonteAtual}
@@ -243,8 +345,8 @@ function Editor({ doc, atualizar }) {
           >
             <option value="">Padrão (Times New Roman)</option>
             {FONTES.map((f) => <option key={f.rotulo} value={f.valor}>{f.rotulo}</option>)}
-          </select>
-          <select
+          </Select>
+          <Select
             aria-label="Tamanho da fonte"
             className={cn(seletor, "w-16")}
             value={tamanhoAtual}
@@ -252,7 +354,7 @@ function Editor({ doc, atualizar }) {
           >
             <option value="">12</option>
             {TAMANHOS.filter((t) => t !== 12).map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
+          </Select>
           <Divisor />
 
           <Botao rotulo="Negrito" ativo={editor.isActive("bold")} aoClicar={() => cmd().toggleBold().run()}><IconBold className="size-4" fill="currentColor" /></Botao>
@@ -271,7 +373,7 @@ function Editor({ doc, atualizar }) {
           <Botao rotulo="Centralizar" ativo={editor.isActive({ textAlign: "center" })} aoClicar={() => cmd().setTextAlign("center").run()}><IconTextAligncenter className="size-4" fill="currentColor" /></Botao>
           <Botao rotulo="Alinhar à direita" ativo={editor.isActive({ textAlign: "right" })} aoClicar={() => cmd().setTextAlign("right").run()}><IconTextAlignright className="size-4" fill="currentColor" /></Botao>
           <Botao rotulo="Justificar" ativo={editor.isActive({ textAlign: "justify" })} aoClicar={() => cmd().setTextAlign("justify").run()}><IconTextJustify className="size-4" fill="currentColor" /></Botao>
-          <select
+          <Select
             aria-label="Entrelinhas"
             className={cn(seletor, "w-20")}
             value={estilo.lineHeight ?? ""}
@@ -279,7 +381,7 @@ function Editor({ doc, atualizar }) {
           >
             <option value="">1,5</option>
             {ENTRELINHAS.filter((l) => l !== "1.5").map((l) => <option key={l} value={l}>{l.replace(".", ",")}</option>)}
-          </select>
+          </Select>
           <Divisor />
 
           <Botao rotulo="Lista com marcadores" ativo={editor.isActive("bulletList")} aoClicar={() => cmd().toggleBulletList().run()}><IconListBullet className="size-4" fill="currentColor" /></Botao>
@@ -299,14 +401,11 @@ function Editor({ doc, atualizar }) {
           {/* Mesa de trabalho com a folha A4 */}
           <div className="bg-surface-muted max-h-[calc(100vh-18rem)] min-h-[520px] overflow-auto p-6">
             <div className="mx-auto w-max" style={{ zoom: zoom / 100 }}>
-              <div
-                ref={folha}
-                className="folha-a4"
-                style={{ padding: PADRAO_PAGINA.margens }}
-              >
+              <div ref={folha} className="folha-a4" style={{ padding: PADRAO_PAGINA.margens }}>
                 <EditorContent editor={editor} />
               </div>
             </div>
+            {sugestoes.map((s) => (alvos[s.id] ? createPortal(<CartaoSugestao key={s.id} sugestao={s} aoAdicionar={adicionarSugestao} aoIgnorar={ignorarSugestao} />, alvos[s.id]) : null))}
           </div>
 
           {/* Painel lateral */}
@@ -359,6 +458,14 @@ function Editor({ doc, atualizar }) {
               )}
             </section>
 
+            <section className="space-y-2">
+              <h3 className="text-13 text-ink font-semibold">Ferramentas</h3>
+              <Button variant="secondary" className="w-full" onClick={() => setJurosAberto(true)}>
+                Comparar juros (Banco Central)
+              </Button>
+              <p className="text-12 text-ink-muted">Compara a taxa do contrato com a média de mercado do mês e insere o parágrafo na peça.</p>
+            </section>
+
             <section className="space-y-1">
               <h3 className="text-13 text-ink font-semibold">Padrão de formatação</h3>
               <p className="text-12 text-ink-muted">{PADRAO_PAGINA.nome}</p>
@@ -372,6 +479,15 @@ function Editor({ doc, atualizar }) {
           <span>{paginas} {paginas === 1 ? "página" : "páginas"} (A4)</span>
           <span>{editor.storage.characterCount.words()} palavras</span>
           <span>{editor.storage.characterCount.characters()} caracteres</span>
+          <button type="button" role="switch" aria-checked={autoCompletar} onClick={alternarAutoCompletar} className="hover:text-ink flex items-center gap-2 transition-colors">
+            <span className={cn("size-2 rounded-full", autoCompletar ? "bg-status-ok" : "bg-ink-muted")} />
+            Autocompletar da IA {autoCompletar ? "ligado" : "desligado"}
+          </button>
+          {autoCompletar && iaOcupada && (
+            <span role="status" className="text-status-atencao-ink">
+              IA sem resposta agora (limite do modelo gratuito). Tente de novo em instantes.
+            </span>
+          )}
           <div className="ml-auto flex items-center gap-1" role="group" aria-label="Zoom">
             {ZOOMS.map((z) => (
               <button key={z} type="button" aria-pressed={zoom === z} onClick={() => setZoom(z)} className={cn("h-6 rounded-[6px] px-2", zoom === z ? "bg-surface-muted text-ink" : "hover:text-ink")}>
@@ -382,11 +498,18 @@ function Editor({ doc, atualizar }) {
         </div>
       </div>
 
-      <ModalRedatorIA
+      <ModalCompararJuros open={jurosAberto} onOpenChange={setJurosAberto} aoInserir={(texto) => editor.chain().focus().insertContent(`<p>${texto.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</p>`).run()} />
+      <ModalAssinatura open={assinaturaAberta} onOpenChange={setAssinaturaAberta} tituloInicial={titulo} obterHtml={() => editor.getHTML()} />
+
+      <CaixaIA
         open={iaAberta}
         onOpenChange={setIaAberta}
-        processo={processo ?? null}
-        aoInserir={(texto) => editor.chain().focus().insertContent(textoParaHtml(texto)).run()}
+        processoId={processoId}
+        aoMudarProcesso={setProcessoId}
+        textoDocumento={editor.getText()}
+        area={doc.area}
+        tipoPeca={doc.tipo}
+        aoSugerir={receberSugestoes}
       />
 
       <style>{`
@@ -399,6 +522,30 @@ function Editor({ doc, atualizar }) {
         ${ESTILO_DOCUMENTO}
         .folha-a4 .ProseMirror table { table-layout: fixed; }
         .folha-a4 .ProseMirror .selectedCell { background: #dbeafe; }
+        .folha-a4 .ghost-ia { color: #8d8d8d; }
+        .folha-a4 .ghost-ia kbd { margin-left: 6px; padding: 0 5px; border: 1px solid #cfcfcf; border-radius: 5px; font: 11px/16px system-ui, sans-serif; color: #6b6b6b; background: #f4f4f4; vertical-align: 1px; }
+        .folha-a4 .sug-bloco { margin: 10px 0 14px; text-indent: 0; text-align: left; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 13px; line-height: 1.45; }
+        .folha-a4 .sug-cartao { background: #f3faf5; border: 1px solid #bfe3c9; border-radius: 16px; padding: 16px; color: #14391f; }
+        .folha-a4 .sug-topo { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #4b6b55; font-weight: 500; }
+        .folha-a4 .sug-titulo { margin: 12px 0 4px; font-size: 14px; font-weight: 600; color: #0f2c18; text-transform: none; text-align: left; }
+        .folha-a4 .sug-previa { margin: 0; color: #4b6b55; text-indent: 0; }
+        .folha-a4 .sug-conteudo { margin-top: 12px; padding: 12px; background: #fff; border: 1px solid #cfe9d6; border-radius: 12px; color: #111; max-height: 240px; overflow: auto; }
+        .folha-a4 .sug-conteudo p, .folha-a4 .sug-conteudo h2 { text-indent: 0; margin: 0 0 8px; font-size: 13px; text-align: left; text-transform: none; }
+        .folha-a4 .sug-conteudo h2 { font-weight: 600; }
+        .folha-a4 .sug-rotulo { color: #2f7a47 !important; font-size: 11px !important; font-weight: 600; }
+        .folha-a4 .sug-acoes { display: flex; align-items: center; gap: 8px; margin-top: 16px; }
+        .folha-a4 .sug-botao { height: 36px; padding: 0 16px; border-radius: 10px; border: 1px solid #b9d9c2; background: #fff; color: #14391f; font-size: 13px; font-weight: 500; cursor: pointer; }
+        .folha-a4 .sug-botao:hover { background: #eef7f0; }
+        .folha-a4 .sug-primario { background: #111; border-color: #111; color: #fff; }
+        .folha-a4 .sug-primario:hover { background: #2a2a2a; }
+        .folha-a4 .sug-botao:disabled { opacity: .4; cursor: default; }
+        .folha-a4 .sug-selo { margin-left: auto; padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; background: #e4f2e8; color: #2f6b43; }
+        .folha-a4 .sug-selo.sug-atencao { background: #fdf0d2; color: #8a5a00; }
+        .folha-a4 .sug-selo.sug-critica { background: #fbdcdc; color: #9b1c1c; }
+        .folha-a4 .sug-trecho { margin: 10px 0 0; font-size: 12px; color: #4b6b55; font-style: italic; text-indent: 0; }
+        .folha-a4 .sug-motivo { margin: 6px 0 0; font-size: 13px; color: #14391f; text-indent: 0; }
+        .folha-a4 .sug-fonte { margin: 10px 0 0; font-size: 12px; font-weight: 600; color: #8a5a00; text-indent: 0; }
+        .folha-a4 .sug-link { margin-left: auto; background: none; border: 0; color: #4b6b55; font-size: 12px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
       `}</style>
     </div>
   );

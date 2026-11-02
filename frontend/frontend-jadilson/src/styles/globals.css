@@ -91,3 +91,32 @@
     border: 2px solid var(--color-bg);
   }
 }
+
+/* Texto "pensando" da IA: brilho que percorre as letras. */
+@keyframes shimmer-texto {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+.texto-shimmer {
+  background: linear-gradient(100deg, var(--color-ink-muted) 30%, var(--color-ink) 50%, var(--color-ink-muted) 70%) 200% 0 / 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer-texto 2.2s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .texto-shimmer { animation: none; color: var(--color-ink); background: none; }
+}
+
+/* Logo da IA: giro com origem fixa no centro do viewBox. */
+@keyframes giro-logo-ia {
+  to { transform: rotate(360deg); }
+}
+.logo-ia-giro {
+  transform-box: view-box;
+  transform-origin: 50% 50%;
+  animation: giro-logo-ia 28s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .logo-ia-giro { animation: none; }
+}

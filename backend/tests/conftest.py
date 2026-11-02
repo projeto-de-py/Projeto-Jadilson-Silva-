@@ -12,6 +12,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.config import get_settings
 from app.core.security import hash_senha
 from app.database import Base, get_db
 from app.main import create_app
@@ -44,6 +45,23 @@ FUNCIONARIO = {
     "perfil": Perfil.FUNCIONARIO.value,
     "administrador": False,
 }
+
+
+@pytest.fixture(autouse=True)
+def isolar_integracoes_externas(monkeypatch):
+    """Nenhum teste fala com a internet nem usa chave real do .env.
+
+    O .env de desenvolvimento pode ter IA_PROVEDOR=openrouter e chaves reais; aqui
+    tudo volta ao padrao seguro (IA simulada, sem chaves). Testes que precisam de
+    provedor ou chave definem o que querem com monkeypatch.
+    """
+    cfg = get_settings()
+    monkeypatch.setattr(cfg, "ia_provedor", "simulado")
+    for campo in (
+        "openrouter_api_key", "zapsign_api_token", "zapsign_webhook_secret",
+        "asaas_api_key", "asaas_webhook_token",
+    ):
+        monkeypatch.setattr(cfg, campo, None)
 
 
 @pytest.fixture()

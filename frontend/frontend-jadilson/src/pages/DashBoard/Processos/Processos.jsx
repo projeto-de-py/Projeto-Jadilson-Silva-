@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import {
   IconFolder,
@@ -6,7 +7,7 @@ import {
   IconMagnifyingglass,
   IconClockBadgeCheckmark,
   IconArrowDownDocument,
-  IconWandAndSparkles,
+  IconSquareAndPencil,
   IconListBullet,
   IconRectangle3Group,
   IconPerson,
@@ -14,8 +15,10 @@ import {
 } from "symbols-react";
 import { Card, Button, Badge, Input, Select, EmptyState, Drawer } from "@/components/ui";
 import { ModalCadastrarProcesso } from "@/components/modais/ModalCadastrarProcesso";
-import { ModalRedatorIA } from "@/components/modais/ModalRedatorIA";
+import { MODELOS, preencherModelo } from "@/data/modelos";
+import { useDocumentos } from "@/lib/documentos";
 import { exportarProcessoPdf } from "@/lib/exportarPdf";
+import { PainelDataJud } from "@/components/consultas/PainelDataJud";
 import { PROCESSOS_INICIAIS } from "@/data/escritorio";
 import { cn } from "@/lib/cn";
 
@@ -51,7 +54,8 @@ function montarLinhaDoTempo(proc) {
 export function Processos() {
   const [processos, setProcessos] = useState(PROCESSOS_INICIAIS);
   const [modalAberto, setModalAberto] = useState(false);
-  const [processoIA, setProcessoIA] = useState(null);
+  const navegar = useNavigate();
+  const { docs, criar } = useDocumentos();
   const [processoLinha, setProcessoLinha] = useState(null);
   const [busca, setBusca] = useState("");
   const [filtroStatus, setFiltroStatus] = useState("TODOS");
@@ -70,6 +74,26 @@ export function Processos() {
     });
   }, [processos, busca, filtroStatus]);
 
+  // Abre o documento do processo; se ainda não existir, cria um já preenchido.
+  function editarDocumento(proc) {
+    const existente = docs.find((d) => d.processoId === proc.id || d.html.includes(proc.numero));
+    if (existente) {
+      navegar(`/documentos/${existente.id}`);
+      return;
+    }
+    const area = proc.tipoAcao.toLowerCase();
+    const idModelo = area.startsWith("bancário") ? "revisional-contrato" : area.startsWith("previdenciário") ? "aposentadoria" : area.startsWith("trabalhista") ? "reclamacao-trabalhista" : "em-branco";
+    const modelo = MODELOS.find((m) => m.id === idModelo);
+    const novo = criar({
+      processoId: proc.id,
+      titulo: `${modelo.rotulo} – ${proc.cliente}`,
+      area: modelo.area,
+      tipo: modelo.rotulo,
+      html: preencherModelo(modelo.html, { cliente: proc.cliente, numero: proc.numero, vara: proc.vara }),
+    });
+    navegar(`/documentos/${novo.id}`);
+  }
+
   const acoes = (proc) => (
     <div className="flex flex-wrap items-center gap-2">
       <Button variant="secondary" className="h-8 gap-2 px-4 text-12" onClick={() => setProcessoLinha(proc)}>
@@ -80,9 +104,9 @@ export function Processos() {
         <IconArrowDownDocument className="size-3.5" fill="currentColor" />
         PDF
       </Button>
-      <Button variant="ghost" className="h-8 gap-2 px-4 text-12 text-accent hover:text-accent-hover" onClick={() => setProcessoIA(proc)}>
-        <IconWandAndSparkles className="size-3.5" fill="currentColor" />
-        Redator IA
+      <Button variant="ghost" className="h-8 gap-2 px-4 text-12 text-accent hover:text-accent-hover" onClick={() => editarDocumento(proc)}>
+        <IconSquareAndPencil className="size-3.5" fill="currentColor" />
+        Editar documento
       </Button>
     </div>
   );
@@ -244,6 +268,8 @@ export function Processos() {
         footer={processoLinha && acoes(processoLinha)}
       >
         {processoLinha && (
+          <div className="space-y-8">
+          <PainelDataJud key={processoLinha.id} numeroInicial={processoLinha.numero} />
           <ol className="relative space-y-6 border-l border-border pl-6">
             {montarLinhaDoTempo(processoLinha).map((ev, i) => (
               <li key={`${ev.titulo}-${i}`} className="relative">
@@ -261,6 +287,7 @@ export function Processos() {
               </li>
             ))}
           </ol>
+          </div>
         )}
       </Drawer>
 
@@ -268,11 +295,6 @@ export function Processos() {
         open={modalAberto}
         onOpenChange={setModalAberto}
         onProcessoSalvo={(novo) => setProcessos((prev) => [novo, ...prev])}
-      />
-      <ModalRedatorIA
-        open={!!processoIA}
-        onOpenChange={(v) => !v && setProcessoIA(null)}
-        processo={processoIA}
       />
     </div>
   );

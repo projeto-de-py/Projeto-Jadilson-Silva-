@@ -11,6 +11,7 @@ import { Processos } from "./pages/DashBoard/Processos/Processos";
 import { Prazos } from "./pages/DashBoard/Prazos/Prazos";
 import { Documentos } from "./pages/DashBoard/Documentos/Documentos";
 import { EditorDocumento } from "./pages/DashBoard/Documentos/EditorDocumento";
+import { Financeiro } from "./pages/DashBoard/Financeiro/Financeiro";
 import { Agenda } from "./pages/DashBoard/Agenda/Agenda";
 import { Clientes } from "./pages/DashBoard/Clientes/Clientes";
 import { Configuracoes } from "./pages/DashBoard/Configuracoes/Configurations";
@@ -85,13 +86,14 @@ function App() {
             <Route path="/login" element={<Navigate to="/" replace />} />
             <Route path="/design-system" element={checking ? <AuthPage checking /> : session ? <DesignSystemPage /> : <Navigate to="/" replace />} />
 
-            <Route element={checking ? <AuthPage checking /> : session ? <DashboardLayout user={session.usuario} onLogout={logout} loading={loading} error={error} /> : <Navigate to="/" replace />}>
+            <Route element={checking ? <AuthPage checking /> : session ? <DashboardLayout user={session.usuario} csrf={session.csrf_token} onLogout={logout} loading={loading} error={error} /> : <Navigate to="/" replace />}>
               <Route path="/home" element={<Home />} />
               <Route path="/processos" element={<Processos />} />
               <Route path="/prazos" element={<Prazos />} />
               <Route path="/agenda" element={<Agenda />} />
               <Route path="/documentos" element={<Documentos />} />
               <Route path="/documentos/:id" element={<EditorDocumento />} />
+              <Route path="/financeiro" element={<Financeiro />} />
               <Route path="/clientes" element={<Clientes />} />
               <Route path="/configuracoes" element={<Configuracoes />} />
             </Route>
