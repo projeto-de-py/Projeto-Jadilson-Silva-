@@ -20,6 +20,8 @@ from app.repositories.cliente_repository import ClienteRepository
 from app.repositories.evento_webhook_repository import EventoWebhookRepository
 from app.schemas.assinatura import AssinaturaCreate
 from app.services.zapsign import ZapSignService
+from app.repositories.notificacao_repository import NotificacaoRepository
+from app.services.notificacao_service import GeradorNotificacaoFinanceira, NotificacaoService
 
 MAX_PDF_BYTES = 10 * 1024 * 1024
 
@@ -131,6 +133,15 @@ class AssinaturaService:
         if novo == ST_ASSINADO:
             assinatura.assinado_em = datetime.now(timezone.utc).replace(tzinfo=None)
         self.assinaturas.salvar(assinatura)
+        if novo == ST_ASSINADO and assinatura.criado_por:
+            GeradorNotificacaoFinanceira(NotificacaoService(NotificacaoRepository(self.assinaturas.db))).emitir(
+                assinatura.criado_por,
+                "DOCUMENTO_ASSINADO",
+                "Documento assinado",
+                "Um documento enviado para assinatura foi concluído.",
+                "/financeiro",
+                f"assinatura:{assinatura.id}:assinado",
+            )
         return f"status={novo}"
 
 

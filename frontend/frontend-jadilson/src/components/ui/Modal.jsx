@@ -24,7 +24,7 @@ export function Modal({
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.15 }}
+                transition={spring.gentle}
               />
             </Dialog.Overlay>
             <Dialog.Content asChild forceMount aria-describedby={undefined}>
@@ -37,12 +37,7 @@ export function Modal({
                   )}
                   initial={{ opacity: 0, scale: 0.94, y: 12 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{
-                    opacity: 0,
-                    scale: 0.97,
-                    y: 6,
-                    transition: { duration: 0.12 },
-                  }}
+                  exit={{ opacity: 0, scale: 0.97, y: 6 }}
                   transition={spring.bouncy}
                 >
                   <div className="flex items-start justify-between gap-4">

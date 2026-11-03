@@ -59,6 +59,17 @@ con.close()
 
 command.upgrade(cfg, "head")
 
+if not {"eventos_agenda", "notificacoes"} <= tabelas():
+    erros.append("tabelas da agenda/notificacoes ausentes apos upgrade head")
+
+# Confere o downgrade isolado da migration de notificacoes e a recriacao.
+command.downgrade(cfg, "0007_eventos_agenda")
+if "notificacoes" in tabelas():
+    erros.append("tabela notificacoes nao foi removida no downgrade 0008")
+command.upgrade(cfg, "head")
+if "notificacoes" not in tabelas():
+    erros.append("tabela notificacoes nao foi recriada no re-upgrade")
+
 if not {"clientes", "usuario_casos"} <= tabelas():
     erros.append("tabelas da Fase 1 ausentes apos upgrade")
 

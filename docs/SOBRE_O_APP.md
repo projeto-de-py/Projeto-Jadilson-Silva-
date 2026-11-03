@@ -119,6 +119,15 @@ Pasta [`backend/app/ia/`](../backend/app/ia/):
 - **Tema escuro e claro**, paleta neutra, cantos *squircle*, ícones SF Symbols e espaçamento em escala 8/16/24.
 - Clientes e Configurações do escritório.
 
+### 3.8 Notificações
+- O sino consulta notificações pessoais a cada 30 segundos, mostra a quantidade não lida e abre um painel dividido em Hoje e Anteriores.
+- Cada item pode levar à tela relacionada e ser marcado como lido; também é possível marcar todas de uma vez.
+- Prazos geram avisos nos marcos de 7, 3, 1 e 0 dias e enquanto estiverem vencidos. A geração ocorre na primeira leitura da API e é repetida com deduplicação; ainda não existe rotina cron.
+- Criações de clientes, atribuições de casos, concessões/revogações de acesso e eventos financeiros também geram avisos sem incluir dados pessoais no texto.
+- `notificacoes` guarda proprietário, tipo, severidade, texto curto, link interno, chave de deduplicação e data de leitura. O backend aplica o escopo de usuário em toda leitura e escrita.
+
+Na implementação, `models/notificacao.py` define a tabela, `repositories/notificacao_repository.py` mantém todas as consultas por proprietário, `services/notificacao_service.py` aplica deduplicação e gera avisos de prazo/ações, e `api/routes/notificacoes.py` publica os endpoints autenticados. A migração `0008_notificacoes.py` cria o armazenamento depois da migração local de agenda `0007`. No navegador, `hooks/useNotificacoes.js` atualiza lista/contador por polling e dispara toast para itens novos; `components/layout/PainelNotificacoes.jsx`, usado pelo `Topbar`, mostra o badge e o dropdown.
+
 ---
 
 ## 4. Segurança
@@ -152,6 +161,7 @@ Pasta [`backend/app/ia/`](../backend/app/ia/):
 | Documentos | Salvos **no navegador** (localStorage); falta guardar no banco |
 | IA: caixa, sugestões, revisão e filtros | **Funcionando** com provedor **simulado** (sem modelo real) |
 | IA com modelo real | **Pronta no backend** (OpenRouter com modelo gratuito do Google, exige `OPENROUTER_API_KEY`); falta colar a chave e avaliar por área |
+| Notificações | **Ligadas ao backend** com deduplicação por usuário, avisos de prazo sob demanda, polling e toast no navegador |
 | Assinatura eletrônica (ZapSign) e cobrança (Asaas) | **Pronto no backend** com webhooks seguros e testes simulados; falta ligar as telas e testar com as contas reais (sandbox) |
 | Integrações (DataJud, Banco Central) | **Planejadas**, ainda não iniciadas |
 

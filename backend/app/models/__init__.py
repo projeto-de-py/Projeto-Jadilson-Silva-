@@ -11,6 +11,8 @@ from app.models.uso_ia import UsoIA
 from app.models.assinatura import Assinatura
 from app.models.cobranca import Cobranca
 from app.models.evento_webhook import EventoWebhook
+from app.models.evento_agenda import EventoAgenda
+from app.models.notificacao import Notificacao
 
 __all__ = [
     "Perfil",
@@ -25,4 +27,6 @@ __all__ = [
     "Assinatura",
     "Cobranca",
     "EventoWebhook",
+    "EventoAgenda",
+    "Notificacao",
 ]

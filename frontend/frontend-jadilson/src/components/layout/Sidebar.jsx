@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -6,7 +6,9 @@ import {
   IconChevronUpChevronDown,
   IconQuestionmarkCircle,
   IconDocument,
+  IconPlus,
 } from "symbols-react";
+import { LogOut } from "lucide-react";
 import { navegacaoAgrupada } from "@/app/navigation";
 import { spring } from "@/lib/motion";
 import { cn } from "@/lib/cn";
@@ -171,8 +173,25 @@ export function NavList({ aoNavegar, indicador = "nav-ativo" }) {
   );
 }
 
-export function Sidebar({ aoNavegar, indicador, user, onLogout, loading }) {
+export function Sidebar({ aoNavegar, indicador, user, onLogout, onAdicionarContribuidor, loading }) {
   const [area, setArea] = useState("todas");
+  const [contaAberta, setContaAberta] = useState(false);
+  const contaRef = useRef(null);
+
+  useEffect(() => {
+    function fecharAoClicarFora(event) {
+      if (!contaRef.current?.contains(event.target)) setContaAberta(false);
+    }
+    function fecharComEscape(event) {
+      if (event.key === "Escape") setContaAberta(false);
+    }
+    document.addEventListener("pointerdown", fecharAoClicarFora);
+    document.addEventListener("keydown", fecharComEscape);
+    return () => {
+      document.removeEventListener("pointerdown", fecharAoClicarFora);
+      document.removeEventListener("keydown", fecharComEscape);
+    };
+  }, []);
 
   return (
     <aside className="bg-bg border-border flex h-full w-64 shrink-0 flex-col border-r">
@@ -205,23 +224,68 @@ export function Sidebar({ aoNavegar, indicador, user, onLogout, loading }) {
           </button>
         </div>
 
-        <button
-          type="button"
-          onClick={onLogout}
-          disabled={loading}
-          className="border-border bg-surface-muted/60 hover:bg-surface-muted flex w-full items-center gap-2 rounded-card border p-2 text-left transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-        >
-          <Avatar nome={user.nome} size="sm" className="shrink-0" />
-          <div className="min-w-0 flex-1 leading-tight">
-            <p className="truncate text-13 font-semibold text-ink">{user.nome}</p>
-            <p className="text-ink-muted truncate text-12">{user.email}</p>
-          </div>
-          <IconChevronUpChevronDown
-            fill="currentColor"
-            className="text-ink-muted size-3.5 shrink-0"
-            aria-hidden="true"
-          />
-        </button>
+        <div ref={contaRef} className="relative">
+          <button
+            type="button"
+            onClick={() => setContaAberta((aberta) => !aberta)}
+            aria-expanded={contaAberta}
+            aria-haspopup="menu"
+            aria-label={`Opções da conta de ${user.nome}`}
+            className="border-border bg-surface-muted/60 hover:bg-surface-muted flex w-full items-center gap-2 rounded-card border p-2 text-left transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          >
+            <Avatar nome={user.nome} size="sm" className="shrink-0" />
+            <div className="min-w-0 flex-1 leading-tight">
+              <p className="truncate text-13 font-semibold text-ink">{user.nome}</p>
+              <p className="text-ink-muted truncate text-12">{user.email}</p>
+            </div>
+            <IconChevronUpChevronDown
+              fill="currentColor"
+              className="text-ink-muted size-3.5 shrink-0"
+              aria-hidden="true"
+            />
+          </button>
+          <AnimatePresence initial={false}>
+            {contaAberta && (
+              <motion.div
+                role="menu"
+                aria-label="Opções da conta"
+                initial={{ opacity: 0, y: 10, scale: 0.97, transformOrigin: "bottom center" }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 6, scale: 0.98 }}
+                transition={spring.snappy}
+                className="border-border bg-surface absolute inset-x-0 bottom-full z-50 mb-2 rounded-card border p-1.5 shadow-popover"
+              >
+              {user.administrador && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setContaAberta(false);
+                    onAdicionarContribuidor();
+                  }}
+                  className="text-ink-muted hover:bg-surface-muted hover:text-ink flex w-full items-center gap-2 rounded-input px-3 py-2.5 text-left text-13 font-medium transition-colors"
+                >
+                  <IconPlus fill="currentColor" className="size-4 shrink-0" />
+                  Adicionar novo contribuidor
+                </button>
+              )}
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setContaAberta(false);
+                  onLogout();
+                }}
+                disabled={loading}
+                className="text-ink-muted hover:bg-surface-muted hover:text-ink flex w-full items-center gap-2 rounded-input px-3 py-2.5 text-left text-13 font-medium transition-colors disabled:opacity-50"
+              >
+                <LogOut aria-hidden="true" className="size-4 shrink-0" />
+                Sair da conta
+              </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
     </aside>
   );

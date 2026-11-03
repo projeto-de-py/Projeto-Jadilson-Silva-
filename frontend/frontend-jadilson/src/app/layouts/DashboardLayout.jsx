@@ -9,10 +9,12 @@ import { tituloDaRota } from "@/app/navigation";
 import { BuscaGlobal } from "@/components/layout/BuscaGlobal";
 import { ModalCalculadoraPrazos } from "@/components/modais/ModalCalculadoraPrazos";
 import { ModalConfirmacaoLogout } from "@/components/modais/ModalConfirmacaoLogout";
+import { ModalNovoContribuidor } from "@/components/modais/ModalNovoContribuidor";
 
 export function DashboardLayout({ user, csrf, onLogout, loading, error }) {
   const [menuAberto, setMenuAberto] = useState(false);
   const [modalLogoutAberto, setModalLogoutAberto] = useState(false);
+  const [modalContribuidorAberto, setModalContribuidorAberto] = useState(false);
   const [buscaAberta, setBuscaAberta] = useState(false);
   const [calcAberta, setCalcAberta] = useState(false);
   const { pathname } = useLocation();
@@ -42,6 +44,7 @@ export function DashboardLayout({ user, csrf, onLogout, loading, error }) {
               indicador="nav-ativo-desktop"
               user={user}
               onLogout={() => setModalLogoutAberto(true)}
+              onAdicionarContribuidor={() => setModalContribuidorAberto(true)}
               loading={loading}
             />
           </div>
@@ -54,6 +57,7 @@ export function DashboardLayout({ user, csrf, onLogout, loading, error }) {
               user={user}
               onLogout={() => setModalLogoutAberto(true)}
               loading={loading}
+              csrf={csrf}
             />
             {error && <p role="alert" className="text-destructive px-6 py-2 text-sm">{error}</p>}
             <motion.main
@@ -64,7 +68,7 @@ export function DashboardLayout({ user, csrf, onLogout, loading, error }) {
               className="mx-auto w-full max-w-content px-6 py-8 lg:px-12 lg:py-12"
             >
               <SessaoContext.Provider value={{ csrf }}>
-                <Outlet />
+                <Outlet context={{ user, csrf }} />
               </SessaoContext.Provider>
             </motion.main>
           </div>
@@ -100,6 +104,11 @@ export function DashboardLayout({ user, csrf, onLogout, loading, error }) {
           setModalLogoutAberto(false);
           onLogout();
         }}
+      />
+      <ModalNovoContribuidor
+        open={modalContribuidorAberto}
+        onOpenChange={setModalContribuidorAberto}
+        csrf={csrf}
       />
     </div>
   );

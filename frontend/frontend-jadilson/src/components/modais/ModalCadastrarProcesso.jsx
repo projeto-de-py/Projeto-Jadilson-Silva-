@@ -31,6 +31,27 @@ const VARAS_COMUNS = [
   "Vara da Fazenda Pública",
 ];
 
+function formatarNumeroProcesso(valor) {
+  const digitos = valor.replace(/\D/g, "").slice(0, 20);
+  const numero = digitos.slice(0, 7);
+  const digito = digitos.slice(7, 9);
+  const ano = digitos.slice(9, 13);
+  const ramo = digitos.slice(13, 14);
+  const tribunal = digitos.slice(14, 16);
+  const origem = digitos.slice(16, 20);
+
+  return `${numero}${digitos.length > 7 ? `-${digito}` : ""}${digitos.length > 9 ? `.${ano}` : ""}${digitos.length > 13 ? `.${ramo}` : ""}${digitos.length > 14 ? `.${tribunal}` : ""}${digitos.length > 16 ? `.${origem}` : ""}`;
+}
+
+function formatarValorCausa(valor) {
+  const digitos = valor.replace(/\D/g, "").slice(0, 15);
+  if (!digitos) return "";
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(Number(digitos) / 100);
+}
+
 export function ModalCadastrarProcesso({ open, onOpenChange, onProcessoSalvo }) {
   const { toast } = useToast();
   const [salvando, setSalvando] = useState(false);
@@ -158,7 +179,10 @@ export function ModalCadastrarProcesso({ open, onOpenChange, onProcessoSalvo }) 
             id="proc-numero"
             placeholder="0000042-30.2026.8.00.0100"
             value={form.numeroProcesso}
-            onChange={(e) => handleChange("numeroProcesso", e.target.value)}
+            inputMode="numeric"
+            autoComplete="off"
+            maxLength={25}
+            onChange={(e) => handleChange("numeroProcesso", formatarNumeroProcesso(e.target.value))}
             disabled={salvando}
             autoFocus
           />
@@ -185,7 +209,8 @@ export function ModalCadastrarProcesso({ open, onOpenChange, onProcessoSalvo }) 
               id="proc-valor"
               placeholder="R$ 50.000,00"
               value={form.valorCausa}
-              onChange={(e) => handleChange("valorCausa", e.target.value)}
+              inputMode="numeric"
+              onChange={(e) => handleChange("valorCausa", formatarValorCausa(e.target.value))}
               disabled={salvando}
             />
           </Field>

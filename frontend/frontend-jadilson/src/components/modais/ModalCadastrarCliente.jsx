@@ -9,6 +9,31 @@ import {
   useToast,
 } from "@/components/ui";
 
+function formatarDocumento(valor, pessoaFisica) {
+  const digitos = valor.replace(/\D/g, "").slice(0, pessoaFisica ? 11 : 14);
+  if (pessoaFisica) {
+    return digitos
+      .replace(/^(\d{3})(\d)/, "$1.$2")
+      .replace(/^(\d{3})\.(\d{3})(\d)/, "$1.$2.$3")
+      .replace(/(\.\d{3})(\d)/, "$1-$2");
+  }
+  return digitos
+    .replace(/^(\d{2})(\d)/, "$1.$2")
+    .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
+    .replace(/(\.\d{3})(\d)/, "$1/$2")
+    .replace(/(\/\d{4})(\d)/, "$1-$2");
+}
+
+function formatarTelefone(valor) {
+  const digitos = valor.replace(/\D/g, "").slice(0, 11);
+  if (digitos.length <= 2) return digitos ? `(${digitos}` : "";
+  if (digitos.length <= 6) return digitos.replace(/^(\d{2})(\d+)/, "($1) $2");
+  if (digitos.length <= 10) {
+    return digitos.replace(/^(\d{2})(\d{4})(\d+)/, "($1) $2-$3");
+  }
+  return digitos.replace(/^(\d{2})(\d{5})(\d{1,4}).*/, "($1) $2-$3");
+}
+
 export function ModalCadastrarCliente({ open, onOpenChange, onClienteSalvo }) {
   const { toast } = useToast();
   const [salvando, setSalvando] = useState(false);
@@ -131,7 +156,10 @@ export function ModalCadastrarCliente({ open, onOpenChange, onClienteSalvo }) {
         <div className="grid grid-cols-2 gap-2 p-1 bg-surface-muted rounded-input border border-border">
           <button
             type="button"
-            onClick={() => setTipo("PF")}
+            onClick={() => {
+              setTipo("PF");
+              handleChange("documento", formatarDocumento(form.documento, true));
+            }}
             className={`flex items-center justify-center gap-2 py-2 text-14 font-medium rounded-input transition-colors ${
               tipo === "PF"
                 ? "bg-surface text-ink shadow-xs border border-border"
@@ -143,7 +171,10 @@ export function ModalCadastrarCliente({ open, onOpenChange, onClienteSalvo }) {
           </button>
           <button
             type="button"
-            onClick={() => setTipo("PJ")}
+            onClick={() => {
+              setTipo("PJ");
+              handleChange("documento", formatarDocumento(form.documento, false));
+            }}
             className={`flex items-center justify-center gap-2 py-2 text-14 font-medium rounded-input transition-colors ${
               tipo === "PJ"
                 ? "bg-surface text-ink shadow-xs border border-border"
@@ -182,7 +213,9 @@ export function ModalCadastrarCliente({ open, onOpenChange, onClienteSalvo }) {
               id="cliente-documento"
               placeholder={tipo === "PF" ? "000.000.000-00" : "00.000.000/0001-00"}
               value={form.documento}
-              onChange={(e) => handleChange("documento", e.target.value)}
+              inputMode="numeric"
+              autoComplete="off"
+              onChange={(e) => handleChange("documento", formatarDocumento(e.target.value, tipo === "PF"))}
               disabled={salvando}
             />
           </Field>
@@ -196,7 +229,10 @@ export function ModalCadastrarCliente({ open, onOpenChange, onClienteSalvo }) {
               id="cliente-telefone"
               placeholder="(82) 99999-9999"
               value={form.telefone}
-              onChange={(e) => handleChange("telefone", e.target.value)}
+              inputMode="numeric"
+              autoComplete="tel"
+              maxLength={15}
+              onChange={(e) => handleChange("telefone", formatarTelefone(e.target.value))}
               disabled={salvando}
             />
           </Field>

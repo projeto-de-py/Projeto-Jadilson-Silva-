@@ -19,6 +19,8 @@ from app.repositories.cobranca_repository import CobrancaRepository
 from app.repositories.evento_webhook_repository import EventoWebhookRepository
 from app.schemas.financeiro import CobrancaCreate, ResumoFinanceiroOut
 from app.services.asaas import AsaasService
+from app.repositories.notificacao_repository import NotificacaoRepository
+from app.services.notificacao_service import GeradorNotificacaoFinanceira, NotificacaoService
 
 
 class CobrancaDadosInvalidosError(Exception):
@@ -177,8 +179,19 @@ class FinanceiroService:
         if cobranca.status == ST_RECEBIDA and novo != ST_CANCELADA:
             self.cobrancas.db.commit()
             return "ja recebida"
+        status_anterior = cobranca.status
         cobranca.status = novo
         if novo == ST_RECEBIDA and cobranca.pago_em is None:
             cobranca.pago_em = _agora()
         self.cobrancas.salvar(cobranca)
+        if cobranca.criado_por and novo in (ST_RECEBIDA, ST_VENCIDA) and status_anterior != novo:
+            recebido = novo == ST_RECEBIDA
+            GeradorNotificacaoFinanceira(NotificacaoService(NotificacaoRepository(self.cobrancas.db))).emitir(
+                cobranca.criado_por,
+                "PAGAMENTO_RECEBIDO" if recebido else "PAGAMENTO_VENCIDO",
+                "Pagamento confirmado" if recebido else "Cobrança vencida",
+                "Um pagamento foi confirmado." if recebido else "Uma cobrança atingiu a data de vencimento.",
+                "/financeiro",
+                f"cobranca:{cobranca.id}:status:{novo}",
+            )
         return f"status={novo}"

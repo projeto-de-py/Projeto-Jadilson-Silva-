@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useOutletContext } from "react-router-dom";
 import { motion } from "motion/react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -63,6 +63,7 @@ function CabecalhoCartao({ titulo, descricao, para, rotuloLink }) {
 }
 
 export function Home() {
+  const { user } = useOutletContext();
   const [modalCliente, setModalCliente] = useState(false);
   const [modalProcesso, setModalProcesso] = useState(false);
 
@@ -105,7 +106,7 @@ export function Home() {
     <motion.div className="space-y-8" variants={pagina} initial="oculto" animate="visivel">
       <motion.div variants={entrada} className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="font-heading text-28 font-bold tracking-tight text-ink">{saudacao()}, Dr. Jadilson</h2>
+          <h2 className="font-heading text-28 font-bold tracking-tight text-ink">{saudacao()}, Dr. {user.nome}</h2>
           <p className="text-14 text-ink-muted mt-1">Acesso rápido a clientes, prazos e processos do escritório.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

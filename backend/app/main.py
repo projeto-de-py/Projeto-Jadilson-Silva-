@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.routes import assinaturas, auth, casos, clientes, consultas, financeiro, ia, prazos, usuarios, webhooks
+from app.api.routes import agenda, assinaturas, auth, casos, clientes, consultas, financeiro, ia, notificacoes, prazos, usuarios, webhooks
 from app.config import get_settings, eh_producao, validar_configuracao_seguranca
 from app.core import security
 from app.core.ratelimit import Limiter
@@ -98,6 +98,8 @@ def create_app() -> FastAPI:
     prefix = settings.api_prefix
     app.include_router(auth.router, prefix=f"{prefix}/auth", tags=["auth"])
     app.include_router(usuarios.router, prefix=f"{prefix}/usuarios", tags=["usuarios"])
+    app.include_router(agenda.router, prefix=f"{prefix}/agenda", tags=["agenda"])
+    app.include_router(notificacoes.router, prefix=f"{prefix}/notificacoes", tags=["notificacoes"])
     app.include_router(casos.router, prefix=f"{prefix}/casos", tags=["casos"])
     app.include_router(clientes.router, prefix=f"{prefix}/clientes", tags=["clientes"])
     app.include_router(prazos.router, prefix=f"{prefix}/prazos", tags=["prazos"])

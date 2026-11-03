@@ -15,6 +15,8 @@ from app.repositories.usuario_repository import UsuarioRepository
 from app.schemas.permissao import PermissaoCasoCreate
 from app.services.caso_service import CasoNaoEncontradoError
 from app.services.usuario_service import DadosInvalidosError, UsuarioNaoEncontradoError
+from app.repositories.notificacao_repository import NotificacaoRepository
+from app.services.notificacao_service import GeradorNotificacaoColaborador, NotificacaoService
 
 
 class PermissaoJaExistenteError(Exception):
@@ -87,7 +89,9 @@ class PermissaoCasoService:
             existente.concedido_em = utcnow()
             existente.revogado_por = None
             existente.revogado_em = None
-            return self.permissoes.atualizar(existente)
+            concedida = self.permissoes.atualizar(existente)
+            self._notificar(alvo.id, caso.id, True, existente.concedido_em.isoformat())
+            return concedida
 
         nova = UsuarioCaso(
             usuario_id=alvo.id,
@@ -99,7 +103,9 @@ class PermissaoCasoService:
             concedido_por=admin.id,
         )
         try:
-            return self.permissoes.criar(nova)
+            concedida = self.permissoes.criar(nova)
+            self._notificar(alvo.id, caso.id, True, concedida.concedido_em.isoformat())
+            return concedida
         except IntegrityError:
             # corrida entre o check acima e o INSERT (UNIQUE usuario_id+caso_id)
             self.permissoes.db.rollback()
@@ -119,4 +125,11 @@ class PermissaoCasoService:
         linha.ativo = False
         linha.revogado_por = admin.id
         linha.revogado_em = utcnow()
-        return self.permissoes.atualizar(linha)
+        revogada = self.permissoes.atualizar(linha)
+        self._notificar(usuario_id, caso_id, False, revogada.revogado_em.isoformat())
+        return revogada
+
+    def _notificar(self, usuario_id: int, caso_id: int, concedido: bool, evento_id: str) -> None:
+        """Avisa o usuário afetado sem colocar dados do caso no conteúdo."""
+        gerador = GeradorNotificacaoColaborador(NotificacaoService(NotificacaoRepository(self.permissoes.db)))
+        gerador.acesso_alterado(usuario_id, caso_id, concedido, evento_id)

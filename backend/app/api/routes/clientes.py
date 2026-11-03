@@ -22,6 +22,9 @@ from app.services.cliente_service import (
     DadosInvalidosError,
     DocumentoJaCadastradoError,
 )
+from app.repositories.notificacao_repository import NotificacaoRepository
+from app.repositories.usuario_repository import UsuarioRepository
+from app.services.notificacao_service import GeradorNotificacaoCliente, NotificacaoService
 
 router = APIRouter()
 
@@ -53,13 +56,16 @@ def criar_cliente(
     repo: ClienteRepository = Depends(get_cliente_repo),
 ) -> Cliente:
     try:
-        return ClienteService(repo).criar(
+        cliente = ClienteService(repo).criar(
             nome=dados.nome,
             cpf_cnpj=dados.cpf_cnpj,
             email=dados.email,
             telefone=dados.telefone,
             data_nascimento=dados.data_nascimento,
         )
+        ids_ativos = [u.id for u in UsuarioRepository(repo.db).listar() if u.ativo and u.id != _admin.id]
+        GeradorNotificacaoCliente(NotificacaoService(NotificacaoRepository(repo.db))).cadastrado(ids_ativos, cliente.id)
+        return cliente
     except DocumentoInvalidoError as exc:
         raise HTTPException(http_status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
     except TelefoneInvalidoError as exc:

@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { IconMagnifyingglass, IconBell, IconLine3Horizontal, IconSunMax, IconMoon } from "symbols-react";
+import { IconMagnifyingglass, IconLine3Horizontal, IconSunMax, IconMoon } from "symbols-react";
 import { Avatar, KineticTextReveal } from "@/components/ui";
+import { PainelNotificacoes } from "@/components/layout/PainelNotificacoes";
 
 function temaInicial() {
   try {
@@ -10,7 +11,7 @@ function temaInicial() {
   }
 }
 
-export function Topbar({ titulo, aoAbrirMenu, aoAbrirBusca, user, onLogout, loading }) {
+export function Topbar({ titulo, aoAbrirMenu, aoAbrirBusca, user, onLogout, loading, csrf }) {
   const [tema, setTema] = useState(() => {
     const t = temaInicial();
     document.documentElement.dataset.theme = t;
@@ -73,17 +74,7 @@ export function Topbar({ titulo, aoAbrirMenu, aoAbrirBusca, user, onLogout, load
           )}
         </button>
 
-        <button
-          type="button"
-          aria-label="Notificações"
-          className="text-ink-muted hover:bg-surface-muted hover:text-ink relative flex size-12 items-center justify-center rounded-input transition-colors duration-fast ease-out"
-        >
-          <IconBell className="size-5 shrink-0" fill="currentColor" aria-hidden="true" />
-          <span
-            aria-hidden="true"
-            className="bg-status-vencido absolute top-3 right-3 size-2 rounded-badge"
-          />
-        </button>
+        <PainelNotificacoes csrf={csrf} />
 
         <Avatar nome={user.nome} size="sm" />
         <button type="button" onClick={onLogout} disabled={loading} className="text-ink-muted hover:text-ink rounded-input p-2 lg:hidden">{loading ? "Saindo…" : "Sair"}</button>
