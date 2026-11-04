@@ -7,7 +7,6 @@ import {
   IconFolder,
   IconClock,
   IconPerson,
-  IconFunction,
   IconReturn,
 } from "symbols-react";
 import { navegacao } from "@/app/navigation";
@@ -16,7 +15,7 @@ import { cn } from "@/lib/cn";
 
 const norm = (t) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
-export function BuscaGlobal({ open, onOpenChange, aoAbrirCalculadora }) {
+export function BuscaGlobal({ open, onOpenChange }) {
   const [termo, setTermo] = useState("");
   const [ativo, setAtivo] = useState(0);
   const navegar = useNavigate();
@@ -31,16 +30,15 @@ export function BuscaGlobal({ open, onOpenChange, aoAbrirCalculadora }) {
       ]),
     ];
     const todos = [
-      { grupo: "Ações", rotulo: "Calcular prazo (dias úteis)", sub: "Calculadora de prazos", icone: IconFunction, acao: aoAbrirCalculadora },
       ...navegacao.map((n) => ({ grupo: "Páginas", rotulo: n.rotulo, sub: n.grupo, icone: n.icone, ir: n.to })),
       ...processos.map((p) => ({ grupo: "Processos", rotulo: p.numero, sub: `${p.cliente} · ${p.tipoAcao}`, icone: IconFolder, ir: "/processos" })),
       ...prazos.map((p) => ({ grupo: "Prazos", rotulo: p.titulo, sub: `${p.cliente} · ${p.processo}`, icone: IconClock, ir: "/prazos" })),
       ...nomesClientes.map((c) => ({ grupo: "Clientes", rotulo: c, sub: "Cliente", icone: IconPerson, ir: "/clientes" })),
     ];
     const t = norm(termo.trim());
-    if (!t) return todos.filter((i) => i.grupo === "Ações" || i.grupo === "Páginas");
+    if (!t) return todos.filter((i) => i.grupo === "Páginas");
     return todos.filter((i) => norm(`${i.rotulo} ${i.sub}`).includes(t)).slice(0, 30);
-  }, [termo, aoAbrirCalculadora, processos, prazos, clientes]);
+  }, [termo, processos, prazos, clientes]);
 
   useEffect(() => {
     lista.current?.querySelector(`[data-i="${ativo}"]`)?.scrollIntoView({ block: "nearest" });

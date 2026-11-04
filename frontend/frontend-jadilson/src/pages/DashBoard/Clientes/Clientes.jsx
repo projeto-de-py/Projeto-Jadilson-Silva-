@@ -10,6 +10,7 @@ import {
   IconMappin,
   IconFolder,
   IconTrash,
+  IconSquareAndPencil,
 } from "symbols-react";
 import {
   Card,
@@ -35,6 +36,7 @@ export function Clientes() {
   const { toast } = useToast();
   const { clientes, setClientes } = useCarteira();
   const [modalAberto, setModalAberto] = useState(false);
+  const [clienteEmEdicao, setClienteEmEdicao] = useState(null);
   const [paraRemover, setParaRemover] = useState(null);
   const [removendo, setRemovendo] = useState(false);
   const [busca, setBusca] = useState("");
@@ -53,8 +55,26 @@ export function Clientes() {
     });
   }, [clientes, busca, filtroTipo]);
 
-  function handleClienteSalvo(novoCliente) {
-    setClientes((prev) => [novoCliente, ...prev]);
+  function handleAbrirCriacao() {
+    setClienteEmEdicao(null);
+    setModalAberto(true);
+  }
+
+  function handleAbrirEdicao(cliente) {
+    setClienteEmEdicao(cliente);
+    setModalAberto(true);
+  }
+
+  function handleClienteSalvo(clienteSalvo) {
+    setClientes((prev) => {
+      const index = prev.findIndex((c) => c.id === clienteSalvo.id);
+      if (index >= 0) {
+        const atualizados = [...prev];
+        atualizados[index] = { ...prev[index], ...clienteSalvo };
+        return atualizados;
+      }
+      return [clienteSalvo, ...prev];
+    });
   }
 
   async function confirmarRemocao() {
@@ -93,13 +113,13 @@ export function Clientes() {
             Gestão de Clientes
           </h2>
           <p className="text-14 text-ink-muted">
-            Cadastre e acompanhe os clientes vinculados aos casos do escritório no banco de dados.
+            Cadastre, edite e acompanhe os clientes vinculados aos casos do escritório no banco de dados.
           </p>
         </div>
 
         <Button
           variant="primary"
-          onClick={() => setModalAberto(true)}
+          onClick={handleAbrirCriacao}
           className="shrink-0 gap-2"
         >
           <IconPersonBadgePlus className="size-4" fill="currentColor" />
@@ -173,13 +193,22 @@ export function Clientes() {
                     </div>
                   </div>
 
-                  <div className="flex shrink-0 items-center gap-2">
+                  <div className="flex shrink-0 items-center gap-1.5">
                     <Badge
                       tone={cliente.tipo === "PF" ? "neutral" : "primary"}
                       className="text-12 font-medium"
                     >
                       {cliente.tipo}
                     </Badge>
+                    <button
+                      type="button"
+                      onClick={() => handleAbrirEdicao(cliente)}
+                      aria-label={`Editar cliente ${cliente.nome}`}
+                      title="Editar cliente"
+                      className="text-ink-muted hover:text-ink hover:bg-surface-muted flex size-8 items-center justify-center rounded-input transition-colors"
+                    >
+                      <IconSquareAndPencil className="size-4" fill="currentColor" />
+                    </button>
                     <button
                       type="button"
                       onClick={() => setParaRemover(cliente)}
@@ -231,10 +260,14 @@ export function Clientes() {
         </div>
       )}
 
-      {/* Modal Reutilizável de Cadastro de Cliente */}
+      {/* Modal Reutilizável de Cadastro/Edição de Cliente */}
       <ModalCadastrarCliente
         open={modalAberto}
-        onOpenChange={setModalAberto}
+        onOpenChange={(aberto) => {
+          setModalAberto(aberto);
+          if (!aberto) setClienteEmEdicao(null);
+        }}
+        clienteEmEdicao={clienteEmEdicao}
         onClienteSalvo={handleClienteSalvo}
       />
 

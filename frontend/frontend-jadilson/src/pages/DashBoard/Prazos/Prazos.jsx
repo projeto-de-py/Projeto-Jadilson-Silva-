@@ -9,7 +9,6 @@ import {
   IconDocument,
   IconCheckmarkCircle,
   IconCheckmarkCircleFill,
-  IconFunction,
   IconPlus,
 } from "symbols-react";
 import {
@@ -24,7 +23,6 @@ import {
   Textarea,
   useToast,
 } from "@/components/ui";
-import { ModalCalculadoraPrazos } from "@/components/modais/ModalCalculadoraPrazos";
 import { useArea } from "@/context/area-context";
 import { useSessao } from "@/context/sessao";
 import { mapearPrazoApi, notificarAtualizacaoDados, useCarteira } from "@/data/escritorio";
@@ -61,7 +59,6 @@ export function Prazos() {
   const { prazos, processos, setPrazos } = useCarteira();
   const [busca, setBusca] = useState("");
   const [filtroArea, setFiltroArea] = useState("TODAS");
-  const [calcAberta, setCalcAberta] = useState(false);
   const [novoPrazoAberto, setNovoPrazoAberto] = useState(false);
 
   async function alternar(prazo) {
@@ -136,10 +133,6 @@ export function Prazos() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
-          <Button variant="secondary" onClick={() => setCalcAberta(true)} className="shrink-0 gap-2">
-            <IconFunction className="size-4" fill="currentColor" />
-            Calcular prazo
-          </Button>
           <Button variant="primary" onClick={() => setNovoPrazoAberto(true)} className="shrink-0 gap-2">
             <IconPlus className="size-4" fill="currentColor" />
             Novo Prazo
@@ -263,7 +256,6 @@ export function Prazos() {
         </div>
       )}
 
-      <ModalCalculadoraPrazos open={calcAberta} onOpenChange={setCalcAberta} />
       <ModalNovoPrazo
         open={novoPrazoAberto}
         onOpenChange={setNovoPrazoAberto}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import { NavList, Sidebar } from "@/components/layout/Sidebar";
 import { SessaoContext } from "@/context/sessao";
@@ -7,18 +7,21 @@ import { Topbar } from "@/components/layout/Topbar";
 import { Drawer } from "@/components/ui";
 import { tituloDaRota } from "@/app/navigation";
 import { BuscaGlobal } from "@/components/layout/BuscaGlobal";
-import { ModalCalculadoraPrazos } from "@/components/modais/ModalCalculadoraPrazos";
 import { ModalConfirmacaoLogout } from "@/components/modais/ModalConfirmacaoLogout";
 import { ModalNovoContribuidor } from "@/components/modais/ModalNovoContribuidor";
+import { ModalCadastrarProcesso } from "@/components/modais/ModalCadastrarProcesso";
+import { ModalCadastrarCliente } from "@/components/modais/ModalCadastrarCliente";
 import { AreaProvider } from "@/context/AreaProvider";
 import { spring } from "@/lib/motion";
 
 function LayoutInterno({ user, csrf, onLogout, loading, error }) {
+  const navegar = useNavigate();
   const [menuAberto, setMenuAberto] = useState(false);
   const [modalLogoutAberto, setModalLogoutAberto] = useState(false);
   const [modalContribuidorAberto, setModalContribuidorAberto] = useState(false);
+  const [modalProcessoAberto, setModalProcessoAberto] = useState(false);
+  const [modalClienteAberto, setModalClienteAberto] = useState(false);
   const [buscaAberta, setBuscaAberta] = useState(false);
-  const [calcAberta, setCalcAberta] = useState(false);
   const { pathname } = useLocation();
   const titulo = tituloDaRota(pathname);
 
@@ -60,6 +63,11 @@ function LayoutInterno({ user, csrf, onLogout, loading, error }) {
               onLogout={() => setModalLogoutAberto(true)}
               loading={loading}
               csrf={csrf}
+              onNovoProcesso={() => setModalProcessoAberto(true)}
+              onNovoCliente={() => setModalClienteAberto(true)}
+              onNovoPrazo={() => navegar("/prazos")}
+              onNovaAudiencia={() => navegar("/agenda")}
+              onNovoContribuidor={() => setModalContribuidorAberto(true)}
             />
             {error && <p role="alert" className="text-destructive px-6 py-2 text-sm">{error}</p>}
             <motion.main
@@ -94,9 +102,7 @@ function LayoutInterno({ user, csrf, onLogout, loading, error }) {
       <BuscaGlobal
         open={buscaAberta}
         onOpenChange={setBuscaAberta}
-        aoAbrirCalculadora={() => setCalcAberta(true)}
       />
-      <ModalCalculadoraPrazos open={calcAberta} onOpenChange={setCalcAberta} />
 
       <ModalConfirmacaoLogout
         open={modalLogoutAberto}
@@ -111,6 +117,14 @@ function LayoutInterno({ user, csrf, onLogout, loading, error }) {
         open={modalContribuidorAberto}
         onOpenChange={setModalContribuidorAberto}
         csrf={csrf}
+      />
+      <ModalCadastrarProcesso
+        open={modalProcessoAberto}
+        onOpenChange={setModalProcessoAberto}
+      />
+      <ModalCadastrarCliente
+        open={modalClienteAberto}
+        onOpenChange={setModalClienteAberto}
       />
     </div>
   );

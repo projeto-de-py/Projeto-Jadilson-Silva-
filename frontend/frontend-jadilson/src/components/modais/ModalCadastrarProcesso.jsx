@@ -209,7 +209,7 @@ export function ModalCadastrarProcesso({ open, onOpenChange, onProcessoSalvo }) 
       onOpenChange={onOpenChange}
       titulo="Novo Processo"
       descricao="Cadastre uma nova ação judicial ou procedimento no banco de dados para acompanhamento."
-      className="max-w-xl"
+      className="max-w-2xl"
       footer={
         <>
           <Button
@@ -235,7 +235,7 @@ export function ModalCadastrarProcesso({ open, onOpenChange, onProcessoSalvo }) 
       <form
         id="form-cadastrar-processo"
         onSubmit={handleSubmit}
-        className="space-y-4 pt-2"
+        className="space-y-5 pt-2"
       >
         <Field
           label="Número do Processo (CNJ)"
@@ -337,36 +337,49 @@ export function ModalCadastrarProcesso({ open, onOpenChange, onProcessoSalvo }) 
           </Select>
         </Field>
 
-        <div className="grid grid-cols-1 gap-4 rounded-input border border-border bg-surface-muted/40 p-3.5 sm:grid-cols-3">
-          <Field label="Primeiro prazo (opcional)" id="proc-prazo-titulo">
+        <div className="rounded-card border border-border bg-surface-muted/30 p-4 sm:p-5 space-y-4">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <span className="text-13 font-semibold text-ink">
+              Primeiro prazo (opcional)
+            </span>
+            <span className="text-12 text-ink-muted">
+              Cria automaticamente um alerta na Central de Prazos
+            </span>
+          </div>
+
+          <Field label="Título do prazo" id="proc-prazo-titulo">
             <Input
               id="proc-prazo-titulo"
-              placeholder="Ex.: Contestação"
+              placeholder="Ex.: Contestação, Réplica, Audiência..."
               value={form.prazoTitulo}
               onChange={(e) => handleChange("prazoTitulo", e.target.value)}
               disabled={salvando}
             />
           </Field>
-          <Field label="Data limite" id="proc-prazo-data">
-            <Input
-              id="proc-prazo-data"
-              type="date"
-              value={form.prazoData}
-              onChange={(e) => handleChange("prazoData", e.target.value)}
-              disabled={salvando}
-            />
-          </Field>
-          <Field label="Tipo" id="proc-prazo-tipo">
-            <Select
-              id="proc-prazo-tipo"
-              value={form.prazoTipo}
-              onChange={(e) => handleChange("prazoTipo", e.target.value)}
-              disabled={salvando}
-            >
-              <option value="PROCESSUAL">Prazo processual</option>
-              <option value="AUDIENCIA">Audiência</option>
-            </Select>
-          </Field>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Data limite" id="proc-prazo-data">
+              <Input
+                id="proc-prazo-data"
+                type="date"
+                value={form.prazoData}
+                onChange={(e) => handleChange("prazoData", e.target.value)}
+                disabled={salvando}
+              />
+            </Field>
+
+            <Field label="Tipo de prazo" id="proc-prazo-tipo">
+              <Select
+                id="proc-prazo-tipo"
+                value={form.prazoTipo}
+                onChange={(e) => handleChange("prazoTipo", e.target.value)}
+                disabled={salvando}
+              >
+                <option value="PROCESSUAL">Prazo processual</option>
+                <option value="AUDIENCIA">Audiência</option>
+              </Select>
+            </Field>
+          </div>
         </div>
 
         <Field

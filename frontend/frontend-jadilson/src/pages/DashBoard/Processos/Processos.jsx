@@ -2,7 +2,6 @@ import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import {
-  IconFolder,
   IconFolderBadgePlus,
   IconMagnifyingglass,
   IconClockBadgeCheckmark,
@@ -13,7 +12,7 @@ import {
   IconPerson,
   IconScalemass,
 } from "symbols-react";
-import { Card, Button, Badge, Input, Select, EmptyState, Drawer } from "@/components/ui";
+import { Card, Button, Badge, Input, Select, Drawer, HairlineEmptyState } from "@/components/ui";
 import { ModalCadastrarProcesso } from "@/components/modais/ModalCadastrarProcesso";
 import { MODELOS, preencherModelo } from "@/data/modelos";
 import { useDocumentos } from "@/lib/documentos";
@@ -191,13 +190,18 @@ export function Processos() {
       </div>
 
       {processosFiltrados.length === 0 ? (
-        <EmptyState
-          icon={IconFolder}
+        <HairlineEmptyState
           titulo="Nenhum processo encontrado"
           descricao={
             busca
               ? "Nenhum processo corresponde aos termos pesquisados."
-              : "Nenhum processo cadastrado no banco de dados. Clique no botão acima para adicionar o primeiro."
+              : "Nenhum processo cadastrado no banco de dados. Adicione o primeiro processo para começar."
+          }
+          acao={
+            <Button variant="primary" onClick={() => setModalAberto(true)} className="gap-2">
+              <IconFolderBadgePlus className="size-4" fill="currentColor" />
+              Novo Processo
+            </Button>
           }
         />
       ) : visao === "lista" ? (

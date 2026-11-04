@@ -243,6 +243,33 @@ class GeradorNotificacaoColaborador(GeradorNotificacaoAcao):
         self.emitir(usuario_id, f"COLABORADOR_{acao.upper()}", titulo, mensagem, "/processos", f"caso:{caso_id}:acesso:{acao}:{evento_id}")
 
 
+class GeradorNotificacaoAgenda(GeradorNotificacaoAcao):
+    def evento_criado(
+        self,
+        usuario_ids: list[int],
+        evento_id: int,
+        titulo_evento: str,
+        inicio_evento: datetime,
+        criador_nome: str,
+        tipo_evento: str | None = None,
+    ) -> None:
+        data_formatada = inicio_evento.strftime("%d/%m/%Y às %H:%M")
+        rotulo = "Audiência" if tipo_evento in ("AUDIENCIA", "AUDIENCIA_VIRTUAL", "CONCILIACAO") else "Evento"
+        severidade = "atencao" if rotulo == "Audiência" else "info"
+        titulo = "Novo compromisso na agenda"
+        mensagem = f"{criador_nome} agendou '{titulo_evento}' ({rotulo}) para {data_formatada}."
+        for uid in set(usuario_ids):
+            self.service.criar(
+                usuario_id=uid,
+                tipo="AGENDA_EVENTO",
+                titulo=titulo,
+                mensagem=mensagem,
+                link="/agenda",
+                severidade=severidade,
+                chave_dedupe=f"agenda:evento:{evento_id}:criado:usuario:{uid}",
+            )
+
+
 class GeradorNotificacaoFinanceira(GeradorNotificacaoAcao):
     """Eventos de pagamento/assinatura são enviados ao criador do registro."""
 

@@ -3,14 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
-  IconDocumentOnDocument,
   IconDocumentBadgePlus,
   IconArrowUpDocument,
   IconMagnifyingglass,
   IconTrash,
   IconCheckmarkCircleFill,
 } from "symbols-react";
-import { Badge, Button, EmptyState, Field, Input, Modal, Select, useToast } from "@/components/ui";
+import { Badge, Button, Field, Input, Modal, Select, useToast, HairlineEmptyState } from "@/components/ui";
 import { AREAS_DOC, MODELOS, modelosPorArea, preencherModelo } from "@/data/modelos";
 import { useCarteira } from "@/data/escritorio";
 import { useDocumentos } from "@/lib/documentos";
@@ -102,8 +101,7 @@ export function Documentos() {
       </div>
 
       {filtrados.length === 0 ? (
-        <EmptyState
-          icon={IconDocumentOnDocument}
+        <HairlineEmptyState
           titulo="Nenhum documento encontrado"
           descricao={docs.length === 0 ? "Crie o primeiro documento a partir de um modelo ou importe um arquivo .docx." : "Nenhum documento corresponde à busca."}
           acao={<Button onClick={() => setNovoAberto(true)}>Novo documento</Button>}

@@ -14,7 +14,11 @@ from app.schemas.evento_agenda import (
     EventoAgendaCreate,
     EventoAgendaOut,
 )
-from app.services.notificacao_service import GeradorNotificacaoAudiencia
+from app.services.notificacao_service import (
+    GeradorNotificacaoAgenda,
+    GeradorNotificacaoAudiencia,
+    NotificacaoService,
+)
 
 router = APIRouter()
 
@@ -62,7 +66,40 @@ def criar_evento(
     db.add(evento)
     db.commit()
     db.refresh(evento)
-    gerador = GeradorNotificacaoAudiencia(NotificacaoRepository(db))
+
+    repo = NotificacaoRepository(db)
+    service = NotificacaoService(repo)
+    gerador_agenda = GeradorNotificacaoAgenda(service)
+    criador_nome = usuario.nome or "Administrador"
+
+    if destinatario is not None and destinatario.id != usuario.id:
+        gerador_agenda.evento_criado(
+            usuario_ids=[destinatario.id],
+            evento_id=evento.id,
+            titulo_evento=evento.titulo,
+            inicio_evento=evento.inicio,
+            criador_nome=criador_nome,
+            tipo_evento=evento.tipo,
+        )
+    elif dados.destinatario_id is None:
+        outros_ids = list(
+            db.scalars(
+                select(Usuario.id).where(
+                    Usuario.ativo.is_(True), Usuario.id != usuario.id
+                )
+            ).all()
+        )
+        if outros_ids:
+            gerador_agenda.evento_criado(
+                usuario_ids=outros_ids,
+                evento_id=evento.id,
+                titulo_evento=evento.titulo,
+                inicio_evento=evento.inicio,
+                criador_nome=criador_nome,
+                tipo_evento=evento.tipo,
+            )
+
+    gerador = GeradorNotificacaoAudiencia(repo)
     gerador.gerar_para(usuario)
     if destinatario is not None and destinatario.id != usuario.id:
         gerador.gerar_para(destinatario)

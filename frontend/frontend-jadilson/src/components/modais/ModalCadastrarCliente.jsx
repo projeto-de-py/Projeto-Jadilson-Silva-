@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { IconPersonBadgePlus, IconBuilding2, IconPerson } from "symbols-react";
+import { IconPersonBadgePlus, IconBuilding2, IconPerson, IconSquareAndPencil } from "symbols-react";
 import {
   Modal,
   Button,
@@ -37,18 +37,49 @@ function formatarTelefone(valor) {
   return digitos.replace(/^(\d{2})(\d{5})(\d{1,4}).*/, "($1) $2-$3");
 }
 
-export function ModalCadastrarCliente({ open, onOpenChange, onClienteSalvo }) {
+export function ModalCadastrarCliente({ open, onOpenChange, clienteEmEdicao, onClienteSalvo }) {
   const { csrf } = useSessao();
   const { toast } = useToast();
   const [salvando, setSalvando] = useState(false);
-  const [tipo, setTipo] = useState("PF");
+
+  return (
+    <ModalFormCliente
+      key={open ? (clienteEmEdicao?.id ?? "novo") : "fechado"}
+      open={open}
+      onOpenChange={onOpenChange}
+      clienteEmEdicao={clienteEmEdicao}
+      onClienteSalvo={onClienteSalvo}
+      csrf={csrf}
+      toast={toast}
+      salvando={salvando}
+      setSalvando={setSalvando}
+    />
+  );
+}
+
+function ModalFormCliente({
+  open,
+  onOpenChange,
+  clienteEmEdicao,
+  onClienteSalvo,
+  csrf,
+  toast,
+  salvando,
+  setSalvando,
+}) {
+  const emEdicao = Boolean(clienteEmEdicao?.id);
+  const isPjInicial =
+    clienteEmEdicao?.tipo === "PJ" ||
+    clienteEmEdicao?.documento?.replace(/\D/g, "").length === 14;
+
+  const [tipo, setTipo] = useState(isPjInicial ? "PJ" : "PF");
   const [form, setForm] = useState({
-    nome: "",
-    documento: "",
-    email: "",
-    telefone: "",
-    cidade: "",
-    observacoes: "",
+    nome: clienteEmEdicao?.nome || "",
+    documento: clienteEmEdicao?.documento || "",
+    email: clienteEmEdicao?.email || "",
+    telefone: clienteEmEdicao?.telefone || "",
+    cidade: clienteEmEdicao?.cidade || "Paulo Afonso - BA",
+    observacoes: clienteEmEdicao?.observacoes || "",
   });
   const [erros, setErros] = useState({});
 
@@ -65,7 +96,7 @@ export function ModalCadastrarCliente({ open, onOpenChange, onClienteSalvo }) {
       novosErros.nome = "Informe o nome ou razão social do cliente.";
     }
     const digitosTel = form.telefone.replace(/\D/g, "");
-    if (!digitosTel || (digitosTel.length !== 10 && digitosTel.length !== 11)) {
+    if (form.telefone.trim() && (digitosTel.length !== 10 && digitosTel.length !== 11)) {
       novosErros.telefone = "Informe um telefone com DDD (10 ou 11 dígitos).";
     }
     setErros(novosErros);
@@ -85,45 +116,39 @@ export function ModalCadastrarCliente({ open, onOpenChange, onClienteSalvo }) {
         telefone: form.telefone.replace(/\D/g, "") || null,
       };
 
-      const criado = await apiJson("clientes", {
-        method: "POST",
+      const res = await apiJson(emEdicao ? `clientes/${clienteEmEdicao.id}` : "clientes", {
+        method: emEdicao ? "PUT" : "POST",
         csrf,
         body: payload,
       });
 
-      const novoCliente = {
-        ...mapearClienteApi(criado),
+      const clienteSalvo = {
+        ...mapearClienteApi(res),
         tipo,
         cidade: form.cidade.trim() || "Paulo Afonso - BA",
         observacoes: form.observacoes.trim(),
       };
 
       if (onClienteSalvo) {
-        onClienteSalvo(novoCliente);
+        onClienteSalvo(clienteSalvo);
       }
 
       notificarAtualizacaoDados();
-      window.dispatchEvent(new CustomEvent("notificacoes:atualizar"));
+      if (!emEdicao) {
+        window.dispatchEvent(new CustomEvent("notificacoes:atualizar"));
+      }
 
       toast({
         tipo: "sucesso",
-        titulo: "Cliente salvo no banco de dados",
-        descricao: `${novoCliente.nome} já está disponível para vinculação a processos.`,
+        titulo: emEdicao ? "Cliente atualizado" : "Cliente salvo no banco de dados",
+        descricao: `${clienteSalvo.nome} foi ${emEdicao ? "atualizado" : "cadastrado"} com sucesso.`,
       });
 
-      setForm({
-        nome: "",
-        documento: "",
-        email: "",
-        telefone: "",
-        cidade: "",
-        observacoes: "",
-      });
       onOpenChange(false);
     } catch (erro) {
       toast({
         tipo: "erro",
-        titulo: "Erro ao cadastrar cliente",
+        titulo: emEdicao ? "Erro ao atualizar cliente" : "Erro ao cadastrar cliente",
         descricao: erro.message || "Verifique os dados informados (como CPF/CNPJ válido) e tente novamente.",
       });
     } finally {
@@ -135,8 +160,12 @@ export function ModalCadastrarCliente({ open, onOpenChange, onClienteSalvo }) {
     <Modal
       open={open}
       onOpenChange={onOpenChange}
-      titulo="Novo Cliente"
-      descricao="Cadastre uma pessoa física ou jurídica no banco de dados do escritório."
+      titulo={emEdicao ? "Editar Cliente" : "Novo Cliente"}
+      descricao={
+        emEdicao
+          ? "Atualize os dados cadastrais do cliente no banco de dados."
+          : "Cadastre uma pessoa física ou jurídica no banco de dados do escritório."
+      }
       className="max-w-xl"
       footer={
         <>
@@ -154,8 +183,12 @@ export function ModalCadastrarCliente({ open, onOpenChange, onClienteSalvo }) {
             form="form-cadastrar-cliente"
             loading={salvando}
           >
-            <IconPersonBadgePlus className="size-4" fill="currentColor" />
-            Cadastrar Cliente
+            {emEdicao ? (
+              <IconSquareAndPencil className="size-4" fill="currentColor" />
+            ) : (
+              <IconPersonBadgePlus className="size-4" fill="currentColor" />
+            )}
+            {emEdicao ? "Salvar Alterações" : "Cadastrar Cliente"}
           </Button>
         </>
       }

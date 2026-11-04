@@ -115,3 +115,34 @@ def test_endpoint_testar_e_limpar_notificacoes(client, admin, csrf_admin):
     assert limpar.json()["removidas"] == 5
     assert client.get("/api/notificacoes").json()["total"] == 0
     assert client.get("/api/notificacoes/nao-lidas/contagem").json()["nao_lidas"] == 0
+
+
+def test_criar_evento_agenda_notifica_outro_usuario(client, admin, advogada, csrf_admin, db_session):
+    inicio = (datetime.now() + timedelta(days=5)).strftime("%Y-%m-%dT14:00:00")
+    # Cria evento atribuído à advogada
+    resposta = client.post(
+        "/api/agenda/eventos",
+        json={
+            "titulo": "Reunião de Alinhamento de Caso",
+            "tipo": "REUNIAO",
+            "inicio": inicio,
+            "duracao": 60,
+            "local": "Sala 1",
+            "descricao": "Alinhamento com cliente",
+            "destinatario_id": advogada.id,
+        },
+        headers={"X-CSRF-Token": csrf_admin},
+    )
+    assert resposta.status_code == 201
+
+    repo = NotificacaoRepository(db_session)
+    # A advogada deve ter recebido a notificação
+    assert repo.contar_nao_lidas(advogada.id) == 1
+    # O admin que criou não recebe auto-notificação
+    assert repo.contar_nao_lidas(admin.id) == 0
+
+    total, itens = repo.listar(advogada.id, pagina=1, limite=10, lidas=False)
+    assert total == 1
+    assert itens[0].tipo == "AGENDA_EVENTO"
+    assert "Reunião de Alinhamento de Caso" in itens[0].mensagem
+

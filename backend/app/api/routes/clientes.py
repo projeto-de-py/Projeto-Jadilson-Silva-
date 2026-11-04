@@ -1,7 +1,7 @@
-"""Clientes: consulta por escopo de acesso, cadastro e remocao (Admin).
+"""Clientes: consulta por escopo de acesso, cadastro, edicao e remocao (Admin).
 
 Um usuario comum so enxerga os clientes dos casos aos quais tem acesso; a
-listagem geral, cadastro e remocao sao restritos ao advogado principal.
+listagem geral, cadastro, edicao e remocao sao restritos ao advogado principal.
 """
 
 from fastapi import (
@@ -24,7 +24,12 @@ from app.models.usuario import Usuario
 from app.repositories.cliente_repository import ClienteRepository
 from app.repositories.notificacao_repository import NotificacaoRepository
 from app.repositories.usuario_repository import UsuarioRepository
-from app.schemas.cliente import ClienteCreate, ClienteOut, ClientePaginaOut
+from app.schemas.cliente import (
+    ClienteCreate,
+    ClienteOut,
+    ClientePaginaOut,
+    ClienteUpdate,
+)
 from app.services.cliente_service import (
     ClienteNaoEncontradoError,
     ClienteService,
@@ -112,6 +117,41 @@ def buscar_cliente(
         return ClienteService(repo).buscar(cliente_id, _usuario)
     except ClienteNaoEncontradoError as exc:
         raise HTTPException(http_status.HTTP_404_NOT_FOUND, str(exc))
+
+
+@router.put(
+    "/{cliente_id}",
+    response_model=ClienteOut,
+    summary="Editar cliente (Admin)",
+)
+def editar_cliente(
+    cliente_id: int,
+    dados: ClienteUpdate,
+    _admin: Usuario = Depends(require_admin),
+    repo: ClienteRepository = Depends(get_cliente_repo),
+) -> Cliente:
+    try:
+        return ClienteService(repo).atualizar(
+            cliente_id=cliente_id,
+            nome=dados.nome,
+            cpf_cnpj=dados.cpf_cnpj,
+            email=dados.email,
+            telefone=dados.telefone,
+            data_nascimento=dados.data_nascimento,
+            ativo=dados.ativo,
+        )
+    except ClienteNaoEncontradoError as exc:
+        raise HTTPException(http_status.HTTP_404_NOT_FOUND, str(exc))
+    except (
+        DocumentoInvalidoError,
+        TelefoneInvalidoError,
+        DadosInvalidosError,
+    ) as exc:
+        raise HTTPException(
+            http_status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)
+        )
+    except DocumentoJaCadastradoError as exc:
+        raise HTTPException(http_status.HTTP_409_CONFLICT, str(exc))
 
 
 @router.delete(

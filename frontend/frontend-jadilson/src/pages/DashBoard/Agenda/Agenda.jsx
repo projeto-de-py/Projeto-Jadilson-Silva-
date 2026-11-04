@@ -28,7 +28,7 @@ import {
   IconTrash,
   IconCalendar,
 } from "symbols-react";
-import { Button, Badge, Drawer, EmptyState, Field, Input, Modal, Select, Textarea } from "@/components/ui";
+import { Button, Badge, Drawer, EmptyState, Field, Input, Modal, Select, Textarea, Assignees } from "@/components/ui";
 import { HOJE } from "@/lib/prazos";
 import { cn } from "@/lib/cn";
 import { apiJson } from "@/lib/api";
@@ -153,6 +153,7 @@ export function Agenda() {
       setEventos((prev) => [...prev, { ...criado, tipo: novo.tipo, data: new Date(criado.inicio) }]);
       setRef(new Date(ano, mes - 1, dia, h, m));
       setNovo(null);
+      window.dispatchEvent(new CustomEvent("notificacoes:atualizar"));
     } catch (falha) {
       setErro(falha.message || "Não foi possível salvar o evento.");
     }
@@ -350,10 +351,26 @@ export function Agenda() {
               </Field>
             </div>
             <Field label="Atribuir evento para" id="ev-responsavel">
-              <Select id="ev-responsavel" value={novo.destinatarioId} onChange={(e) => setNovo({ ...novo, destinatarioId: e.target.value })}>
-                <option value="todos">Todos os contribuidores</option>
-                {contribuidores.map((pessoa) => <option key={pessoa.id} value={pessoa.id}>{pessoa.nome}{pessoa.id === user.id ? " (você)" : ""}</option>)}
-              </Select>
+              <Assignees
+                contribuidores={contribuidores.map((pessoa) => ({
+                  id: String(pessoa.id),
+                  nome: pessoa.nome,
+                  role: pessoa.id === user.id ? "Você" : "Advogado",
+                }))}
+                selecionados={
+                  novo.destinatarioId === "todos"
+                    ? []
+                    : [String(novo.destinatarioId)]
+                }
+                placeholder="Todos os contribuidores"
+                onChange={(novos) => {
+                  const escolhido = novos[novos.length - 1];
+                  setNovo({
+                    ...novo,
+                    destinatarioId: escolhido ? String(escolhido) : "todos",
+                  });
+                }}
+              />
             </Field>
             <Field label="Local" id="ev-local">
               <Input id="ev-local" maxLength={120} value={novo.local} onChange={(e) => setNovo({ ...novo, local: e.target.value })} placeholder="Vara, escritório ou link da reunião" />

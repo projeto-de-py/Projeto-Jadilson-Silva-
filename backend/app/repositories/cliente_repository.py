@@ -73,6 +73,12 @@ class ClienteRepository:
         self.db.refresh(cliente)
         return cliente
 
+    def salvar(self, cliente: Cliente) -> Cliente:
+        self.db.add(cliente)
+        self.db.commit()
+        self.db.refresh(cliente)
+        return cliente
+
     def remover(self, cliente: Cliente) -> None:
         self.db.execute(
             update(Caso)

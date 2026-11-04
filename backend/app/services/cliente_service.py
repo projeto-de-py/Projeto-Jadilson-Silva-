@@ -1,4 +1,4 @@
-"""Service Layer: regras de negocio de clientes (cadastro, consulta e remocao)."""
+"""Service Layer: regras de negocio de clientes (cadastro, consulta, atualizacao e remocao)."""
 
 from datetime import date
 
@@ -65,6 +65,61 @@ class ClienteService:
         )
         try:
             return self.repo.criar(cliente)
+        except IntegrityError:
+            self.repo.db.rollback()
+            raise DocumentoJaCadastradoError(
+                "Ja existe um cliente com este CPF/CNPJ"
+            )
+
+    def atualizar(
+        self,
+        cliente_id: int,
+        *,
+        nome: str | None = None,
+        cpf_cnpj: str | None = None,
+        email: str | None = None,
+        telefone: str | None = None,
+        data_nascimento: date | None = None,
+        ativo: bool | None = None,
+    ) -> Cliente:
+        cliente = self.repo.buscar_por_id(cliente_id)
+        if cliente is None:
+            raise ClienteNaoEncontradoError("Cliente nao encontrado")
+
+        if nome is not None:
+            nome_norm = nome.strip()
+            if not nome_norm:
+                raise DadosInvalidosError("Nome e obrigatorio")
+            cliente.nome = nome_norm
+
+        if cpf_cnpj is not None:
+            documento = normalizar_documento(cpf_cnpj)
+            if documento is not None:
+                existente = self.repo.buscar_por_documento(documento)
+                if existente and existente.id != cliente.id:
+                    raise DocumentoJaCadastradoError(
+                        "Ja existe um cliente com este CPF/CNPJ"
+                    )
+            cliente.cpf_cnpj = documento
+
+        if email is not None:
+            cliente.email = email.strip().lower() if email.strip() else None
+
+        if telefone is not None:
+            cliente.telefone = normalizar_telefone(telefone)
+
+        if data_nascimento is not None:
+            if data_nascimento > date.today():
+                raise DadosInvalidosError(
+                    "Data de nascimento nao pode ser no futuro"
+                )
+            cliente.data_nascimento = data_nascimento
+
+        if ativo is not None:
+            cliente.ativo = ativo
+
+        try:
+            return self.repo.salvar(cliente)
         except IntegrityError:
             self.repo.db.rollback()
             raise DocumentoJaCadastradoError(
