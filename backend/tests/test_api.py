@@ -19,7 +19,8 @@ class TestLogin:
         assert resp.status_code == 200
         corpo = resp.json()
         assert corpo["usuario"]["email"] == ADMIN["email"]
-        assert corpo["usuario"]["perfil"] == "ADMIN"
+        assert corpo["usuario"]["perfil"] == "ADVOGADO"
+        assert corpo["usuario"]["administrador"] is True
         assert len(corpo["csrf_token"]) >= 32
         # O JWT nao pode aparecer no corpo (vai so no cookie)
         assert "access_token" not in corpo
@@ -90,7 +91,7 @@ class TestSessao:
         s = get_settings()
         payload = {
             "sub": "9999",
-            "perfil": "ADMIN",
+            "perfil": "ADVOGADO",
             "csrf": "x",
             "exp": 9_999_999_999,
         }
@@ -222,7 +223,7 @@ class TestAutorizacao:
                 "nome": "Novo Advogado",
                 "email": "novo@jadilson.adv",
                 "senha": "Novo@1234",
-                "perfil": "PADRAO",
+                "perfil": "ADVOGADO",
             },
         )
         assert resp.status_code == 201
@@ -242,7 +243,7 @@ class TestAutorizacao:
                 "nome": "X",
                 "email": "x@jadilson.adv",
                 "senha": "Senha@123",
-                "perfil": "PADRAO",
+                "perfil": "ADVOGADO",
             },
         )
         assert resp.status_code == 403
@@ -255,7 +256,7 @@ class TestAutorizacao:
                 "nome": "Duplicado",
                 "email": ADMIN["email"],
                 "senha": "Senha@123",
-                "perfil": "PADRAO",
+                "perfil": "ADVOGADO",
             },
         )
         assert resp.status_code == 409
@@ -325,7 +326,7 @@ class TestValidacaoCadastro:
                 "nome": "X",
                 "email": "longa@jadilson.adv",
                 "senha": "A" * 100,  # > 72 bytes (limite bcrypt)
-                "perfil": "PADRAO",
+                "perfil": "ADVOGADO",
             },
         )
         assert resp.status_code == 422
@@ -338,7 +339,7 @@ class TestValidacaoCadastro:
                 "nome": "N" * 300,  # coluna String(120)
                 "email": "nomelongo@jadilson.adv",
                 "senha": "Senha@123",
-                "perfil": "PADRAO",
+                "perfil": "ADVOGADO",
             },
         )
         assert resp.status_code == 422

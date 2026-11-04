@@ -66,23 +66,35 @@ def main() -> None:
     except OperationalError as exc:
         _erro_conexao(exc)
 
+    config = get_settings()
+    # Conta do advogado principal vem da configuracao administrativa (.env) -
+    # e o unico lugar onde nasce a permissao `administrador`.
+    admin_email = (config.admin_email or ADMIN_EMAIL).strip().lower()
+
     db = SessionLocal()
     try:
         repo = UsuarioRepository(db)
-        if repo.buscar_por_email(ADMIN_EMAIL):
-            print(f"Admin ja cadastrado: {ADMIN_EMAIL}")
+        existente = repo.buscar_por_email(admin_email)
+        if existente:
+            print(f"Admin ja cadastrado: {admin_email}")
+            if not existente.administrador:
+                # bancos criados antes da Fase 1: assegura a permissao na conta
+                existente.administrador = True
+                db.commit()
+                print("  -> permissao administrativa assegurada nesta conta.")
         else:
             # Senha vem do .env ou e gerada aleatoriamente; nunca hardcoded.
-            senha_inicial = (get_settings().admin_senha_inicial or "").strip()
+            senha_inicial = (config.admin_senha_inicial or "").strip()
             senha_gerada = not senha_inicial
             if senha_gerada:
                 senha_inicial = secrets.token_urlsafe(15)
             repo.criar(
-                Usuario(nome=ADMIN_NOME, email=ADMIN_EMAIL,
-                        senha_hash=hash_senha(senha_inicial), perfil=Perfil.ADMIN.value, ativo=True)
+                Usuario(nome=ADMIN_NOME, email=admin_email,
+                        senha_hash=hash_senha(senha_inicial),
+                        perfil=Perfil.ADVOGADO.value, administrador=True, ativo=True)
             )
-            print("Admin criado com sucesso:")
-            print(f"  e-mail: {ADMIN_EMAIL}")
+            print("Admin criado com sucesso (advogado principal):")
+            print(f"  e-mail: {admin_email}")
             print(f"  senha : {senha_inicial}")
             if senha_gerada:
                 print("  -> Anote esta senha (gerada aleatoriamente).")

@@ -29,3 +29,10 @@ class UsuarioRepository:
         self.db.commit()
         self.db.refresh(usuario)
         return usuario
+
+    def atualizar(self, usuario: Usuario) -> Usuario:
+        """Commit das alteracoes (ativo/perfil) - `atualizado_em` e do ORM."""
+        self.db.add(usuario)
+        self.db.commit()
+        self.db.refresh(usuario)
+        return usuario

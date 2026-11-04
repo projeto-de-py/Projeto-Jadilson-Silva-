@@ -4,14 +4,35 @@
 > sessão de IA. Ele foi escrito em **16/10/2026** e reflete o estado real do código.
 > Seções 8 e 14 contêm os pontos críticos (conflito de sistemas e próximos passos).
 
-> ⚠️ **STATUS ATUAL (atualizado nesta auditoria de segurança):** a árvore de código
+> ⚠️ **STATUS ATUAL (revisão de pré-entrega, 04/11/2026):** a árvore de código
 > contém **apenas o Sistema A** (`backend/app/`, arquitetura em camadas, JWT em cookie
 > HttpOnly + CSRF + rate limit + revogação de sessão). O **"Sistema B"** descrito nas
-> seções 7, 8 e 11 (scripts na raiz de `backend/`, `src/lib/api.js`, etc.) **não está
-> presente localmente** — essas seções estão **desatualizadas** e descrevem um estado
-> que não existe mais no working tree. O frontend usa `AuthProvider` + `api/client.js`
-> (Sistema A). Não siga as instruções do Sistema B sem confirmar o conteúdo atual dos
-> arquivos.
+> seções 7, 8 e 11 (scripts na raiz de `backend/`, etc.) **não está presente
+> localmente** — essas seções estão **desatualizadas**. Não siga as instruções do
+> Sistema B sem confirmar o conteúdo atual dos arquivos. (Obs.: `src/context/AuthProvider.jsx`
+> e `src/api/client.js` existem mas são **código morto** — o `App.jsx` usa `src/lib/api.js`.)
+>
+> ➕ **Fases do backend concluídas (03/11/2026):** Fase 1 (cadastros/permissões),
+> Fase 2 (casos), Fase 3 (processos judiciais) e **Fase 4 (prazos + compromissos de
+> agenda)** — migrations `0001`..`0007`, docs em `docs/FASE*_*.md`.
+>
+> 🔎 **Revisão técnica de pré-entrega (04/11/2026):**
+> - suíte completa re-executada (2×): **376 testes, 0 falhas** (102 da Fase 4);
+> - cadeia `0001`..`0007` **validada em MySQL 8 descartável** (upgrade →
+>   downgrade até `0002` → re-upgrade) — corrigidos bugs de downgrade das
+>   migrations `0004`, `0005` e `0006` (ordem FK × índice, erro MySQL 1553);
+> - **banco real atualizado com autorização** de `0002_casos_prazos` para
+>   **`0007_permissoes_compromissos`** (backup em
+>   `backend/.local/backup_advocacia_20261104_pre_upgrade.sql`, schema
+>   conferido contra os models sem divergências, seed re-executado);
+> - escritas de todos os fluxos validadas no MySQL real em **transação
+>   revertida** (nenhuma linha persistida fora do seed);
+> - frontend: `npm run lint` (0 erros) e `npm run build` (OK); login fala com a
+>   API real, as demais telas são **dados de demonstração** (ver
+>   `docs/ROTEIRO_PRE_ENTREGA.md`).
+>
+> **Pendências:** RF06 (andamentos sem endpoint), telas de Prazos/Agenda do
+> frontend ligadas à API, MinutaIA e demais telas do frontend consumindo a API.
 
 ---
 
@@ -26,19 +47,19 @@
 
 ### Requisitos funcionais (resumo executivo)
 
-| Código | Requisito | Status em 16/10/2026 |
+| Código | Requisito | Status em 03/11/2026 |
 |---|---|---|
 | RF01 | Login por e-mail/senha | ✅ implementado (duas vezes — ver §8) |
 | RF02 | Perfis Admin (advogado principal) e Padrão | ✅ backend (Sistema A) / parcial no B |
-| RF03 | Padrão vê apenas casos atribuídos | ❌ próximo passo |
-| RF04 | Admin vê todos os casos | ❌ próximo passo |
-| RF05 | Autenticado cadastra caso | ❌ |
-| RF06 | Autenticado registra andamentos | ❌ |
-| RF07 | Somente Admin edita caso | ❌ |
-| RF08 | Somente Admin exclui caso | ❌ |
-| RF09 | Filtros (status, tipo, responsável, nº processo, cliente) | ❌ |
-| RF10 | Agenda de prazos do usuário | ❌ (tela placeholder existe no dashboard) |
-| RF11 | Destacar prazos vencidos/próximos | ❌ |
+| RF03 | Padrão vê apenas casos atribuídos | ✅ Fase 1 (`repositories/escopo.py`) |
+| RF04 | Admin vê todos os casos | ✅ Fase 1 |
+| RF05 | Autenticado cadastra caso | ✅ Fase 2 (perfil ADVOGADO; funcionário → 403) |
+| RF06 | Autenticado registra andamentos | ❌ tabela `andamentos` existe, **sem endpoint** (próxima fase) |
+| RF07 | Somente Admin edita caso | ✅ Fase 2 (admin **ou** responsável; funcionário nunca) |
+| RF08 | Somente Admin exclui caso | ✅ Fase 2 — decisão: **arquivamento lógico** do admin (sem exclusão física) |
+| RF09 | Filtros (status, tipo, responsável, nº processo, cliente) | ✅ Fases 1–4 (casos, clientes, processos, prazos, compromissos) |
+| RF10 | Agenda de prazos do usuário | ✅ **backend Fase 4** (`/api/prazos`, `/api/agenda`); telas do front ainda placeholder |
+| RF11 | Destacar prazos vencidos/próximos | ✅ **backend Fase 4** (`/api/prazos/urgentes` VENCIDO/HOJE/PROXIMO); front pendente |
 
 **RNFs relevantes:** RNF01 senha com hash (bcrypt ✅), RNF03 desempenho com centenas de registros (paginação/índices), **RNF04 front React+Vite, back Python+FastAPI**, RNF05 sem integração externa nesta etapa, RNF06 web puro.
 
@@ -94,7 +115,7 @@ Projeto-Jadilson-Silva-/
 │   │   ├── services/             #   AuthService (login), UsuarioService (cadastro)
 │   │   └── api/                  #   deps.py (get_current_user, require_admin) + routes/
 │   │       └── routes/{auth,usuarios}.py
-│   ├── alembic/                  # migrações (versions/0001_cria_tabela_usuario.py → tabela `usuarios`)
+│   ├── alembic/                  # migrações (versions/0001..0007: usuarios → casos/prazos → Fase 1 → casos → processos → prazos+compromissos → permissão de compromissos)
 │   ├── .env                      # LOCAL: DATABASE_URL, JWT_SECRET, CORS (não versionado)
 │   ├── .env.example              # template com placeholders
 │   ├── requirements.txt / requirements-dev.txt / requirements-lock.txt
@@ -208,7 +229,7 @@ POST /api/auth/login  {email, senha}
 ### Banco/migrações
 
 - Tabela **`usuarios`**: `id, nome, email UNIQUE, senha_hash, perfil(10), ativo(bool), criado_em(datetime UTC)`.
-- Alembic aplicado e **stamped** (`0001_cria_usuario`) no MySQL. Nova alteração de schema = `alembic revision --autogenerate` + `upgrade head` (com a trava do AppLocker, via `python -c ...`).
+- Alembic no MySQL real: revisão aplicada **`0007_permissoes_compromissos`** (atualizado em 04/11/2026 com backup prévio, de `0002_casos_prazos`; cadeia `0001`..`0007` validada antes em MySQL 8 descartável). Nova alteração de schema = `alembic revision --autogenerate` + `upgrade head` (com a trava do AppLocker, via `python -c ...`); procedimento de backup/upgrade no `README.md` da raiz.
 - Datas gravadas em **UTC sem fuso** (`utcnow()` em `models/usuario.py`) — cuidado ao exibir (UTC-3).
 
 ---
@@ -311,11 +332,12 @@ python -m pytest                      # backend em SQLite em memória
 
 1. ~~Fase 1: fundação + login (RF01/RF02)~~ ✅ (com ressalva do §8)
 2. ~~**Fase 1.5: consolidar autenticação** (decisão A vs B, §8)~~ ✅ resolvido em 21/10 (Sistema A único)
-3. **Fase 2 — Casos (RF03–RF08):** tabela `casos` + `casos_usuarios` (N:N), CRUD com **Strategy de visibilidade** (`AdminVêTodos`/`PadraoVêAtribuidos`), `require_admin` em editar/excluir, **auditoria** (middleware/decorator gravando `auditoria`)
-4. **Fase 3 — Busca (RF09):** filtros + paginação (RNF03: índices em `numero_processo`, `status`, `responsavel`)
-5. **Fase 4 — Andamentos (RF06):** timeline no detalhe do caso
-6. **Fase 5 — Agenda (RF10/RF11):** tabela `prazos`, cálculo de status (vencido ≤0 / crítico ≤3d / atenção ≤7d), telas Prazos/Agenda do dashboard
-7. **Fase 6 — MinutaIA:** ver §13
+3. ~~**Fase 1 (cadastros e acesso):** `clientes`, `usuario_casos` com permissões granulares, escopo de visibilidade~~ ✅ (`docs/FASE1_CADASTROS.md`)
+4. ~~**Fase 2 — Casos (RF03–RF08):** tabela `casos`, CRUD, filtros, arquivamento lógico, auditoria `caso_historicos`~~ ✅ (`docs/FASE2_GERENCIAMENTO_CASOS.md`)
+5. ~~**Fase 3 — Processos judiciais (RF09):** CNJ validado (módulo 97), escopo, `pode_gerenciar_processos`, auditoria `processo_historicos`, migration 0005~~ ✅ (`docs/FASE3_PROCESSOS_JUDICIAIS.md`)
+6. ~~**Fase 4 — Prazos e agenda (RF10/RF11):** `prazos` evoluída + `compromissos`, urgentes VENCIDO/HOJE/PROXIMO, permissão própria `pode_gerenciar_compromissos`, agenda com sobreposição, auditoria + **atomicidade**, migrations 0006/0007~~ ✅ **backend** (`docs/FASE4_PRAZOS_COMPROMISSOS.md`; telas Prazos/Agenda do front pendentes)
+7. **Próxima:** Andamentos (RF06 — tabela existe, sem endpoint) e documentos por caso
+8. **Fase 6 — MinutaIA:** ver §13
 
 ### Diretriz arquitetural MinutaIA (já discutida e aceita)
 
@@ -352,4 +374,4 @@ python -m pytest                      # backend em SQLite em memória
 6. Guardas de qualidade: `npm run lint` em 0 erros; testar login E2E (senha errada → alerta; certo → dashboard; recarregar a página mantém a sessão via `GET /api/auth/me`; logout → volta ao login).
 
 ---
-*Documento gerado em 16/10/2026 a partir da análise do código, do PDF de documentação e do histórico Git. Atualizado em 21/10/2026: Sistema B removido, Sistema A consolidado (§7, §8, §10, §14). Quando o projeto mudar, atualizar as seções 1 (status dos RFs), 8 (consolidação) e 11 (Git).*
+*Documento gerado em 16/10/2026 a partir da análise do código, do PDF de documentação e do histórico Git. Atualizado em 21/10/2026: Sistema B removido, Sistema A consolidado (§7, §8, §10, §14). Atualizado em 03/11/2026: Fases 1–4 do backend concluídas (§1 RFs, §12 roadmap, §3 migrations 0001–0007). Atualizado em 04/11/2026 (pré-entrega): suíte re-executada com **376 testes, 0 falhas**, cadeia de migrations validada em MySQL descartável (corrigidos downgrades 0004/0005/0006), **banco real atualizado para `0007_permissoes_compromissos`** com backup e validação de schema, roteiro de demonstração em `docs/ROTEIRO_PRE_ENTREGA.md`. Quando o projeto mudar, atualizar as seções 1 (status dos RFs), 8 (consolidação), 11 (Git) e 12 (roadmap).*

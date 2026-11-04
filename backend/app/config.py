@@ -53,6 +53,11 @@ class Settings(BaseSettings):
     # Se vazio, o seed gera uma senha aleatoria forte e imprime uma unica vez.
     admin_senha_inicial: str | None = None
 
+    # E-mail da conta do advogado principal (unico ponto de provisionamento do
+    # campo `administrador`). Definido por configuracao administrativa - nunca
+    # por escolha do usuario em cadastro ou login, e sem credenciais no codigo.
+    admin_email: str = "admin@jadilson.adv"
+
     cors_origins: list[str] = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",

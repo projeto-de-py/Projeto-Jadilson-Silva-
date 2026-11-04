@@ -53,15 +53,15 @@ class TestSenhas:
 
 class TestToken:
     def test_roundtrip_com_csrf(self):
-        token = security.criar_token(subject="1", perfil="ADMIN", csrf="abc123")
+        token = security.criar_token(subject="1", perfil="ADVOGADO", csrf="abc123")
         payload = security.decodificar_token(token)
         assert payload["sub"] == "1"
-        assert payload["perfil"] == "ADMIN"
+        assert payload["perfil"] == "ADVOGADO"
         assert payload["csrf"] == "abc123"
         assert "exp" in payload and "iat" in payload
 
     def test_token_assinatura_falsa_retorna_none(self):
-        token = security.criar_token(subject="1", perfil="ADMIN", csrf="x")
+        token = security.criar_token(subject="1", perfil="ADVOGADO", csrf="x")
         payload = jwt.decode(
             token,
             settings.jwt_secret,
@@ -78,7 +78,7 @@ class TestToken:
         agora = datetime.now(timezone.utc)
         payload = {
             "sub": "1",
-            "perfil": "ADMIN",
+            "perfil": "ADVOGADO",
             "csrf": "x",
             "iat": agora - timedelta(hours=9),
             "exp": agora - timedelta(hours=8),  # ja vencido
@@ -156,7 +156,7 @@ def _usuario(senha_digest=None, ativo=True, email="user@jadilson.adv"):
         nome="Usuario Teste",
         email=email,
         senha_hash=senha_digest or security.hash_senha("Senha@123"),
-        perfil=Perfil.PADRAO.value,
+        perfil=Perfil.ADVOGADO.value,
         ativo=ativo,
     )
 
@@ -205,14 +205,14 @@ class TestUsuarioService:
     def test_criar_normaliza_email(self):
         repo = FakeRepo()
         service = UsuarioService(repo)
-        service.criar("Nova", " NOVA@Adv.Com.BR ", "Senha@123", "PADRAO")
+        service.criar("Nova", " NOVA@Adv.Com.BR ", "Senha@123", "ADVOGADO")
         assert repo.usuarios[0].email == "nova@adv.com.br"
 
     def test_criar_email_duplicado(self):
         repo = FakeRepo([_usuario()])
         service = UsuarioService(repo)
         with pytest.raises(EmailJaCadastradoError):
-            service.criar("Outro", "user@jadilson.adv", "Senha@123", "PADRAO")
+            service.criar("Outro", "user@jadilson.adv", "Senha@123", "ADVOGADO")
 
     def test_criar_perfil_invalido(self):
         service = UsuarioService(FakeRepo())
@@ -222,13 +222,13 @@ class TestUsuarioService:
     def test_criar_senha_curta(self):
         service = UsuarioService(FakeRepo())
         with pytest.raises(DadosInvalidosError):
-            service.criar("X", "x@jadilson.adv", "12345", "PADRAO")
+            service.criar("X", "x@jadilson.adv", "12345", "ADVOGADO")
 
     def test_criar_senha_muito_longa_vira_erro_nao_500(self):
         """bcrypt rejeita >72 bytes; o service deve traduzir para erro de negocio."""
         service = UsuarioService(FakeRepo())
         with pytest.raises(DadosInvalidosError):
-            service.criar("X", "x@jadilson.adv", "A" * 200, "PADRAO")
+            service.criar("X", "x@jadilson.adv", "A" * 200, "ADVOGADO")
 
     def test_criar_email_duplicado_por_corrida_vira_erro_de_negocio(self):
         """Se o INSERT falhar por UNIQUE (check-then-insert), vira 409, nao 500."""
@@ -240,7 +240,7 @@ class TestUsuarioService:
 
         service = UsuarioService(RepoCorrida())
         with pytest.raises(EmailJaCadastradoError):
-            service.criar("X", "x@jadilson.adv", "Senha@123", "PADRAO")
+            service.criar("X", "x@jadilson.adv", "Senha@123", "ADVOGADO")
 
 
 # ------------------------------------------- enumeracao por timing (login)

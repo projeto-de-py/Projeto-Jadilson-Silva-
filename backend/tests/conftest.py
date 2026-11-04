@@ -4,6 +4,8 @@ Usam SQLite em memoria (substituindo o MySQL) injetando uma sessao via
 dependency override do FastAPI - nenhum teste toca no banco real.
 """
 
+import itertools
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -13,20 +15,58 @@ from sqlalchemy.pool import StaticPool
 from app.core.security import hash_senha
 from app.database import Base, get_db
 from app.main import create_app
+from app.models.caso import Caso
+from app.models.cliente import Cliente
 from app.models.usuario import Perfil, Usuario
+from app.models.usuario_caso import UsuarioCaso
 
+# Advogado principal (provisionado com a permissao administrativa)
 ADMIN = {
     "nome": "Jadilson Silva",
     "email": "admin@jadilson.adv",
     "senha": "Admin@123",
-    "perfil": Perfil.ADMIN.value,
+    "perfil": Perfil.ADVOGADO.value,
+    "administrador": True,
 }
+# Advogado colaborador (sem privilegios administrativos)
 PADRAO = {
     "nome": "Ana Advogada",
     "email": "ana@jadilson.adv",
     "senha": "Ana@1234",
-    "perfil": Perfil.PADRAO.value,
+    "perfil": Perfil.ADVOGADO.value,
+    "administrador": False,
 }
+# Funcionario (sem privilegios administrativos)
+FUNCIONARIO = {
+    "nome": "Felipe Funcionario",
+    "email": "felipe@jadilson.adv",
+    "senha": "Felipe@123",
+    "perfil": Perfil.FUNCIONARIO.value,
+    "administrador": False,
+}
+
+
+def gerar_numero_cnj(
+    sequencia: int,
+    ano: str = "2026",
+    justica: str = "8",
+    tribunal: str = "26",
+    origem: str = "0100",
+) -> str:
+    """Gera um numero CNJ VALIDO (20 digitos, resto 1 na divisao por 97).
+
+    O digito verificador fica no meio (NNNNNNN-DD.AAAA.J.TR.OOOO), entao nao
+    ha formula fechada simples: varre DD de 00 a 99 e usa o primeiro que
+    satisfaz `int(numero) % 97 == 1` (algoritmo modulo 97 do padrao CNJ).
+    """
+    prefixo = f"{sequencia:07d}"
+    sufixo = f"{ano}.{justica}.{tribunal}.{origem}"
+    sufixo_digitos = f"{ano}{justica}{tribunal}{origem}"
+    for dd in range(100):
+        candidato = f"{prefixo}{dd:02d}{sufixo_digitos}"
+        if int(candidato) % 97 == 1:
+            return f"{prefixo}-{dd:02d}.{sufixo}"
+    raise AssertionError(f"nao achou DD valido para {prefixo}/{sufixo}")
 
 
 @pytest.fixture()
@@ -77,6 +117,7 @@ def _criar_usuario(db, dados: dict) -> Usuario:
         email=dados["email"],
         senha_hash=hash_senha(dados["senha"]),
         perfil=dados["perfil"],
+        administrador=dados.get("administrador", False),
         ativo=True,
     )
     db.add(usuario)
@@ -96,6 +137,11 @@ def advogada(db_session) -> Usuario:
 
 
 @pytest.fixture()
+def funcionario(db_session) -> Usuario:
+    return _criar_usuario(db_session, FUNCIONARIO)
+
+
+@pytest.fixture()
 def fazer_login(client):
     """Autentica e devolve a resposta do login (com cookie + csrf_token)."""
 
@@ -110,6 +156,74 @@ def fazer_login(client):
 
 
 @pytest.fixture()
+def csrf_de(client, fazer_login, admin, advogada, funcionario):
+    """Loga com as constantes de usuario (ADMIN/PADRAO/FUNCIONARIO) e devolve o CSRF.
+
+    Depende das fixtures de usuario para garantir que a conta exista no banco
+    antes do login (mesmo quando o teste so usa uma delas).
+    """
+
+    def _csrf(dados: dict) -> str:
+        return fazer_login(dados["email"], dados["senha"])["csrf_token"]
+
+    return _csrf
+
+
+@pytest.fixture()
 def csrf_admin(fazer_login, admin) -> str:
     """CSRF de um login valido como Admin (cookie ja fica no client)."""
     return fazer_login(ADMIN["email"], ADMIN["senha"])["csrf_token"]
+
+
+# ------------------------------------------------- massa de casos/clientes
+
+
+@pytest.fixture()
+def criar_caso(db_session):
+    """Cria casos com numero CNJ unico (um banco novo por teste)."""
+    contador = itertools.count(1)
+
+    def _criar(cliente: str = "Cliente Teste", **kwargs) -> Caso:
+        n = next(contador)
+        kwargs.setdefault("numero_processo", f"{n:07d}-00.2026.8.26.0100")
+        caso = Caso(cliente=cliente, **kwargs)
+        db_session.add(caso)
+        db_session.commit()
+        db_session.refresh(caso)
+        return caso
+
+    return _criar
+
+
+@pytest.fixture()
+def criar_cliente(db_session):
+    contador = itertools.count(1)
+
+    def _criar(nome: str | None = None, **kwargs) -> Cliente:
+        n = next(contador)
+        cliente = Cliente(nome=nome or f"Cliente {n}", **kwargs)
+        db_session.add(cliente)
+        db_session.commit()
+        db_session.refresh(cliente)
+        return cliente
+
+    return _criar
+
+
+@pytest.fixture()
+def conceder_acesso(db_session, admin):
+    """Concede acesso direto no banco (setup de testes de leitura)."""
+
+    def _conceder(caso: Caso, usuario: Usuario, **kwargs) -> UsuarioCaso:
+        linha = UsuarioCaso(
+            caso_id=caso.id,
+            usuario_id=usuario.id,
+            concedido_por=admin.id,
+            **kwargs,
+        )
+        db_session.add(linha)
+        db_session.commit()
+        db_session.refresh(linha)
+        return linha
+
+    return _conceder
