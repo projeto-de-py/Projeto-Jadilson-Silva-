@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { RotatingText } from "@/components/ui/RotatingText";
 import { cn } from "@/lib/cn";
-import logo from "@/assets/images/Logo_Jadilson.png";
+import logo from "@/assets/images/Logo_Juridico_Jadilson_Silva.png";
 import imagemLogin from "@/assets/images/Login_imagem.png";
 
 import {
@@ -43,7 +43,7 @@ const RECURSOS = [
 ];
 
 const pilula = [
-  "bg-surface-muted text-ink placeholder:text-ink-muted h-14 w-full rounded-full border-0 px-6 text-16",
+  "squircle bg-surface-muted text-ink placeholder:text-ink-muted h-14 w-full rounded-input border border-border px-5 text-16",
   "transition-shadow focus:ring-2 focus:ring-ink/40 focus:outline-none",
   "disabled:cursor-not-allowed disabled:opacity-50",
 ].join(" ");
@@ -68,12 +68,14 @@ export function AuthPage({ user, onLogin, onLogout, loading, checking, error }) 
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-black/45" />
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent to-black/60"
+          className="pointer-events-none absolute inset-0 bg-linear-to-r from-transparent to-black/60"
         />
 
-        <p className="font-heading text-24 relative z-10 font-bold tracking-tight text-white">
-          Jadilson Silva Adv.
-        </p>
+        <img
+          src={logo}
+          alt="Jadilson Silva Advocacia"
+          className="relative z-10 h-14 w-auto object-contain object-left"
+        />
 
         <div className="relative z-10 max-w-sm space-y-8">
           <h2 className="font-heading text-28 font-bold tracking-tight text-white leading-tight">
@@ -100,11 +102,15 @@ export function AuthPage({ user, onLogin, onLogout, loading, checking, error }) 
         </p>
       </div>
 
-      {/* Painel direito: formulário centralizado, em pílulas */}
+      {/* Painel direito: formulário centralizado */}
       <div className="relative flex min-h-screen flex-col items-center justify-center p-6">
         <div className="w-full max-w-sm">
           <div className="flex flex-col items-center text-center">
-            <img src={logo} alt="" aria-hidden="true" className="size-12" />
+            <img
+              src={logo}
+              alt="Jadilson Silva Advocacia"
+              className="logo-marca h-16 w-auto object-contain"
+            />
             <h1 className="font-heading text-28 font-bold tracking-tight text-ink mt-6">
               {user ? `Bem-vindo, ${user.nome}` : "Entrar"}
             </h1>
@@ -118,81 +124,97 @@ export function AuthPage({ user, onLogin, onLogout, loading, checking, error }) 
             {notice && !user && <p role="status" className="text-ink-muted text-13">{notice}</p>}
           </div>
 
-          {checking ? (
-            <p role="status" className="text-ink-muted text-14 mt-8 text-center">Verificando sessão…</p>
-          ) : user ? (
-            <Button className="mt-8 h-14 w-full rounded-full text-[16px]" onClick={onLogout} disabled={loading}>
-              {loading ? "Saindo…" : "Sair"}
-            </Button>
+          {user ? (
+            <div className="mt-8 space-y-4">
+              <div className="border-border bg-surface-muted/40 rounded-card border p-4 text-center">
+                <p className="text-14 font-semibold">{user.nome}</p>
+                <p className="text-ink-muted text-12 mt-0.5">{user.email}</p>
+              </div>
+              <Button
+                variant="secondary"
+                onClick={onLogout}
+                loading={loading}
+                className="h-14 w-full rounded-input text-16 font-semibold"
+              >
+                Sair da conta
+              </Button>
+            </div>
           ) : (
             <form
+              onSubmit={(event) => {
+                setNotice("");
+                onLogin(event);
+              }}
               className="mt-8 space-y-4"
-              onSubmit={(event) => { setShowPassword(false); onLogin(event); }}
-              aria-busy={loading}
-              aria-describedby={error ? "auth-error" : undefined}
             >
               <div>
-                <label htmlFor="email" className="sr-only">E-mail</label>
+                <label htmlFor="auth-email" className="sr-only">
+                  E-mail
+                </label>
                 <input
-                  id="email"
+                  id="auth-email"
                   name="email"
                   type="email"
-                  placeholder="E-mail"
-                  autoComplete="email"
-                  className={pilula}
-                  onInvalid={(event) => event.currentTarget.setCustomValidity("Informe um e-mail válido.")}
-                  onInput={(event) => event.currentTarget.setCustomValidity("")}
-                  disabled={loading}
-                  maxLength={254}
                   required
+                  autoComplete="email"
+                  placeholder="E-mail profissional"
+                  disabled={loading || checking}
+                  aria-describedby={error ? "auth-error" : undefined}
+                  className={pilula}
                 />
               </div>
 
               <div className="relative">
-                <label htmlFor="password" className="sr-only">Senha</label>
+                <label htmlFor="auth-password" className="sr-only">
+                  Senha
+                </label>
                 <input
-                  id="password"
+                  id="auth-password"
                   name="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="Senha"
-                  autoComplete="current-password"
-                  className={cn(pilula, "pr-14")}
-                  onInvalid={(event) => event.currentTarget.setCustomValidity("Informe sua senha.")}
-                  onInput={(event) => event.currentTarget.setCustomValidity("")}
-                  disabled={loading}
-                  maxLength={1024}
                   required
+                  autoComplete="current-password"
+                  placeholder="Senha"
+                  disabled={loading || checking}
+                  aria-describedby={error ? "auth-error" : undefined}
+                  className={cn(pilula, "pr-14")}
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPassword((visible) => !visible)}
+                  onClick={() => setShowPassword((current) => !current)}
                   aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
-                  className="text-ink-muted hover:text-ink absolute inset-y-0 right-0 flex items-center justify-center pr-6 transition-colors"
+                  className="text-ink-muted hover:text-ink absolute top-1/2 right-4 -translate-y-1/2 rounded-full p-2 transition-colors"
                 >
-                  <SFSymbol icon={showPassword ? IconEye : IconEyeSlash} />
+                  <SFSymbol icon={showPassword ? IconEyeSlash : IconEye} />
                 </button>
               </div>
 
-              <Button type="submit" className="h-14 w-full rounded-full text-[16px] font-semibold" disabled={loading}>
-                {loading ? "Entrando…" : "Entrar"}
-              </Button>
-
-              <p className="text-center">
+              <div className="flex justify-end">
                 <a
-                  href="#"
-                  onClick={(event) => unavailable(event, "A recuperação de senha ainda não está disponível. Procure o administrador.")}
-                  className="text-ink-muted hover:text-ink text-14 transition-colors"
+                  href="#recuperar"
+                  onClick={(e) =>
+                    unavailable(
+                      e,
+                      "Procure o administrador do escritório para redefinir sua senha.",
+                    )
+                  }
+                  className="text-ink-muted hover:text-ink text-13 transition-colors"
                 >
                   Esqueceu a senha?
                 </a>
-              </p>
+              </div>
+
+              <Button
+                type="submit"
+                variant="primary"
+                loading={loading || checking}
+                className="h-14 w-full rounded-input text-16 font-semibold"
+              >
+                Entrar
+              </Button>
             </form>
           )}
         </div>
-
-        <p className="text-ink-muted text-12 absolute inset-x-6 bottom-8 text-center">
-          Ao continuar, você concorda com os Termos de Serviço e a Política de Privacidade.
-        </p>
       </div>
     </main>
   );

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { apiJson } from "@/lib/api";
 import { useToast } from "@/components/ui";
 
-/** Mantém o painel e o contador sincronizados sem recarregar a página. */
 export function useNotificacoes(csrf) {
   const { toast } = useToast();
   const [itens, setItens] = useState([]);
@@ -36,9 +35,11 @@ export function useNotificacoes(csrf) {
   useEffect(() => {
     const inicial = window.setTimeout(() => atualizar(), 0);
     const intervalo = window.setInterval(atualizar, 30_000);
+    window.addEventListener("notificacoes:atualizar", atualizar);
     return () => {
       window.clearTimeout(inicial);
       window.clearInterval(intervalo);
+      window.removeEventListener("notificacoes:atualizar", atualizar);
     };
   }, [atualizar]);
 
@@ -52,5 +53,10 @@ export function useNotificacoes(csrf) {
     await atualizar();
   }, [atualizar, csrf]);
 
-  return { itens, naoLidas, erro, atualizar, marcarLida, marcarTodas };
+  const limparTodas = useCallback(async () => {
+    await apiJson("notificacoes/limpar", { method: "POST", csrf, body: {} });
+    await atualizar();
+  }, [atualizar, csrf]);
+
+  return { itens, naoLidas, erro, atualizar, marcarLida, marcarTodas, limparTodas };
 }

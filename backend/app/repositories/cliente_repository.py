@@ -1,9 +1,12 @@
 """Padrao Repository: consultas e persistencia de Cliente."""
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.orm import Session
 
+from app.models.assinatura import Assinatura
+from app.models.caso import Caso
 from app.models.cliente import Cliente
+from app.models.cobranca import Cobranca
 from app.models.usuario import Usuario
 from app.repositories.escopo import condicao_cliente_visivel
 
@@ -24,11 +27,7 @@ class ClienteRepository:
         return self.db.get(Cliente, cliente_id)
 
     def buscar_visivel(self, cliente_id: int, usuario: Usuario) -> Cliente | None:
-        """Cliente apenas se pertencer a um caso acessivel ao usuario.
-
-        Mesmo criterio dos casos: sem acesso a resposta e `None` (404), para
-        nao revelar que o cadastro existe.
-        """
+        """Cliente apenas se pertencer a um caso acessivel ao usuario."""
         stmt = select(Cliente).where(
             Cliente.id == cliente_id, condicao_cliente_visivel(usuario)
         )
@@ -48,12 +47,17 @@ class ClienteRepository:
             condicoes_busca = [Cliente.nome.ilike(f"%{q.strip()}%")]
             apenas_digitos = "".join(c for c in q if c.isdigit())
             if apenas_digitos:
-                # a coluna guarda so digitos: busca por "123.456.789-09" acha
-                # "12345678909"
-                condicoes_busca.append(Cliente.cpf_cnpj.like(f"%{apenas_digitos}%"))
+                condicoes_busca.append(
+                    Cliente.cpf_cnpj.like(f"%{apenas_digitos}%")
+                )
             filtros.append(or_(*condicoes_busca))
 
-        total = self.db.scalar(select(func.count()).select_from(Cliente).where(*filtros)) or 0
+        total = (
+            self.db.scalar(
+                select(func.count()).select_from(Cliente).where(*filtros)
+            )
+            or 0
+        )
         stmt = (
             select(Cliente)
             .where(*filtros)
@@ -68,3 +72,20 @@ class ClienteRepository:
         self.db.commit()
         self.db.refresh(cliente)
         return cliente
+
+    def remover(self, cliente: Cliente) -> None:
+        self.db.execute(
+            update(Caso)
+            .where(Caso.cliente_id == cliente.id)
+            .values(cliente_id=None)
+        )
+        self.db.execute(
+            update(Assinatura)
+            .where(Assinatura.cliente_id == cliente.id)
+            .values(cliente_id=None)
+        )
+        self.db.execute(
+            delete(Cobranca).where(Cobranca.cliente_id == cliente.id)
+        )
+        self.db.delete(cliente)
+        self.db.commit()

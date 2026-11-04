@@ -1,4 +1,4 @@
-"""Regras da assinatura eletronica: enviar o PDF ao ZapSign e acompanhar o status."""
+"""Regras da assinatura eletronica: enviar o PDF ao provedor (Autentique/ZapSign) e acompanhar o status."""
 
 import base64
 import binascii
@@ -6,22 +6,25 @@ import hashlib
 from datetime import datetime, timezone
 
 from app.config import get_settings
-from app.models.caso import Caso
 from app.models.assinatura import (
     ST_ASSINADO,
     ST_ENVIADO,
     ST_RECUSADO,
     Assinatura,
 )
+from app.models.caso import Caso
 from app.models.usuario import Usuario
 from app.repositories.assinatura_repository import AssinaturaRepository
 from app.repositories.caso_repository import CasoRepository
 from app.repositories.cliente_repository import ClienteRepository
 from app.repositories.evento_webhook_repository import EventoWebhookRepository
-from app.schemas.assinatura import AssinaturaCreate
-from app.services.zapsign import ZapSignService
 from app.repositories.notificacao_repository import NotificacaoRepository
-from app.services.notificacao_service import GeradorNotificacaoFinanceira, NotificacaoService
+from app.schemas.assinatura import AssinaturaCreate
+from app.services.notificacao_service import (
+    GeradorNotificacaoFinanceira,
+    NotificacaoService,
+)
+from app.services.zapsign import ZapSignService
 
 MAX_PDF_BYTES = 10 * 1024 * 1024
 
@@ -42,12 +45,71 @@ def validar_pdf(pdf_base64: str) -> tuple[str, bytes]:
     try:
         bruto = base64.b64decode(limpo, validate=True)
     except (binascii.Error, ValueError) as exc:
-        raise AssinaturaDadosInvalidosError("O PDF enviado nao esta em base64 valido.") from exc
+        raise AssinaturaDadosInvalidosError(
+            "O PDF enviado nao esta em base64 valido."
+        ) from exc
     if not bruto.startswith(b"%PDF-"):
         raise AssinaturaDadosInvalidosError("O arquivo enviado nao e um PDF.")
     if len(bruto) > MAX_PDF_BYTES:
         raise AssinaturaDadosInvalidosError("O PDF excede o limite de 10 MB.")
     return limpo, bruto
+
+
+def _extrair_dados_webhook(payload: dict) -> tuple[str | None, str, str]:
+    """Extrai (token, tipo_evento, status) tanto de payloads Autentique quanto ZapSign."""
+    doc = payload.get("doc") if isinstance(payload.get("doc"), dict) else {}
+    evento_aut = (
+        payload.get("event") if isinstance(payload.get("event"), dict) else {}
+    )
+    dados_aut = (
+        evento_aut.get("data")
+        if isinstance(evento_aut.get("data"), dict)
+        else {}
+    )
+    obj_aut = (
+        dados_aut.get("object")
+        if isinstance(dados_aut.get("object"), dict)
+        else dados_aut
+    )
+    doc_aut = (
+        payload.get("documento")
+        if isinstance(payload.get("documento"), dict)
+        else {}
+    )
+
+    token = (
+        payload.get("token")
+        or doc.get("token")
+        or obj_aut.get("document")
+        or obj_aut.get("id")
+        or doc_aut.get("uuid")
+        or doc_aut.get("id")
+    )
+    tipo = str(
+        payload.get("event_type")
+        or evento_aut.get("type")
+        or payload.get("evento")
+        or ""
+    )
+    status_payload = str(
+        payload.get("status")
+        or doc.get("status")
+        or obj_aut.get("status")
+        or ""
+    )
+    if not status_payload and tipo:
+        tl = tipo.lower()
+        if tl in (
+            "document.finished",
+            "signature.accepted",
+            "doc_signed",
+            "assinado",
+        ):
+            status_payload = "signed"
+        elif tl in ("signature.rejected", "doc_refused", "recusado"):
+            status_payload = "refused"
+
+    return (str(token) if token else None), tipo, status_payload
 
 
 class AssinaturaService:
@@ -71,7 +133,10 @@ class AssinaturaService:
         cliente = self.clientes.buscar_por_id(dados.cliente_id)
         if cliente is None or not cliente.ativo:
             raise RegistroNaoEncontradoError("Cliente nao encontrado")
-        if dados.caso_id is not None and self.casos.db.get(Caso, dados.caso_id) is None:
+        if (
+            dados.caso_id is not None
+            and self.casos.db.get(Caso, dados.caso_id) is None
+        ):
             raise RegistroNaoEncontradoError("Caso nao encontrado")
         if not cliente.email and not cliente.telefone:
             raise AssinaturaDadosInvalidosError(
@@ -103,13 +168,10 @@ class AssinaturaService:
     # ---------------------------------------------------------------- webhook
 
     def processar_webhook(self, payload: dict) -> str:
-        """Atualiza o status quando o ZapSign avisa. Devolve o que aconteceu (para o log)."""
-        doc = payload.get("doc") if isinstance(payload.get("doc"), dict) else {}
-        token = payload.get("token") or doc.get("token")
+        """Atualiza o status quando o provedor (Autentique/ZapSign) avisa."""
+        token, tipo, status_payload = _extrair_dados_webhook(payload)
         if not isinstance(token, str) or not token:
             return "ignorado: sem token"
-        tipo = str(payload.get("event_type") or "")
-        status_payload = str(payload.get("status") or doc.get("status") or "")
 
         assinatura = self.assinaturas.buscar_por_token(token)
         if assinatura is None:
@@ -117,24 +179,31 @@ class AssinaturaService:
 
         status_real = status_payload
         if get_settings().webhooks_verificar_na_api:
-            # Nao confia so no aviso: pergunta ao ZapSign como o documento esta de verdade.
-            status_real = str(self.zapsign.consultar_documento(token).get("status") or "")
+            status_real = str(
+                self.zapsign.consultar_documento(token).get("status") or ""
+            )
 
         novo = _mapear_status(status_real)
         if novo is None:
             return f"ignorado: status {status_real or '?'}"
 
-        if not self.eventos.registrar("zapsign", f"{token}:{tipo}:{status_real}", tipo or status_real):
+        if not self.eventos.registrar(
+            "zapsign", f"{token}:{tipo}:{status_real}", tipo or status_real
+        ):
             return "duplicado"
         if assinatura.status == ST_ASSINADO:
             self.assinaturas.db.commit()
-            return "ja assinado"  # nunca volta de ASSINADO
+            return "ja assinado"
         assinatura.status = novo
         if novo == ST_ASSINADO:
-            assinatura.assinado_em = datetime.now(timezone.utc).replace(tzinfo=None)
+            assinatura.assinado_em = datetime.now(timezone.utc).replace(
+                tzinfo=None
+            )
         self.assinaturas.salvar(assinatura)
         if novo == ST_ASSINADO and assinatura.criado_por:
-            GeradorNotificacaoFinanceira(NotificacaoService(NotificacaoRepository(self.assinaturas.db))).emitir(
+            GeradorNotificacaoFinanceira(
+                NotificacaoService(NotificacaoRepository(self.assinaturas.db))
+            ).emitir(
                 assinatura.criado_por,
                 "DOCUMENTO_ASSINADO",
                 "Documento assinado",
@@ -147,7 +216,7 @@ class AssinaturaService:
 
 def _mapear_status(status: str) -> str | None:
     s = status.strip().lower()
-    if s in ("signed", "assinado"):
+    if s in ("signed", "assinado", "finished", "accepted"):
         return ST_ASSINADO
     if s in ("refused", "rejected", "recusado"):
         return ST_RECUSADO

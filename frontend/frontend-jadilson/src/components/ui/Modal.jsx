@@ -53,7 +53,7 @@ export function Modal({
                     </div>
                     <Dialog.Close
                       aria-label="Fechar"
-                      className="text-ink-muted hover:text-ink hover:bg-surface-muted rounded-input p-2 transition-colors"
+                      className="text-ink-muted hover:text-ink hover:bg-surface-muted rounded-input p-2 cursor-pointer transition-colors"
                     >
                       <IconXmark className="size-4" fill="currentColor" />
                     </Dialog.Close>

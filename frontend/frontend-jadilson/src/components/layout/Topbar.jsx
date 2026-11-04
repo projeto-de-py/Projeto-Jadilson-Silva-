@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { IconMagnifyingglass, IconLine3Horizontal, IconSunMax, IconMoon } from "symbols-react";
-import { Avatar, KineticTextReveal } from "@/components/ui";
+import { KineticTextReveal } from "@/components/ui";
 import { PainelNotificacoes } from "@/components/layout/PainelNotificacoes";
 
 function temaInicial() {
@@ -11,7 +11,7 @@ function temaInicial() {
   }
 }
 
-export function Topbar({ titulo, aoAbrirMenu, aoAbrirBusca, user, onLogout, loading, csrf }) {
+export function Topbar({ titulo, aoAbrirMenu, aoAbrirBusca, onLogout, loading, csrf }) {
   const [tema, setTema] = useState(() => {
     const t = temaInicial();
     document.documentElement.dataset.theme = t;
@@ -76,7 +76,7 @@ export function Topbar({ titulo, aoAbrirMenu, aoAbrirBusca, user, onLogout, load
 
         <PainelNotificacoes csrf={csrf} />
 
-        <Avatar nome={user.nome} size="sm" />
+
         <button type="button" onClick={onLogout} disabled={loading} className="text-ink-muted hover:text-ink rounded-input p-2 lg:hidden">{loading ? "Saindo…" : "Sair"}</button>
       </div>
     </header>

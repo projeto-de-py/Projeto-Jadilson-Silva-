@@ -1,6 +1,6 @@
 import { addDays, format, isWeekend } from "date-fns";
 
-export const HOJE = new Date(2026, 9, 20);
+export const HOJE = new Date();
 
 // Feriados nacionais (e recesso forense) usados na contagem de dias úteis.
 const FERIADOS = [

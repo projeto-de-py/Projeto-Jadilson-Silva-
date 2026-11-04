@@ -29,8 +29,6 @@ class AuthService:
         usuario = self.repo.buscar_por_email(email)
 
         if usuario is None:
-            # Equaliza o tempo de resposta: roda o bcrypt mesmo sem usuario,
-            # para nao revelar (por timing) se o e-mail existe ou nao.
             security.verificar_senha(senha, _HASH_DUMMY)
             raise ErroAutenticacao("E-mail ou senha invalidos")
 
@@ -52,3 +50,12 @@ class AuthService:
             subject=str(usuario.id), perfil=usuario.perfil, csrf=csrf
         )
         return token, csrf
+
+    def alterar_senha(
+        self, usuario: Usuario, senha_atual: str, nova_senha: str
+    ) -> Usuario:
+        """Valida a senha atual e persiste o novo hash bcrypt no banco."""
+        if not security.verificar_senha(senha_atual, usuario.senha_hash):
+            raise ErroAutenticacao("A senha atual informada está incorreta.")
+        usuario.senha_hash = security.hash_senha(nova_senha)
+        return self.repo.atualizar(usuario)

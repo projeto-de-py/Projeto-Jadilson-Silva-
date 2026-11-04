@@ -8,11 +8,13 @@ from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.evento_agenda import EventoAgenda
 from app.models.usuario import Usuario
+from app.repositories.notificacao_repository import NotificacaoRepository
 from app.schemas.evento_agenda import (
     ContribuidorAgendaOut,
     EventoAgendaCreate,
     EventoAgendaOut,
 )
+from app.services.notificacao_service import GeradorNotificacaoAudiencia
 
 router = APIRouter()
 
@@ -51,6 +53,7 @@ def criar_evento(
     usuario: Usuario = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> EventoAgenda:
+    destinatario: Usuario | None = None
     if dados.destinatario_id is not None:
         destinatario = db.get(Usuario, dados.destinatario_id)
         if destinatario is None or not destinatario.ativo:
@@ -59,6 +62,10 @@ def criar_evento(
     db.add(evento)
     db.commit()
     db.refresh(evento)
+    gerador = GeradorNotificacaoAudiencia(NotificacaoRepository(db))
+    gerador.gerar_para(usuario)
+    if destinatario is not None and destinatario.id != usuario.id:
+        gerador.gerar_para(destinatario)
     return evento
 
 

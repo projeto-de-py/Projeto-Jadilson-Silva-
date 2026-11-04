@@ -11,7 +11,7 @@ export function PainelNotificacoes({ csrf }) {
   const [aberto, setAberto] = useState(false);
   const ref = useRef(null);
   const navigate = useNavigate();
-  const { itens, naoLidas, erro, marcarLida, marcarTodas } = useNotificacoes(csrf);
+  const { itens, naoLidas, erro, marcarLida, marcarTodas, limparTodas } = useNotificacoes(csrf);
   const hoje = itens.filter((item) => isToday(new Date(item.criado_em)));
   const anteriores = itens.filter((item) => !isToday(new Date(item.criado_em)));
 
@@ -49,9 +49,12 @@ export function PainelNotificacoes({ csrf }) {
       <AnimatePresence>
         {aberto && (
           <motion.section role="dialog" aria-label="Notificações" initial={{ opacity: 0, y: -8, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -6, scale: 0.98 }} transition={spring.snappy} className="bg-surface border-border shadow-popover absolute top-full right-0 z-50 mt-2 flex max-h-[min(560px,calc(100vh-8rem))] w-[min(22rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-card border">
-            <div className="border-border flex items-center justify-between gap-3 border-b px-4 py-3">
+            <div className="border-border flex items-center justify-between gap-2 border-b px-4 py-3">
               <h2 className="text-14 font-semibold text-ink">Notificações</h2>
-              <button type="button" disabled={!naoLidas} onClick={() => marcarTodas().catch(() => {})} className="text-primary hover:text-ink text-12 font-medium disabled:opacity-50">Marcar todas como lidas</button>
+              <div className="flex items-center gap-3">
+                <button type="button" disabled={!naoLidas} onClick={() => marcarTodas().catch(() => {})} className="text-primary hover:text-ink text-12 font-medium disabled:opacity-50">Marcar lidas</button>
+                <button type="button" disabled={itens.length === 0} onClick={() => limparTodas().catch(() => {})} className="text-ink-muted hover:text-status-vencido-ink text-12 font-medium disabled:opacity-50">Limpar</button>
+              </div>
             </div>
             <div className="overflow-y-auto p-2">
               {erro && <p role="alert" className="text-status-vencido-ink px-3 py-2 text-12">{erro}</p>}

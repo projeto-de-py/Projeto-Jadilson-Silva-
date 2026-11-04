@@ -1,13 +1,19 @@
 """Testes de propriedade, deduplicação e marcos de notificação."""
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from app.models.caso import Caso
+from app.models.evento_agenda import EventoAgenda
 from app.models.notificacao import Notificacao
 from app.models.prazo import Prazo
 from app.models.usuario_caso import UsuarioCaso
 from app.repositories.notificacao_repository import NotificacaoRepository
-from app.services.notificacao_service import GeradorNotificacaoPrazo, NotificacaoService
+from app.services.notificacao_service import (
+    GeradorNotificacaoAudiencia,
+    GeradorNotificacaoPrazo,
+    GeradorNotificacaoRelatorioSemanal,
+    NotificacaoService,
+)
 from tests.conftest import PADRAO
 
 
@@ -58,3 +64,54 @@ def test_prazo_notifica_apenas_usuario_com_acesso(db_session, admin, advogada):
     GeradorNotificacaoPrazo(repo).gerar_para(advogada)
     assert repo.contar_nao_lidas(advogada.id) == 1
     assert repo.contar_nao_lidas(admin.id) == 0
+
+
+def test_audiencia_agendada_em_24h_gera_notificacao(db_session, admin):
+    agora = datetime(2026, 11, 4, 10, 0)
+    db_session.add(
+        EventoAgenda(
+            titulo="Audiência de Instrução",
+            tipo="AUDIENCIA",
+            inicio=agora + timedelta(hours=12),
+            duracao=60,
+            criado_por_id=admin.id,
+        )
+    )
+    db_session.commit()
+
+    repo = NotificacaoRepository(db_session)
+    GeradorNotificacaoAudiencia(repo).gerar_para(admin, agora=agora)
+    assert repo.contar_nao_lidas(admin.id) == 1
+
+
+def test_relatorio_semanal_gera_na_sexta_feira(db_session, admin):
+    sexta = date(2026, 11, 6)  # weekday() == 4
+    repo = NotificacaoRepository(db_session)
+    GeradorNotificacaoRelatorioSemanal(repo).gerar_para(admin, hoje=sexta)
+    assert repo.contar_nao_lidas(admin.id) == 1
+
+
+def test_endpoint_testar_e_limpar_notificacoes(client, admin, csrf_admin):
+    resposta = client.post(
+        "/api/notificacoes/testar",
+        json={
+            "tipos": [
+                "prazoHoje",
+                "prazo3dias",
+                "audiencias",
+                "novosClientes",
+                "relatorioSemanal",
+            ]
+        },
+        headers={"X-CSRF-Token": csrf_admin},
+    )
+    assert resposta.status_code == 201
+    corpo = resposta.json()
+    assert corpo["criadas"] == 5
+    assert len(corpo["itens"]) == 5
+
+    limpar = client.post("/api/notificacoes/limpar", headers={"X-CSRF-Token": csrf_admin})
+    assert limpar.status_code == 200
+    assert limpar.json()["removidas"] == 5
+    assert client.get("/api/notificacoes").json()["total"] == 0
+    assert client.get("/api/notificacoes/nao-lidas/contagem").json()["nao_lidas"] == 0

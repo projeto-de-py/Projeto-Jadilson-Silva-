@@ -10,10 +10,25 @@ import {
   IconCheckmarkCircle,
   IconCheckmarkCircleFill,
   IconFunction,
+  IconPlus,
 } from "symbols-react";
-import { Card, Badge, Button, Input, Select, EmptyState } from "@/components/ui";
+import {
+  Card,
+  Badge,
+  Button,
+  Input,
+  Select,
+  EmptyState,
+  Modal,
+  Field,
+  Textarea,
+  useToast,
+} from "@/components/ui";
 import { ModalCalculadoraPrazos } from "@/components/modais/ModalCalculadoraPrazos";
-import { PRAZOS } from "@/data/escritorio";
+import { useArea } from "@/context/area-context";
+import { useSessao } from "@/context/sessao";
+import { mapearPrazoApi, notificarAtualizacaoDados, useCarteira } from "@/data/escritorio";
+import { apiJson } from "@/lib/api";
 import { classificar } from "@/lib/prazos";
 import { cn } from "@/lib/cn";
 
@@ -26,6 +41,13 @@ function formatarData(iso) {
   });
 }
 
+function normalizarTexto(texto = "") {
+  return String(texto)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
 const GRUPOS = [
   { id: "vencidos", titulo: "Vencidos", descricao: "Exigem atenção imediata", icone: IconExclamationmarkTriangle, cor: "text-status-vencido", barra: "bg-status-vencido" },
   { id: "hoje", titulo: "Vencem hoje", descricao: "Prioridade máxima do dia", icone: IconClock, cor: "text-status-hoje-ink", barra: "bg-status-hoje" },
@@ -33,39 +55,76 @@ const GRUPOS = [
 ];
 
 export function Prazos() {
+  const { csrf } = useSessao();
+  const { toast } = useToast();
+  const { area } = useArea();
+  const { prazos, processos, setPrazos } = useCarteira();
   const [busca, setBusca] = useState("");
   const [filtroArea, setFiltroArea] = useState("TODAS");
-  const [cumpridos, setCumpridos] = useState(() => new Set());
   const [calcAberta, setCalcAberta] = useState(false);
+  const [novoPrazoAberto, setNovoPrazoAberto] = useState(false);
 
-  const alternar = (id) =>
-    setCumpridos((atual) => {
-      const novo = new Set(atual);
-      if (novo.has(id)) novo.delete(id);
-      else novo.add(id);
-      return novo;
-    });
+  async function alternar(prazo) {
+    const proximoValor = !prazo.cumprido;
+    setPrazos((atuais) =>
+      atuais.map((item) =>
+        item.id === prazo.id ? { ...item, cumprido: proximoValor } : item,
+      ),
+    );
+    try {
+      const atualizado = await apiJson(`prazos/${prazo.id}/cumprido`, {
+        method: "PATCH",
+        csrf,
+        body: { cumprido: proximoValor },
+      });
+      const mapeado = mapearPrazoApi(atualizado);
+      setPrazos((atuais) =>
+        atuais.map((item) => (item.id === prazo.id ? mapeado : item)),
+      );
+      notificarAtualizacaoDados();
+    } catch (erro) {
+      setPrazos((atuais) =>
+        atuais.map((item) =>
+          item.id === prazo.id ? { ...item, cumprido: prazo.cumprido } : item,
+        ),
+      );
+      toast({
+        tipo: "erro",
+        titulo: "Não foi possível atualizar o prazo",
+        descricao: erro.message || "Tente novamente em instantes.",
+      });
+    }
+  }
 
   const prazosProcessados = useMemo(() => {
     const termo = busca.toLowerCase();
-    return PRAZOS.map((p) => ({ ...p, ...classificar(p.diasRestantes), icone: p.tipo === "Audiência" ? IconHammer : IconDocument }))
+    return prazos
+      .map((p) => ({
+        ...p,
+        ...classificar(p.diasRestantes),
+        icone: p.tipo === "Audiência" ? IconHammer : IconDocument,
+      }))
       .filter((p) => {
         const matchBusca =
           p.titulo.toLowerCase().includes(termo) ||
           p.cliente.toLowerCase().includes(termo) ||
           p.processo.toLowerCase().includes(termo);
-        const matchArea = filtroArea === "TODAS" || p.area === filtroArea;
-        return matchBusca && matchArea;
+        const matchAreaLocal = filtroArea === "TODAS" || p.area === filtroArea;
+        const matchAreaGlobal =
+          !area ||
+          area === "todas" ||
+          normalizarTexto(p.area).includes(normalizarTexto(area));
+        return matchBusca && matchAreaLocal && matchAreaGlobal;
       })
       .sort((a, b) => a.diasRestantes - b.diasRestantes);
-  }, [busca, filtroArea]);
+  }, [prazos, busca, filtroArea, area]);
 
-  const abertos = prazosProcessados.filter((p) => !cumpridos.has(p.id));
+  const abertos = prazosProcessados.filter((p) => !p.cumprido);
   const porGrupo = (id) => abertos.filter((p) => p.grupo === id);
-  const concluidos = prazosProcessados.filter((p) => cumpridos.has(p.id));
+  const concluidos = prazosProcessados.filter((p) => p.cumprido);
 
-  const total = PRAZOS.length;
-  const progresso = Math.round((cumpridos.size / total) * 100);
+  const total = prazosProcessados.length;
+  const progresso = total > 0 ? Math.round((concluidos.length / total) * 100) : 0;
 
   return (
     <div className="space-y-8">
@@ -73,13 +132,19 @@ export function Prazos() {
         <div>
           <h2 className="font-heading text-24 font-bold tracking-tight text-ink">Central de Prazos</h2>
           <p className="text-14 text-ink-muted">
-            Prazos e audiências ordenados por urgência: vencidos, perto de vencer e no prazo.
+            Prazos e audiências salvos no banco de dados e ordenados por urgência.
           </p>
         </div>
-        <Button variant="primary" onClick={() => setCalcAberta(true)} className="gap-2 shrink-0">
-          <IconFunction className="size-4" fill="currentColor" />
-          Calcular prazo
-        </Button>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Button variant="secondary" onClick={() => setCalcAberta(true)} className="shrink-0 gap-2">
+            <IconFunction className="size-4" fill="currentColor" />
+            Calcular prazo
+          </Button>
+          <Button variant="primary" onClick={() => setNovoPrazoAberto(true)} className="shrink-0 gap-2">
+            <IconPlus className="size-4" fill="currentColor" />
+            Novo Prazo
+          </Button>
+        </div>
       </div>
 
       {/* Resumo + progresso */}
@@ -96,11 +161,11 @@ export function Prazos() {
         ))}
         <Card className="p-6">
           <div className="flex items-center justify-between">
-            <p className="text-13 text-ink-muted">Cumpridos nesta sessão</p>
+            <p className="text-13 text-ink-muted">Cumpridos</p>
             <IconCheckmarkCircleFill className="size-4 text-status-ok" fill="currentColor" />
           </div>
           <p className="font-heading text-28 mt-2 font-bold tabular-nums text-ink">
-            {cumpridos.size}<span className="text-16 text-ink-muted font-medium"> / {total}</span>
+            {concluidos.length}<span className="text-16 text-ink-muted font-medium"> / {total}</span>
           </p>
           <div className="bg-surface-muted mt-2 h-1.5 overflow-hidden rounded-badge">
             <motion.div
@@ -137,7 +202,15 @@ export function Prazos() {
       </div>
 
       {prazosProcessados.length === 0 ? (
-        <EmptyState icon={IconClock} titulo="Nenhum prazo encontrado" descricao="Nenhum prazo corresponde aos filtros aplicados." />
+        <EmptyState
+          icon={IconClock}
+          titulo="Nenhum prazo encontrado"
+          descricao={
+            busca
+              ? "Nenhum prazo corresponde aos filtros aplicados."
+              : "Nenhum prazo cadastrado no banco de dados. Clique em 'Novo Prazo' acima para adicionar o primeiro."
+          }
+        />
       ) : (
         <div className="space-y-8">
           {GRUPOS.map((g) => {
@@ -153,7 +226,12 @@ export function Prazos() {
                 <div className="space-y-2">
                   <AnimatePresence initial={false}>
                     {itens.map((prazo) => (
-                      <LinhaPrazo key={prazo.id} prazo={prazo} barra={g.barra} aoAlternar={() => alternar(prazo.id)} />
+                      <LinhaPrazo
+                        key={prazo.id}
+                        prazo={prazo}
+                        barra={g.barra}
+                        aoAlternar={() => alternar(prazo)}
+                      />
                     ))}
                   </AnimatePresence>
                 </div>
@@ -170,7 +248,13 @@ export function Prazos() {
               <div className="space-y-2">
                 <AnimatePresence initial={false}>
                   {concluidos.map((prazo) => (
-                    <LinhaPrazo key={prazo.id} prazo={prazo} barra="bg-status-ok" cumprido aoAlternar={() => alternar(prazo.id)} />
+                    <LinhaPrazo
+                      key={prazo.id}
+                      prazo={prazo}
+                      barra="bg-status-ok"
+                      cumprido
+                      aoAlternar={() => alternar(prazo)}
+                    />
                   ))}
                 </AnimatePresence>
               </div>
@@ -180,7 +264,158 @@ export function Prazos() {
       )}
 
       <ModalCalculadoraPrazos open={calcAberta} onOpenChange={setCalcAberta} />
+      <ModalNovoPrazo
+        open={novoPrazoAberto}
+        onOpenChange={setNovoPrazoAberto}
+        processos={processos}
+        aoSalvar={(novoPrazo) => {
+          setPrazos((prev) => [novoPrazo, ...prev]);
+          notificarAtualizacaoDados();
+        }}
+      />
     </div>
+  );
+}
+
+function ModalNovoPrazo({ open, onOpenChange, processos, aoSalvar }) {
+  const { csrf } = useSessao();
+  const { toast } = useToast();
+  const [salvando, setSalvando] = useState(false);
+  const [casoId, setCasoId] = useState("");
+  const [titulo, setTitulo] = useState("");
+  const [dataLimite, setDataLimite] = useState(() => new Date().toISOString().slice(0, 10));
+  const [tipo, setTipo] = useState("PROCESSUAL");
+  const [descricao, setDescricao] = useState("");
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    const idEscolhido = Number(casoId || processos[0]?.id || 0);
+    if (!idEscolhido) {
+      toast({
+        tipo: "erro",
+        titulo: "Cadastre um processo primeiro",
+        descricao: "Um prazo precisa estar vinculado a um processo cadastrado.",
+      });
+      return;
+    }
+    if (!titulo.trim() || !dataLimite) return;
+
+    setSalvando(true);
+    try {
+      const criado = await apiJson("prazos", {
+        method: "POST",
+        csrf,
+        body: {
+          caso_id: idEscolhido,
+          titulo: titulo.trim(),
+          data_limite: dataLimite,
+          tipo,
+          descricao: descricao.trim() || null,
+        },
+      });
+      const mapeado = mapearPrazoApi(criado);
+      aoSalvar(mapeado);
+      window.dispatchEvent(new CustomEvent("notificacoes:atualizar"));
+      toast({
+        tipo: "sucesso",
+        titulo: "Prazo salvo no banco de dados",
+        descricao: `${mapeado.titulo} vinculado a ${mapeado.cliente}.`,
+      });
+      setTitulo("");
+      setDescricao("");
+      onOpenChange(false);
+    } catch (erro) {
+      toast({
+        tipo: "erro",
+        titulo: "Erro ao salvar prazo",
+        descricao: erro.message || "Verifique os dados informados.",
+      });
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  return (
+    <Modal
+      open={open}
+      onOpenChange={onOpenChange}
+      titulo="Novo Prazo"
+      descricao="Registre um prazo processual ou audiência vinculado a um processo."
+      className="max-w-lg"
+      footer={
+        <>
+          <Button variant="ghost" type="button" onClick={() => onOpenChange(false)} disabled={salvando}>
+            Cancelar
+          </Button>
+          <Button variant="primary" type="submit" form="form-novo-prazo" loading={salvando}>
+            Salvar Prazo
+          </Button>
+        </>
+      }
+    >
+      <form id="form-novo-prazo" onSubmit={handleSubmit} className="space-y-4 pt-2">
+        <Field label="Processo vinculado" id="np-caso">
+          <Select
+            id="np-caso"
+            value={casoId || (processos[0]?.id ? String(processos[0].id) : "")}
+            onChange={(e) => setCasoId(e.target.value)}
+            disabled={salvando || processos.length === 0}
+          >
+            {processos.length === 0 ? (
+              <option value="">Nenhum processo cadastrado</option>
+            ) : (
+              processos.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.cliente} · {p.numero}
+                </option>
+              ))
+            )}
+          </Select>
+        </Field>
+
+        <Field label="Título do prazo" id="np-titulo">
+          <Input
+            id="np-titulo"
+            placeholder="Ex.: Contestação - Revisional Bancária"
+            value={titulo}
+            onChange={(e) => setTitulo(e.target.value)}
+            disabled={salvando}
+            required
+          />
+        </Field>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="Data limite" id="np-data">
+            <Input
+              id="np-data"
+              type="date"
+              value={dataLimite}
+              onChange={(e) => setDataLimite(e.target.value)}
+              disabled={salvando}
+              required
+            />
+          </Field>
+
+          <Field label="Tipo" id="np-tipo">
+            <Select id="np-tipo" value={tipo} onChange={(e) => setTipo(e.target.value)} disabled={salvando}>
+              <option value="PROCESSUAL">Prazo processual</option>
+              <option value="AUDIENCIA">Audiência</option>
+            </Select>
+          </Field>
+        </div>
+
+        <Field label="Observações (opcional)" id="np-desc">
+          <Textarea
+            id="np-desc"
+            rows={2}
+            placeholder="Detalhes sobre documentos ou providências necessárias..."
+            value={descricao}
+            onChange={(e) => setDescricao(e.target.value)}
+            disabled={salvando}
+          />
+        </Field>
+      </form>
+    </Modal>
   );
 }
 

@@ -13,6 +13,7 @@ from app.models.cobranca import Cobranca
 from app.models.evento_webhook import EventoWebhook
 from app.models.evento_agenda import EventoAgenda
 from app.models.notificacao import Notificacao
+from app.models.configuracao_escritorio import ConfiguracaoEscritorio
 
 __all__ = [
     "Perfil",
@@ -29,4 +30,5 @@ __all__ = [
     "EventoWebhook",
     "EventoAgenda",
     "Notificacao",
+    "ConfiguracaoEscritorio",
 ]

@@ -77,10 +77,6 @@ function mensagemDoCorpo(corpo) {
   return '';
 }
 
-/**
- * Chamada genérica à API (/api/...). Devolve o JSON (ou null em 204) ou lança Error com
- * `status` e a mensagem do servidor. Escritas (POST/PATCH/DELETE) levam o token CSRF.
- */
 export async function apiJson(caminho, { method = 'GET', body, csrf, signal } = {}) {
   let response;
   try {

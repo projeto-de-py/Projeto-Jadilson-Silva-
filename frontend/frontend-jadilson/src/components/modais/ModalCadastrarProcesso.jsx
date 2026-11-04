@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { IconFolderBadgePlus } from "symbols-react";
 import {
   Modal,
@@ -9,6 +9,14 @@ import {
   Field,
   useToast,
 } from "@/components/ui";
+import { useSessao } from "@/context/sessao";
+import { apiJson } from "@/lib/api";
+import {
+  ETAPA_PARA_STATUS_API,
+  extrairAreaCodigo,
+  mapearCasoApi,
+  notificarAtualizacaoDados,
+} from "@/data/escritorio";
 
 const TIPOS_ACAO = [
   "Bancário - Revisional de Contrato",
@@ -53,8 +61,10 @@ function formatarValorCausa(valor) {
 }
 
 export function ModalCadastrarProcesso({ open, onOpenChange, onProcessoSalvo }) {
+  const { csrf } = useSessao();
   const { toast } = useToast();
   const [salvando, setSalvando] = useState(false);
+  const [clientesExistentes, setClientesExistentes] = useState([]);
   const [form, setForm] = useState({
     numeroProcesso: "",
     cliente: "",
@@ -63,8 +73,25 @@ export function ModalCadastrarProcesso({ open, onOpenChange, onProcessoSalvo }) 
     status: "Petição inicial",
     valorCausa: "",
     descricao: "",
+    prazoTitulo: "",
+    prazoData: "",
+    prazoTipo: "PROCESSUAL",
   });
   const [erros, setErros] = useState({});
+
+  useEffect(() => {
+    if (!open) return;
+    apiJson("clientes?pagina=1&limite=100")
+      .then((res) => {
+        const itens = Array.isArray(res?.itens)
+          ? res.itens
+          : Array.isArray(res)
+            ? res
+            : [];
+        setClientesExistentes(itens);
+      })
+      .catch(() => setClientesExistentes([]));
+  }, [open]);
 
   function handleChange(campo, valor) {
     setForm((prev) => ({ ...prev, [campo]: valor }));
@@ -85,31 +112,70 @@ export function ModalCadastrarProcesso({ open, onOpenChange, onProcessoSalvo }) 
     return Object.keys(novosErros).length === 0;
   }
 
+  async function resolverClienteId(nomeCliente) {
+    const limpo = nomeCliente.trim().toLowerCase();
+    const existente = clientesExistentes.find(
+      (c) => c.nome?.trim().toLowerCase() === limpo,
+    );
+    if (existente) return existente.id;
+
+    const novoCli = await apiJson("clientes", {
+      method: "POST",
+      csrf,
+      body: { nome: nomeCliente.trim() },
+    });
+    return novoCli.id;
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     if (!validar()) return;
 
     setSalvando(true);
     try {
-      const novoProcesso = {
-        id: Date.now(),
-        numero: form.numeroProcesso.trim(),
-        cliente: form.cliente.trim(),
-        tipoAcao: form.tipoAcao,
-        vara: form.vara,
-        status: form.status,
-        valorCausa: form.valorCausa.trim() || "A definir",
-        descricao: form.descricao.trim(),
-        criadoEm: new Date().toLocaleDateString("pt-BR"),
-      };
+      const clienteId = await resolverClienteId(form.cliente);
+
+      const criado = await apiJson("casos", {
+        method: "POST",
+        csrf,
+        body: {
+          titulo: form.tipoAcao,
+          cliente_id: clienteId,
+          numero_processo: form.numeroProcesso.trim() || null,
+          area: extrairAreaCodigo(form.tipoAcao),
+          tipo_demanda: "JUDICIAL",
+          status: ETAPA_PARA_STATUS_API[form.status] || "NOVO",
+          vara: form.vara,
+          observacoes: form.valorCausa.trim() || null,
+          descricao: form.descricao.trim() || null,
+        },
+      });
+
+      if (form.prazoTitulo.trim() && form.prazoData) {
+        await apiJson("prazos", {
+          method: "POST",
+          csrf,
+          body: {
+            caso_id: criado.id,
+            titulo: form.prazoTitulo.trim(),
+            data_limite: form.prazoData,
+            tipo: form.prazoTipo,
+          },
+        }).catch(() => {});
+      }
+
+      const novoProcesso = mapearCasoApi(criado);
 
       if (onProcessoSalvo) {
         onProcessoSalvo(novoProcesso);
       }
 
+      notificarAtualizacaoDados();
+      window.dispatchEvent(new CustomEvent("notificacoes:atualizar"));
+
       toast({
         tipo: "sucesso",
-        titulo: "Processo cadastrado com sucesso!",
+        titulo: "Processo salvo no banco de dados",
         descricao: `O processo ${novoProcesso.numero} foi adicionado à carteira.`,
       });
 
@@ -121,13 +187,16 @@ export function ModalCadastrarProcesso({ open, onOpenChange, onProcessoSalvo }) 
         status: "Petição inicial",
         valorCausa: "",
         descricao: "",
+        prazoTitulo: "",
+        prazoData: "",
+        prazoTipo: "PROCESSUAL",
       });
       onOpenChange(false);
-    } catch {
+    } catch (erro) {
       toast({
         tipo: "erro",
         titulo: "Erro ao cadastrar processo",
-        descricao: "Verifique os dados informados e tente novamente.",
+        descricao: erro.message || "Verifique os dados informados e tente novamente.",
       });
     } finally {
       setSalvando(false);
@@ -139,7 +208,7 @@ export function ModalCadastrarProcesso({ open, onOpenChange, onProcessoSalvo }) 
       open={open}
       onOpenChange={onOpenChange}
       titulo="Novo Processo"
-      descricao="Cadastre uma nova ação judicial ou procedimento para acompanhamento de prazos."
+      descricao="Cadastre uma nova ação judicial ou procedimento no banco de dados para acompanhamento."
       className="max-w-xl"
       footer={
         <>
@@ -168,7 +237,6 @@ export function ModalCadastrarProcesso({ open, onOpenChange, onProcessoSalvo }) 
         onSubmit={handleSubmit}
         className="space-y-4 pt-2"
       >
-        {/* Número do Processo (CNJ) */}
         <Field
           label="Número do Processo (CNJ)"
           id="proc-numero"
@@ -188,8 +256,7 @@ export function ModalCadastrarProcesso({ open, onOpenChange, onProcessoSalvo }) 
           />
         </Field>
 
-        {/* Cliente e Valor da Causa */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field
             label="Cliente / Parte"
             id="proc-cliente"
@@ -197,11 +264,17 @@ export function ModalCadastrarProcesso({ open, onOpenChange, onProcessoSalvo }) 
           >
             <Input
               id="proc-cliente"
-              placeholder="Nome do cliente"
+              list="lista-clientes-cadastrados"
+              placeholder="Selecione ou digite o nome"
               value={form.cliente}
               onChange={(e) => handleChange("cliente", e.target.value)}
               disabled={salvando}
             />
+            <datalist id="lista-clientes-cadastrados">
+              {clientesExistentes.map((c) => (
+                <option key={c.id} value={c.nome} />
+              ))}
+            </datalist>
           </Field>
 
           <Field label="Valor da Causa" id="proc-valor" hint="Opcional">
@@ -216,8 +289,7 @@ export function ModalCadastrarProcesso({ open, onOpenChange, onProcessoSalvo }) 
           </Field>
         </div>
 
-        {/* Tipo de Ação e Vara */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Área / Tipo de Ação" id="proc-tipo">
             <Select
               id="proc-tipo"
@@ -249,7 +321,6 @@ export function ModalCadastrarProcesso({ open, onOpenChange, onProcessoSalvo }) 
           </Field>
         </div>
 
-        {/* Estágio Inicial */}
         <Field label="Estágio do Processo" id="proc-status">
           <Select
             id="proc-status"
@@ -257,16 +328,47 @@ export function ModalCadastrarProcesso({ open, onOpenChange, onProcessoSalvo }) 
             onChange={(e) => handleChange("status", e.target.value)}
             disabled={salvando}
           >
-            <option value="Petição inicial">Petição inicial (36%)</option>
-            <option value="Instrução">Instrução processual (31%)</option>
-            <option value="Sentença">Aguardando sentença (19%)</option>
-            <option value="Recursal">Fase recursal (14%)</option>
+            <option value="Petição inicial">Petição inicial</option>
+            <option value="Instrução">Instrução processual</option>
+            <option value="Sentença">Aguardando sentença</option>
+            <option value="Recursal">Fase recursal</option>
             <option value="Execução">Cumprimento de sentença</option>
             <option value="Concluído">Concluído / Arquivado</option>
           </Select>
         </Field>
 
-        {/* Resumo dos Fatos */}
+        <div className="grid grid-cols-1 gap-4 rounded-input border border-border bg-surface-muted/40 p-3.5 sm:grid-cols-3">
+          <Field label="Primeiro prazo (opcional)" id="proc-prazo-titulo">
+            <Input
+              id="proc-prazo-titulo"
+              placeholder="Ex.: Contestação"
+              value={form.prazoTitulo}
+              onChange={(e) => handleChange("prazoTitulo", e.target.value)}
+              disabled={salvando}
+            />
+          </Field>
+          <Field label="Data limite" id="proc-prazo-data">
+            <Input
+              id="proc-prazo-data"
+              type="date"
+              value={form.prazoData}
+              onChange={(e) => handleChange("prazoData", e.target.value)}
+              disabled={salvando}
+            />
+          </Field>
+          <Field label="Tipo" id="proc-prazo-tipo">
+            <Select
+              id="proc-prazo-tipo"
+              value={form.prazoTipo}
+              onChange={(e) => handleChange("prazoTipo", e.target.value)}
+              disabled={salvando}
+            >
+              <option value="PROCESSUAL">Prazo processual</option>
+              <option value="AUDIENCIA">Audiência</option>
+            </Select>
+          </Field>
+        </div>
+
         <Field
           label="Objeto da Ação / Descrição Sumária"
           id="proc-desc"

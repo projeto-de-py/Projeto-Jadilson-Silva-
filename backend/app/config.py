@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     # Cookie de sessao (JWT em cookie HttpOnly - nunca acessivel por JS)
     auth_cookie_name: str = "jadilson_token"
     auth_cookie_secure: bool = False  # True em producao (exige HTTPS)
-    auth_cookie_samesite: str = "lax"  # "lax" ou "strict"
+    auth_cookie_samesite: str = "lax"  # ou "strict"
 
     # Rate limit do login (janela deslizante em memoria)
     rate_limit_login_ip: int = 20  # requisicoes por IP na janela
@@ -84,6 +84,12 @@ class Settings(BaseSettings):
     ia_max_tokens: int = 2048
 
     # ZapSign (assinatura eletronica). Segredos nunca vao para log nem resposta.
+    assinatura_provedor: str = "autentique"
+    autentique_api_url: str = "https://api.autentique.com.br/v2/graphql"
+    autentique_api_token: SecretStr | None = None
+    autentique_sandbox: bool = False
+    autentique_webhook_secret: SecretStr | None = None
+    autentique_webhook_header: str = "X-Autentique-Secret"
     zapsign_api_url: str = "https://api.zapsign.com.br/api/v1"
     zapsign_api_token: SecretStr | None = None
     # O webhook e autenticado por um segredo compartilhado, enviado em um header

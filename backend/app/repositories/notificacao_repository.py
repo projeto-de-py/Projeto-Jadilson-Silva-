@@ -22,7 +22,7 @@ class NotificacaoRepository:
         return notificacao
 
     def listar(self, usuario_id: int, *, pagina: int, limite: int, lidas: bool | None):
-        stmt = select(Notificacao).where(Notificacao.usuario_id == usuario_id)
+        stmt = select(Notificacao).where(Notificacao.usuario_id == usuario_id, Notificacao.tipo != "ARQUIVADA")
         if lidas is not None:
             stmt = stmt.where(Notificacao.lida_em.is_not(None) if lidas else Notificacao.lida_em.is_(None))
         total = self.db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
@@ -30,10 +30,27 @@ class NotificacaoRepository:
         return int(total), list(itens)
 
     def contar_nao_lidas(self, usuario_id: int) -> int:
-        return int(self.db.scalar(select(func.count()).select_from(Notificacao).where(Notificacao.usuario_id == usuario_id, Notificacao.lida_em.is_(None))) or 0)
+        return int(
+            self.db.scalar(
+                select(func.count())
+                .select_from(Notificacao)
+                .where(
+                    Notificacao.usuario_id == usuario_id,
+                    Notificacao.tipo != "ARQUIVADA",
+                    Notificacao.lida_em.is_(None),
+                )
+            )
+            or 0
+        )
 
     def marcar_lida(self, usuario_id: int, notificacao_id: int, quando: datetime) -> Notificacao | None:
-        item = self.db.scalar(select(Notificacao).where(Notificacao.usuario_id == usuario_id, Notificacao.id == notificacao_id))
+        item = self.db.scalar(
+            select(Notificacao).where(
+                Notificacao.usuario_id == usuario_id,
+                Notificacao.id == notificacao_id,
+                Notificacao.tipo != "ARQUIVADA",
+            )
+        )
         if item is None:
             return None
         if item.lida_em is None:
@@ -42,8 +59,32 @@ class NotificacaoRepository:
         return item
 
     def marcar_todas_lidas(self, usuario_id: int, quando: datetime) -> int:
-        itens = self.db.scalars(select(Notificacao).where(Notificacao.usuario_id == usuario_id, Notificacao.lida_em.is_(None))).all()
+        itens = self.db.scalars(
+            select(Notificacao).where(
+                Notificacao.usuario_id == usuario_id,
+                Notificacao.tipo != "ARQUIVADA",
+                Notificacao.lida_em.is_(None),
+            )
+        ).all()
         for item in itens:
             item.lida_em = quando
         self.db.commit()
         return len(itens)
+
+    def limpar_todas(self, usuario_id: int, quando: datetime) -> int:
+        itens = self.db.scalars(
+            select(Notificacao).where(
+                Notificacao.usuario_id == usuario_id,
+                Notificacao.tipo != "ARQUIVADA",
+            )
+        ).all()
+        removidas = len(itens)
+        for item in itens:
+            if item.chave_dedupe.startswith(("prazo:", "audiencia:", "relatorio-semanal:")):
+                item.tipo = "ARQUIVADA"
+                if item.lida_em is None:
+                    item.lida_em = quando
+            else:
+                self.db.delete(item)
+        self.db.commit()
+        return removidas

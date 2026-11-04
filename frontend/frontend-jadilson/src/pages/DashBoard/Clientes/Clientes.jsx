@@ -9,6 +9,7 @@ import {
   IconPerson,
   IconMappin,
   IconFolder,
+  IconTrash,
 } from "symbols-react";
 import {
   Card,
@@ -21,94 +22,27 @@ import {
   Input,
   Select,
   EmptyState,
+  Modal,
+  useToast,
 } from "@/components/ui";
 import { ModalCadastrarCliente } from "@/components/modais/ModalCadastrarCliente";
-
-const CLIENTES_INICIAIS = [
-  {
-    id: 1,
-    nome: "Maria da Conceição Silva",
-    tipo: "PF",
-    documento: "123.456.789-00",
-    telefone: "(82) 99876-5432",
-    email: "maria.conceicao@email.com",
-    cidade: "Paulo Afonso - BA",
-    processosAtivos: 2,
-    criadoEm: "10/10/2026",
-    observacoes: "Revisional de contrato bancário em andamento.",
-  },
-  {
-    id: 2,
-    nome: "João Pereira dos Santos",
-    tipo: "PF",
-    documento: "987.654.321-11",
-    telefone: "(82) 99123-4567",
-    email: "joao.pereira@email.com",
-    cidade: "Arapiraca - AL",
-    processosAtivos: 1,
-    criadoEm: "12/10/2026",
-    observacoes: "Ação de indenização por negativação indevida (consumidor).",
-  },
-  {
-    id: 3,
-    nome: "Construtora Alagoas Ltda.",
-    tipo: "PJ",
-    documento: "12.345.678/0001-90",
-    telefone: "(82) 3221-0099",
-    email: "juridico@construtoraalagoas.com.br",
-    cidade: "Paulo Afonso - BA",
-    processosAtivos: 5,
-    criadoEm: "05/10/2026",
-    observacoes: "Assessoria jurídica em contratos bancários e financiamentos.",
-  },
-  {
-    id: 4,
-    nome: "Ana Lúcia Santos",
-    tipo: "PF",
-    documento: "456.789.123-44",
-    telefone: "(82) 98888-1122",
-    email: "ana.lucia@email.com",
-    cidade: "Delmiro Gouveia - AL",
-    processosAtivos: 1,
-    criadoEm: "01/10/2026",
-    observacoes: "Processo previdenciário de aposentadoria por tempo de contribuição.",
-  },
-  {
-    id: 5,
-    nome: "Carlos Eduardo Lima",
-    tipo: "PF",
-    documento: "321.654.987-22",
-    telefone: "(82) 99654-3311",
-    email: "carlos.lima@email.com",
-    cidade: "Paulo Afonso - BA",
-    processosAtivos: 1,
-    criadoEm: "14/10/2026",
-    observacoes: "Restabelecimento de benefício por incapacidade junto ao INSS.",
-  },
-  {
-    id: 6,
-    nome: "Patrícia Gomes Barreto",
-    tipo: "PF",
-    documento: "741.852.963-15",
-    telefone: "(82) 99221-7744",
-    email: "patricia.gomes@email.com",
-    cidade: "Paulo Afonso - BA",
-    processosAtivos: 1,
-    criadoEm: "16/10/2026",
-    observacoes: "Cobrança indevida de tarifas bancárias.",
-  },
-];
+import { useSessao } from "@/context/sessao";
+import { notificarAtualizacaoDados, useCarteira } from "@/data/escritorio";
+import { apiJson } from "@/lib/api";
 
 export function Clientes() {
-  const [clientes, setClientes] = useState(CLIENTES_INICIAIS);
+  const { csrf } = useSessao();
+  const { toast } = useToast();
+  const { clientes, setClientes } = useCarteira();
   const [modalAberto, setModalAberto] = useState(false);
+  const [paraRemover, setParaRemover] = useState(null);
+  const [removendo, setRemovendo] = useState(false);
   const [busca, setBusca] = useState("");
   const [filtroTipo, setFiltroTipo] = useState("TODOS");
 
   const clientesFiltrados = useMemo(() => {
     return clientes.filter((c) => {
-      const matchTipo =
-        filtroTipo === "TODOS" || c.tipo === filtroTipo;
+      const matchTipo = filtroTipo === "TODOS" || c.tipo === filtroTipo;
       const termo = busca.toLowerCase();
       const matchBusca =
         c.nome.toLowerCase().includes(termo) ||
@@ -123,6 +57,33 @@ export function Clientes() {
     setClientes((prev) => [novoCliente, ...prev]);
   }
 
+  async function confirmarRemocao() {
+    if (!paraRemover) return;
+    setRemovendo(true);
+    try {
+      await apiJson(`clientes/${paraRemover.id}`, {
+        method: "DELETE",
+        csrf,
+      });
+      setClientes((prev) => prev.filter((c) => c.id !== paraRemover.id));
+      notificarAtualizacaoDados();
+      toast({
+        tipo: "sucesso",
+        titulo: "Cliente removido",
+        descricao: `${paraRemover.nome} foi removido do banco de dados.`,
+      });
+      setParaRemover(null);
+    } catch (erro) {
+      toast({
+        tipo: "erro",
+        titulo: "Não foi possível remover o cliente",
+        descricao: erro.message || "Tente novamente em instantes.",
+      });
+    } finally {
+      setRemovendo(false);
+    }
+  }
+
   return (
     <div className="space-y-8">
       {/* Cabeçalho da Página com Ações */}
@@ -132,14 +93,14 @@ export function Clientes() {
             Gestão de Clientes
           </h2>
           <p className="text-14 text-ink-muted">
-            Cadastre e acompanhe os clientes vinculados aos casos do escritório.
+            Cadastre e acompanhe os clientes vinculados aos casos do escritório no banco de dados.
           </p>
         </div>
 
         <Button
           variant="primary"
           onClick={() => setModalAberto(true)}
-          className="gap-2 shrink-0"
+          className="shrink-0 gap-2"
         >
           <IconPersonBadgePlus className="size-4" fill="currentColor" />
           Novo Cliente
@@ -194,7 +155,7 @@ export function Clientes() {
             >
               <CardHeader className="pb-4">
                 <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-center gap-4">
+                  <div className="flex min-w-0 items-center gap-4">
                     <div className="bg-surface-muted border-border text-primary flex size-12 shrink-0 items-center justify-center rounded-badge border text-16 font-semibold">
                       {cliente.tipo === "PF" ? (
                         <IconPerson className="size-5" fill="currentColor" />
@@ -212,12 +173,23 @@ export function Clientes() {
                     </div>
                   </div>
 
-                  <Badge
-                    tone={cliente.tipo === "PF" ? "neutral" : "primary"}
-                    className="shrink-0 text-12 font-medium"
-                  >
-                    {cliente.tipo}
-                  </Badge>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Badge
+                      tone={cliente.tipo === "PF" ? "neutral" : "primary"}
+                      className="text-12 font-medium"
+                    >
+                      {cliente.tipo}
+                    </Badge>
+                    <button
+                      type="button"
+                      onClick={() => setParaRemover(cliente)}
+                      aria-label={`Remover cliente ${cliente.nome}`}
+                      title="Remover cliente"
+                      className="text-ink-muted hover:text-status-vencido hover:bg-surface-muted flex size-8 items-center justify-center rounded-input transition-colors"
+                    >
+                      <IconTrash className="size-4" fill="currentColor" />
+                    </button>
+                  </div>
                 </div>
               </CardHeader>
 
@@ -264,6 +236,40 @@ export function Clientes() {
         open={modalAberto}
         onOpenChange={setModalAberto}
         onClienteSalvo={handleClienteSalvo}
+      />
+
+      {/* Modal de Confirmação de Remoção */}
+      <Modal
+        open={!!paraRemover}
+        onOpenChange={(aberto) => !aberto && !removendo && setParaRemover(null)}
+        titulo="Remover cliente?"
+        descricao={
+          paraRemover
+            ? `Tem certeza de que deseja remover "${paraRemover.nome}" do banco de dados?`
+            : undefined
+        }
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              type="button"
+              onClick={() => setParaRemover(null)}
+              disabled={removendo}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="danger"
+              type="button"
+              loading={removendo}
+              onClick={confirmarRemocao}
+              className="gap-2"
+            >
+              <IconTrash className="size-4" fill="currentColor" />
+              Remover cliente
+            </Button>
+          </>
+        }
       />
     </div>
   );

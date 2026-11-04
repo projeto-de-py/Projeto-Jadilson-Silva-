@@ -39,7 +39,7 @@ import { SugestoesIA, TextoFantasma, adicionarBlocos, definirFantasma, posicaoDo
 import { completarTexto } from "@/lib/ia";
 import { useSessao } from "@/context/sessao";
 import { LogoIA } from "@/components/ia/LogoIA";
-import { PROCESSOS_INICIAIS } from "@/data/escritorio";
+import { useCarteira } from "@/data/escritorio";
 import { AREAS_DOC } from "@/data/modelos";
 import { ESTILO_DOCUMENTO, PADRAO_PAGINA, exportarDocumentoPdf, useDocumentos } from "@/lib/documentos";
 import { cn } from "@/lib/cn";
@@ -88,6 +88,7 @@ export function EditorDocumento() {
 }
 
 function Editor({ doc, atualizar }) {
+  const { processos } = useCarteira();
   const [titulo, setTitulo] = useState(doc.titulo);
   const [salvo, setSalvo] = useState(true);
   const [zoom, setZoom] = useState(100);
@@ -224,7 +225,7 @@ function Editor({ doc, atualizar }) {
   const blocoAtual = editor.isActive("heading", { level: 1 }) ? "h1" : editor.isActive("heading", { level: 2 }) ? "h2" : editor.isActive("heading", { level: 3 }) ? "h3" : "p";
   const emTabela = editor.isActive("table");
 
-  const processo = PROCESSOS_INICIAIS.find((p) => String(p.id) === processoId);
+  const processo = processos.find((p) => String(p.id) === processoId);
   const dadosProcesso = processo
     ? [
         ["Cliente", processo.cliente],
@@ -414,7 +415,7 @@ function Editor({ doc, atualizar }) {
               <h3 className="text-13 text-ink font-semibold">Dados do processo</h3>
               <Select value={processoId} onChange={(e) => setProcessoId(e.target.value)} aria-label="Processo vinculado" className="text-13">
                 <option value="">Escolha um processo…</option>
-                {PROCESSOS_INICIAIS.map((p) => <option key={p.id} value={p.id}>{p.cliente}</option>)}
+                {processos.map((p) => <option key={p.id} value={p.id}>{p.cliente}</option>)}
               </Select>
               {dadosProcesso.length > 0 ? (
                 <ul className="space-y-1">

@@ -90,7 +90,7 @@ export function Select({
           position="popper"
           sideOffset={6}
           collisionPadding={16}
-          className="bg-surface border-border text-ink shadow-popover z-[70] max-h-[min(320px,var(--radix-select-content-available-height))] w-[var(--radix-select-trigger-width)] min-w-40 overflow-hidden rounded-input border"
+          className="bg-surface border-border text-ink shadow-popover z-70 max-h-[min(320px,var(--radix-select-content-available-height))] w-(--radix-select-trigger-width) min-w-40 overflow-hidden rounded-input border"
         >
           <RadixSelect.Viewport className="p-2">
             {opcoes.map((o) => (
@@ -98,10 +98,10 @@ export function Select({
                 key={`${o.valor}`}
                 value={paraRadix(o.valor)}
                 disabled={o.desabilitada}
-                className="text-14 data-[highlighted]:bg-surface-muted data-[state=checked]:font-medium relative flex min-h-10 cursor-pointer items-center rounded-[8px] py-2 ps-3 pe-9 outline-none select-none data-[disabled]:opacity-40"
+                className="text-14 data-highlighted:bg-surface-muted data-[state=checked]:font-medium relative flex min-h-10 cursor-pointer items-center rounded-lg py-2 ps-3 pe-9 outline-none select-none data-disabled:opacity-40"
               >
                 <RadixSelect.ItemText>{o.rotulo}</RadixSelect.ItemText>
-                <RadixSelect.ItemIndicator className="absolute end-3 inline-flex">
+                <RadixSelect.ItemIndicator className="absolute inset-e-3 inline-flex">
                   <IconCheckmark className="text-ink size-3.5" fill="currentColor" />
                 </RadixSelect.ItemIndicator>
               </RadixSelect.Item>

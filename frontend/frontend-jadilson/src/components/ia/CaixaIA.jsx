@@ -6,10 +6,9 @@ import { ATALHOS_IA, solicitarSugestoes } from "@/lib/ia";
 import { useSessao } from "@/context/sessao";
 import { Select } from "@/components/ui";
 import { LogoIA } from "@/components/ia/LogoIA";
-import { PROCESSOS_INICIAIS } from "@/data/escritorio";
+import { useCarteira } from "@/data/escritorio";
 import { cn } from "@/lib/cn";
 
-// Etapas mostradas enquanto a IA trabalha. "Redigindo" dura até a resposta chegar de verdade.
 function etapasDe(processo) {
   return [
     { rotulo: "Entendendo o pedido" },
@@ -21,21 +20,17 @@ function etapasDe(processo) {
 
 const espera = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/**
- * Caixa de pedido à IA. Ao enviar, chama o servidor, mostra os estados de trabalho
- * e entrega as sugestões ao editor (que as exibe dentro do texto). Se o servidor
- * recusar o pedido ou precisar de mais informação, a caixa explica e deixa corrigir.
- */
 export function CaixaIA({ open, onOpenChange, processoId, aoMudarProcesso, textoDocumento, area, tipoPeca, nomeUsuario = "Dr. Jadilson", aoSugerir }) {
   const { csrf } = useSessao();
+  const { processos } = useCarteira(open);
   const [pedido, setPedido] = useState("");
-  const [fase, setFase] = useState("pedido"); // pedido | trabalhando | pronto | resposta
+  const [fase, setFase] = useState("pedido");
   const [etapa, setEtapa] = useState(0);
-  const [mensagem, setMensagem] = useState(null); // { tipo: "pergunta" | "erro", textos: [] }
+  const [mensagem, setMensagem] = useState(null);
   const timers = useRef([]);
   const cancelado = useRef(false);
 
-  const processo = PROCESSOS_INICIAIS.find((p) => String(p.id) === String(processoId)) ?? null;
+  const processo = processos.find((p) => String(p.id) === String(processoId)) ?? null;
   const etapas = etapasDe(processo);
 
   function limpar() {
@@ -71,7 +66,7 @@ export function CaixaIA({ open, onOpenChange, processoId, aoMudarProcesso, texto
     let erro = null;
     const [resposta] = await Promise.all([
       solicitarSugestoes({ pedido: pedidoFinal, acao: acaoEscolhida, processo, textoDocumento, area, tipoPeca, csrf }).catch((e) => ({ erro: e })),
-      espera(1500), // dá tempo de ler as duas primeiras etapas
+      espera(1500),
     ]);
     if (cancelado.current) return;
     if (resposta?.erro) erro = resposta.erro;
@@ -120,7 +115,6 @@ export function CaixaIA({ open, onOpenChange, processoId, aoMudarProcesso, texto
                   transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
                   className="bg-surface border-border relative w-full max-w-2xl overflow-hidden rounded-modal border shadow-popover"
                 >
-                  {/* Brilho suave vindo de cima */}
                   <div
                     aria-hidden="true"
                     className="pointer-events-none absolute inset-x-0 top-0 h-72"
@@ -213,7 +207,7 @@ export function CaixaIA({ open, onOpenChange, processoId, aoMudarProcesso, texto
                                 className="text-13 h-8 w-64 rounded-[8px] px-3"
                               >
                                 <option value="">Sem processo vinculado</option>
-                                {PROCESSOS_INICIAIS.map((p) => <option key={p.id} value={p.id}>{p.cliente}</option>)}
+                                {processos.map((p) => <option key={p.id} value={p.id}>{p.cliente}</option>)}
                               </Select>
                             </div>
                             <span>Revisão humana antes de qualquer inclusão</span>

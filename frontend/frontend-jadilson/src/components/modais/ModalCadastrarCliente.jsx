@@ -8,6 +8,9 @@ import {
   Field,
   useToast,
 } from "@/components/ui";
+import { useSessao } from "@/context/sessao";
+import { apiJson } from "@/lib/api";
+import { mapearClienteApi, notificarAtualizacaoDados } from "@/data/escritorio";
 
 function formatarDocumento(valor, pessoaFisica) {
   const digitos = valor.replace(/\D/g, "").slice(0, pessoaFisica ? 11 : 14);
@@ -35,6 +38,7 @@ function formatarTelefone(valor) {
 }
 
 export function ModalCadastrarCliente({ open, onOpenChange, onClienteSalvo }) {
+  const { csrf } = useSessao();
   const { toast } = useToast();
   const [salvando, setSalvando] = useState(false);
   const [tipo, setTipo] = useState("PF");
@@ -60,8 +64,9 @@ export function ModalCadastrarCliente({ open, onOpenChange, onClienteSalvo }) {
     if (!form.nome.trim()) {
       novosErros.nome = "Informe o nome ou razão social do cliente.";
     }
-    if (!form.telefone.trim()) {
-      novosErros.telefone = "Informe um telefone de contato.";
+    const digitosTel = form.telefone.replace(/\D/g, "");
+    if (!digitosTel || (digitosTel.length !== 10 && digitosTel.length !== 11)) {
+      novosErros.telefone = "Informe um telefone com DDD (10 ou 11 dígitos).";
     }
     setErros(novosErros);
     return Object.keys(novosErros).length === 0;
@@ -72,32 +77,40 @@ export function ModalCadastrarCliente({ open, onOpenChange, onClienteSalvo }) {
     if (!validar()) return;
 
     setSalvando(true);
-    // Simula salvamento rápido com feedback de qualidade
     try {
-      const novoCliente = {
-        id: Date.now(),
+      const payload = {
         nome: form.nome.trim(),
+        cpf_cnpj: form.documento.replace(/\D/g, "") || null,
+        email: form.email.trim() || null,
+        telefone: form.telefone.replace(/\D/g, "") || null,
+      };
+
+      const criado = await apiJson("clientes", {
+        method: "POST",
+        csrf,
+        body: payload,
+      });
+
+      const novoCliente = {
+        ...mapearClienteApi(criado),
         tipo,
-        documento: form.documento.trim() || (tipo === "PF" ? "000.000.000-00" : "00.000.000/0001-00"),
-        email: form.email.trim(),
-        telefone: form.telefone.trim(),
         cidade: form.cidade.trim() || "Paulo Afonso - BA",
         observacoes: form.observacoes.trim(),
-        processosAtivos: 0,
-        criadoEm: new Date().toLocaleDateString("pt-BR"),
       };
 
       if (onClienteSalvo) {
         onClienteSalvo(novoCliente);
       }
 
+      notificarAtualizacaoDados();
+      window.dispatchEvent(new CustomEvent("notificacoes:atualizar"));
+
       toast({
         tipo: "sucesso",
-        titulo: "Cliente cadastrado com sucesso!",
+        titulo: "Cliente salvo no banco de dados",
         descricao: `${novoCliente.nome} já está disponível para vinculação a processos.`,
       });
 
-      // Reset form
       setForm({
         nome: "",
         documento: "",
@@ -107,11 +120,11 @@ export function ModalCadastrarCliente({ open, onOpenChange, onClienteSalvo }) {
         observacoes: "",
       });
       onOpenChange(false);
-    } catch {
+    } catch (erro) {
       toast({
         tipo: "erro",
         titulo: "Erro ao cadastrar cliente",
-        descricao: "Verifique os dados informados e tente novamente.",
+        descricao: erro.message || "Verifique os dados informados (como CPF/CNPJ válido) e tente novamente.",
       });
     } finally {
       setSalvando(false);
@@ -123,7 +136,7 @@ export function ModalCadastrarCliente({ open, onOpenChange, onClienteSalvo }) {
       open={open}
       onOpenChange={onOpenChange}
       titulo="Novo Cliente"
-      descricao="Cadastre uma pessoa física ou jurídica para vincular a processos e prazos."
+      descricao="Cadastre uma pessoa física ou jurídica no banco de dados do escritório."
       className="max-w-xl"
       footer={
         <>
@@ -152,17 +165,16 @@ export function ModalCadastrarCliente({ open, onOpenChange, onClienteSalvo }) {
         onSubmit={handleSubmit}
         className="space-y-4 pt-2"
       >
-        {/* Seletor de Tipo (Pessoa Física / Pessoa Jurídica) */}
-        <div className="grid grid-cols-2 gap-2 p-1 bg-surface-muted rounded-input border border-border">
+        <div className="grid grid-cols-2 gap-2 rounded-input border border-border bg-surface-muted p-1">
           <button
             type="button"
             onClick={() => {
               setTipo("PF");
               handleChange("documento", formatarDocumento(form.documento, true));
             }}
-            className={`flex items-center justify-center gap-2 py-2 text-14 font-medium rounded-input transition-colors ${
+            className={`flex items-center justify-center gap-2 rounded-input py-2 text-14 font-medium transition-colors ${
               tipo === "PF"
-                ? "bg-surface text-ink shadow-xs border border-border"
+                ? "border border-border bg-surface text-ink shadow-xs"
                 : "text-ink-muted hover:text-ink"
             }`}
           >
@@ -175,9 +187,9 @@ export function ModalCadastrarCliente({ open, onOpenChange, onClienteSalvo }) {
               setTipo("PJ");
               handleChange("documento", formatarDocumento(form.documento, false));
             }}
-            className={`flex items-center justify-center gap-2 py-2 text-14 font-medium rounded-input transition-colors ${
+            className={`flex items-center justify-center gap-2 rounded-input py-2 text-14 font-medium transition-colors ${
               tipo === "PJ"
-                ? "bg-surface text-ink shadow-xs border border-border"
+                ? "border border-border bg-surface text-ink shadow-xs"
                 : "text-ink-muted hover:text-ink"
             }`}
           >
@@ -186,7 +198,6 @@ export function ModalCadastrarCliente({ open, onOpenChange, onClienteSalvo }) {
           </button>
         </div>
 
-        {/* Nome / Razão Social */}
         <Field
           label={tipo === "PF" ? "Nome Completo" : "Razão Social / Nome Fantasia"}
           id="cliente-nome"
@@ -202,8 +213,7 @@ export function ModalCadastrarCliente({ open, onOpenChange, onClienteSalvo }) {
           />
         </Field>
 
-        {/* Documento (CPF / CNPJ) e Telefone */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field
             label={tipo === "PF" ? "CPF" : "CNPJ"}
             id="cliente-documento"
@@ -238,8 +248,7 @@ export function ModalCadastrarCliente({ open, onOpenChange, onClienteSalvo }) {
           </Field>
         </div>
 
-        {/* E-mail e Cidade */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="E-mail de Contato" id="cliente-email">
             <Input
               id="cliente-email"
@@ -262,7 +271,6 @@ export function ModalCadastrarCliente({ open, onOpenChange, onClienteSalvo }) {
           </Field>
         </div>
 
-        {/* Observações / Anotações */}
         <Field
           label="Observações / Detalhes"
           id="cliente-observacoes"

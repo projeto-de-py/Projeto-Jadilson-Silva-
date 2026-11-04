@@ -28,3 +28,22 @@ class NotificacaoPaginaOut(BaseModel):
 
 class ContagemNotificacaoOut(BaseModel):
     nao_lidas: int
+
+
+TipoNotificacaoConfig = Literal[
+    "prazoHoje",
+    "prazo3dias",
+    "audiencias",
+    "novosClientes",
+    "relatorioSemanal",
+]
+
+
+class TesteNotificacaoIn(BaseModel):
+    tipo: TipoNotificacaoConfig | None = None
+    tipos: list[TipoNotificacaoConfig] | None = None
+
+
+class TesteNotificacaoOut(BaseModel):
+    criadas: int
+    itens: list[NotificacaoOut]

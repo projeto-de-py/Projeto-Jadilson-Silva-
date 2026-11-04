@@ -10,8 +10,10 @@ import { BuscaGlobal } from "@/components/layout/BuscaGlobal";
 import { ModalCalculadoraPrazos } from "@/components/modais/ModalCalculadoraPrazos";
 import { ModalConfirmacaoLogout } from "@/components/modais/ModalConfirmacaoLogout";
 import { ModalNovoContribuidor } from "@/components/modais/ModalNovoContribuidor";
+import { AreaProvider } from "@/context/AreaProvider";
+import { spring } from "@/lib/motion";
 
-export function DashboardLayout({ user, csrf, onLogout, loading, error }) {
+function LayoutInterno({ user, csrf, onLogout, loading, error }) {
   const [menuAberto, setMenuAberto] = useState(false);
   const [modalLogoutAberto, setModalLogoutAberto] = useState(false);
   const [modalContribuidorAberto, setModalContribuidorAberto] = useState(false);
@@ -36,8 +38,8 @@ export function DashboardLayout({ user, csrf, onLogout, loading, error }) {
   }, [titulo]);
 
   return (
-    <div className="min-h-screen lg:h-screen lg:overflow-hidden lg:p-4">
-      <div className="border-border/70 bg-bg flex min-h-screen flex-col lg:h-full lg:min-h-0 lg:overflow-hidden lg:rounded-modal lg:border lg:shadow-[0_24px_80px_rgb(0_0_0/0.55)]">
+    <div className="min-h-screen lg:h-screen lg:overflow-hidden">
+      <div className="bg-bg flex min-h-screen flex-col lg:h-full lg:min-h-0 lg:overflow-hidden">
         <div className="flex min-h-0 flex-1">
           <div className="hidden lg:block">
             <Sidebar
@@ -62,10 +64,10 @@ export function DashboardLayout({ user, csrf, onLogout, loading, error }) {
             {error && <p role="alert" className="text-destructive px-6 py-2 text-sm">{error}</p>}
             <motion.main
               key={pathname}
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-              className="mx-auto w-full max-w-content px-6 py-8 lg:px-12 lg:py-12"
+              transition={spring.gentle}
+              className="mx-auto w-full max-w-content px-6 py-8 sm:px-8 lg:px-12 lg:py-10"
             >
               <SessaoContext.Provider value={{ csrf }}>
                 <Outlet context={{ user, csrf }} />
@@ -111,5 +113,14 @@ export function DashboardLayout({ user, csrf, onLogout, loading, error }) {
         csrf={csrf}
       />
     </div>
+  );
+}
+
+/** A área escolhida na sidebar vale para todas as telas do painel. */
+export function DashboardLayout(props) {
+  return (
+    <AreaProvider>
+      <LayoutInterno {...props} />
+    </AreaProvider>
   );
 }

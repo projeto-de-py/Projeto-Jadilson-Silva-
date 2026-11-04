@@ -1,16 +1,56 @@
 """Regras de criação e leitura dos avisos internos do usuário."""
 
-from datetime import date
+from datetime import date, datetime, timedelta
+from uuid import uuid4
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
+from sqlalchemy.exc import IntegrityError
 
 from app.models.caso import Caso
+from app.models.evento_agenda import EventoAgenda
 from app.models.notificacao import Notificacao
 from app.models.prazo import Prazo
 from app.models.usuario import Usuario, utcnow
-from app.repositories.escopo import condicao_prazo_visivel
+from app.repositories.escopo import condicao_caso_visivel, condicao_prazo_visivel
 from app.repositories.notificacao_repository import NotificacaoRepository
-from sqlalchemy.exc import IntegrityError
+
+MODELOS_TESTE_NOTIFICACAO: dict[str, dict[str, str]] = {
+    "prazoHoje": {
+        "tipo": "PRAZO",
+        "titulo": "Prazo vence hoje",
+        "mensagem": "Há um prazo processual fatal com vencimento hoje.",
+        "link": "/prazos",
+        "severidade": "critica",
+    },
+    "prazo3dias": {
+        "tipo": "PRAZO",
+        "titulo": "Prazo próximo",
+        "mensagem": "Um prazo processual vence nos próximos 3 dias.",
+        "link": "/prazos",
+        "severidade": "atencao",
+    },
+    "audiencias": {
+        "tipo": "AUDIENCIA",
+        "titulo": "Audiência agendada",
+        "mensagem": "Lembrete: você possui uma audiência agendada nas próximas 24 horas.",
+        "link": "/agenda",
+        "severidade": "atencao",
+    },
+    "novosClientes": {
+        "tipo": "CLIENTE_CADASTRADO",
+        "titulo": "Novo cadastro disponível",
+        "mensagem": "Um novo cadastro de cliente foi adicionado ao escritório.",
+        "link": "/clientes",
+        "severidade": "info",
+    },
+    "relatorioSemanal": {
+        "tipo": "RELATORIO_SEMANAL",
+        "titulo": "Relatório semanal da carteira",
+        "mensagem": "Resumo semanal de sexta-feira da carteira disponível no painel.",
+        "link": "/home",
+        "severidade": "info",
+    },
+}
 
 
 class NotificacaoService:
@@ -42,6 +82,29 @@ class NotificacaoService:
     def marcar_todas_lidas(self, usuario_id: int) -> int:
         return self.repo.marcar_todas_lidas(usuario_id, utcnow())
 
+    def limpar_todas(self, usuario_id: int) -> int:
+        return self.repo.limpar_todas(usuario_id, utcnow())
+
+    def emitir_teste(self, usuario_id: int, *, tipos: list[str] | None = None) -> list[Notificacao]:
+        chaves = tipos if tipos else list(MODELOS_TESTE_NOTIFICACAO.keys())
+        criadas: list[Notificacao] = []
+        for chave in chaves:
+            modelo = MODELOS_TESTE_NOTIFICACAO.get(chave)
+            if modelo is None:
+                continue
+            item = self.criar(
+                usuario_id=usuario_id,
+                tipo=modelo["tipo"],
+                titulo=f"[Teste] {modelo['titulo']}",
+                mensagem=modelo["mensagem"],
+                link=modelo["link"],
+                severidade=modelo["severidade"],
+                chave_dedupe=f"teste:{chave}:{uuid4().hex}",
+            )
+            if item is not None:
+                criadas.append(item)
+        return criadas
+
 
 class GeradorNotificacaoPrazo:
     """Cria avisos de prazo na primeira leitura; a chave torna a varredura repetível."""
@@ -65,6 +128,87 @@ class GeradorNotificacaoPrazo:
                 continue
             marco = "vencido" if dias < 0 else f"marco-{dias}"
             service.criar(usuario_id=usuario.id, tipo="PRAZO", titulo=titulo, mensagem=mensagem, link="/prazos", severidade=severidade, chave_dedupe=f"prazo:{prazo.id}:{prazo.data_limite.isoformat()}:{marco}")
+
+
+class GeradorNotificacaoAudiencia:
+    """Cria lembretes de audiências agendadas nas próximas 24 horas."""
+
+    TIPOS_AUDIENCIA = ("AUDIENCIA", "AUDIENCIA_VIRTUAL", "CONCILIACAO")
+
+    def __init__(self, repo: NotificacaoRepository):
+        self.repo = repo
+
+    def gerar_para(self, usuario: Usuario, agora: datetime | None = None) -> None:
+        referencia = agora or datetime.now()
+        limite = referencia + timedelta(hours=24)
+        stmt = select(EventoAgenda).where(
+            EventoAgenda.tipo.in_(self.TIPOS_AUDIENCIA),
+            EventoAgenda.inicio >= referencia - timedelta(hours=2),
+            EventoAgenda.inicio <= limite,
+            or_(
+                EventoAgenda.destinatario_id.is_(None),
+                EventoAgenda.destinatario_id == usuario.id,
+                EventoAgenda.criado_por_id == usuario.id,
+            ),
+        )
+        eventos = self.repo.db.scalars(stmt).all()
+        service = NotificacaoService(self.repo)
+        for evento in eventos:
+            service.criar(
+                usuario_id=usuario.id,
+                tipo="AUDIENCIA",
+                titulo="Audiência agendada",
+                mensagem="Lembrete: você possui uma audiência agendada nas próximas 24 horas.",
+                link="/agenda",
+                severidade="atencao",
+                chave_dedupe=f"audiencia:{evento.id}:{evento.inicio.date().isoformat()}:24h",
+            )
+
+
+class GeradorNotificacaoRelatorioSemanal:
+    """Cria o resumo semanal da carteira toda sexta-feira."""
+
+    def __init__(self, repo: NotificacaoRepository):
+        self.repo = repo
+
+    def gerar_para(self, usuario: Usuario, hoje: date | None = None) -> None:
+        dia = hoje or date.today()
+        if dia.weekday() != 4:  # 4 = sexta-feira
+            return
+        total_casos = int(
+            self.repo.db.scalar(
+                select(func.count())
+                .select_from(Caso)
+                .where(Caso.arquivado.is_(False), condicao_caso_visivel(usuario))
+            )
+            or 0
+        )
+        total_prazos = int(
+            self.repo.db.scalar(
+                select(func.count())
+                .select_from(Prazo)
+                .join(Caso)
+                .where(Prazo.cumprido.is_(False), condicao_prazo_visivel(usuario))
+            )
+            or 0
+        )
+        iso = dia.isocalendar()
+        NotificacaoService(self.repo).criar(
+            usuario_id=usuario.id,
+            tipo="RELATORIO_SEMANAL",
+            titulo="Relatório semanal da carteira",
+            mensagem=f"Resumo de sexta-feira: {total_casos} processo(s) ativo(s) e {total_prazos} prazo(s) pendente(s).",
+            link="/home",
+            severidade="info",
+            chave_dedupe=f"relatorio-semanal:{iso.year}-W{iso.week:02d}",
+        )
+
+
+def sincronizar_notificacoes_automaticas(repo: NotificacaoRepository, usuario: Usuario) -> None:
+    """Dispara os geradores periódicos (prazos, audiências em 24h e relatório de sexta-feira)."""
+    GeradorNotificacaoPrazo(repo).gerar_para(usuario)
+    GeradorNotificacaoAudiencia(repo).gerar_para(usuario)
+    GeradorNotificacaoRelatorioSemanal(repo).gerar_para(usuario)
 
 
 class GeradorNotificacaoAcao:
