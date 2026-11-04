@@ -115,6 +115,15 @@ class Caso(Base):
     )
     prazos: Mapped[list["Prazo"]] = relationship(back_populates="caso", cascade="all, delete-orphan")
     andamentos: Mapped[list["Andamento"]] = relationship(back_populates="caso", cascade="all, delete-orphan")
+    # Compromissos de agenda vinculados a este caso (Fase 4). Os compromissos
+    # SEM caso nao estao aqui - nao pertencem a nenhuma demanda.
+    compromissos: Mapped[list["Compromisso"]] = relationship(
+        back_populates="caso", cascade="all, delete-orphan"
+    )
+    # Processos judiciais vinculados (Fase 3): um caso pode ter 0..N.
+    processos: Mapped[list["ProcessoJudicial"]] = relationship(
+        "ProcessoJudicial", back_populates="caso", cascade="all, delete-orphan"
+    )
 
     @property
     def responsavel_nome(self) -> str | None:

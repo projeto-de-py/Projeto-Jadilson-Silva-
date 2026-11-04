@@ -1,7 +1,7 @@
-"""Validacao e normalizacao de dados cadastrais (CPF, CNPJ e telefone).
+"""Validacao e normalizacao de dados cadastrais (CPF, CNPJ, telefone e CNJ).
 
-Regras de negocio aplicadas pelo ClienteService; os erros levantados aqui
-sao traduzidos para HTTP 422 na camada de rota.
+Regras de negocio aplicadas pelos services; os erros levantados aqui sao
+traduzidos para HTTP 422 na camada de rota.
 """
 
 import re
@@ -114,3 +114,58 @@ def normalizar_telefone(valor: str | None) -> str | None:
     if not 10 <= len(apenas) <= 15:
         raise TelefoneInvalidoError("Telefone deve ter entre 10 e 15 digitos")
     return apenas
+
+
+# ----------------------------------------------------------- numero CNJ
+
+class NumeroProcessoInvalidoError(ValueError):
+    """Numero de processo fora do padrao CNJ (tamanho ou digitos verificadores)."""
+
+
+def eh_cnj(numero: str | None) -> bool:
+    """Confere o digito verificador do padrao CNJ (numero ja normalizado).
+
+    O numero CNJ tem 20 digitos: NNNNNNN-DD.AAAA.J.TR.OOOO. O digito
+    verificador (DD) e valido quando o numero COMPLETO interpretado como
+    inteiro tem resto 1 na divisao por 97 (algoritmo modulo 97 do padrao CNJ,
+    nao apenas expressao regular).
+    """
+    if numero is None or len(numero) != 20 or not numero.isdigit():
+        return False
+    if len(set(numero)) == 1:  # todos os digitos iguais nunca sao validos
+        return False
+    return int(numero) % 97 == 1
+
+
+def normalizar_numero_processo(valor: str | None) -> str | None:
+    """Normaliza um numero CNJ para os 20 digitos, validando os verificadores.
+
+    Aceita a formatacao comum (0001234-56.2025.8.26.0100) ou apenas digitos;
+    devolve somente os 20 digitos (consistente com a politica de CPF/CNPJ,
+    guardados sem mascara). Numero ausente/vazio devolve None.
+    """
+    if valor is None:
+        return None
+    bruto = str(valor).strip()
+    if not bruto:
+        return None
+    apenas = digitos(bruto)
+    if len(apenas) != 20:
+        raise NumeroProcessoInvalidoError(
+            "Numero de processo deve ter 20 digitos (padrao CNJ)"
+        )
+    if not eh_cnj(apenas):
+        raise NumeroProcessoInvalidoError(
+            "Numero de processo invalido (digitos verificadores nao conferem)"
+        )
+    return apenas
+
+
+def formatar_numero_processo(valor: str | None) -> str | None:
+    """Formata para exibicao: 20 digitos -> 0001234-56.2025.8.26.0100."""
+    if not valor or len(valor) != 20:
+        return valor
+    return (
+        f"{valor[:7]}-{valor[7:9]}.{valor[9:13]}.{valor[13]}."
+        f"{valor[14:16]}.{valor[16:20]}"
+    )

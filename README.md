@@ -4,7 +4,7 @@ Projeto com **backend FastAPI + SQLAlchemy + MySQL** (autenticação JWT em cook
 
 ## Dependências e configuração
 
-Execute a partir da raiz do repositório. Use Python 3.13 e Node 22.12 ou superior; se o ambiente virtual já existir, preserve-o.
+Execute a partir da raiz do repositório. Use Python 3.14 e Node 22.12 ou superior; se o ambiente virtual já existir, preserve-o.
 
 ```bash
 python3 -m venv backend/.venv
@@ -55,6 +55,35 @@ python -m app.seed
 
 **Login inicial (seed):** `admin@jadilson.adv` — a senha é **gerada aleatoriamente e impressa no terminal** pelo `python -m app.seed` (ou defina `ADMIN_SENHA_INICIAL` no `.env`). Troque após o 1º acesso.
 
+### Situação das migrações (04/11/2026)
+
+Cadeia versionada: `0001` (usuários) → `0002` (casos/prazos) → `0003` (Fase 1) →
+`0004` (Fase 2) → `0005` (Fase 3) → `0006` (Fase 4) → `0007` (permissão de
+compromissos). A cadeia completa foi **validada em MySQL 8 descartável**
+(upgrade até `0007`, downgrade até `0002` e re-upgrade) e em SQLite
+(`tests/test_migracoes.py`).
+
+> O **banco real** (`advocacia`) foi atualizado em **04/11/2026** de
+> `0002_casos_prazos` para **`0007_permissoes_compromissos`**, após backup em
+> `backend/.local/backup_advocacia_20261104_pre_upgrade.sql` (pasta ignorada
+> pelo git) e conferência da revisão. O seed foi re-executado (admin +
+> 6 casos e 4 prazos fictícios). O procedimento abaixo vale para qualquer
+> futura atualização:
+
+```bash
+# 1) backup (ajuste usuário/senha; NUNCA commite o arquivo gerado)
+mysqldump -u root -p advocacia > backup_advocacia_antes_upgrade.sql
+
+# 2) revisão aplicada NO banco (deve imprimir 0007_permissoes_compromissos ... head)
+python -c "from alembic.config import main; main(['current'])"
+
+# 3) em caso de dúvida, confirme direto no banco (somente leitura)
+#    SELECT * FROM advocacia.alembic_version;
+
+# 4) upgrade (só com autorização do time)
+python -c "from alembic.config import main; main(['upgrade','head'])"
+```
+
 ## Iniciar o sistema
 
 Terminal do backend:
@@ -81,14 +110,34 @@ Abra `http://127.0.0.1:5173`. O Vite encaminha `/api` para `127.0.0.1:8000`, ent
 ```bash
 cd backend
 source .venv/bin/activate
-python -m pytest          # testes unit + API — rodam em SQLite em memória, sem tocar o MySQL
+python -m pytest          # 376 testes (unit + API + Fases 1-4 + migrations) — SQLite em memória, sem tocar o MySQL
 ```
+
+Suíte executada em 04/11/2026: **376 testes aprovados, 0 falhas**
+(102 da Fase 4, 76 da Fase 3, 52 da Fase 2 + demais). Detalhes em
+[`backend/README.md`](backend/README.md).
 
 ```bash
 cd frontend/frontend-jadilson
-npm run build
-npm run lint
+npm run build             # build de produção
+npm run lint              # ESLint (0 erros)
 ```
+
+## Documentação
+
+| Documento | Conteúdo |
+|---|---|
+| [`backend/README.md`](backend/README.md) | API: arquitetura, endpoints, banco e testes |
+| [`docs/CONTEXTO_IA.md`](docs/CONTEXTO_IA.md) | Handoff completo do projeto (status dos RFs, roadmap) |
+| [`docs/FASE1_CADASTROS.md`](docs/FASE1_CADASTROS.md) … [`docs/FASE4_PRAZOS_COMPROMISSOS.md`](docs/FASE4_PRAZOS_COMPROMISSOS.md) | Documentação técnica por fase |
+| [`docs/ROTEIRO_PRE_ENTREGA.md`](docs/ROTEIRO_PRE_ENTREGA.md) | Roteiro de demonstração passo a passo |
+
+> **Frontend — escopo real:** a **autenticação é contra a API real**
+> (login/sessão/logout pelo proxy `/api`); as demais telas (dashboard,
+> processos, prazos, agenda, clientes, documentos) ainda consomem **dados de
+> demonstração locais** e estão descritas como tal em
+> [`docs/ROTEIRO_PRE_ENTREGA.md`](docs/ROTEIRO_PRE_ENTREGA.md) — o CRUD
+> completo é demonstrado pelo Swagger (`/docs`).
 
 ## Sessões e produção futura
 

@@ -35,6 +35,17 @@ class UsuarioCaso(Base):
     pode_gerenciar_prazos: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False
     )
+    # Gestao de processos judiciais do caso (Fase 3): criar/editar processos.
+    # Funcionario so cadastra processo se o admin conceder esta permissao.
+    pode_gerenciar_processos: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
+    # Gestao de compromissos de AGENDA do caso (Fase 4): criar/editar e mudar
+    # status. Permissao PROPRIA - `pode_gerenciar_prazos` nao a concede. Nasce
+    # em False (menor privilegio) e so entra na linha quando o admin pedir.
+    pode_gerenciar_compromissos: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
     ativo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     concedido_por: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True

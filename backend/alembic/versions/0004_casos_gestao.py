@@ -127,6 +127,15 @@ def downgrade() -> None:
     # arquivamento, auditoria) sao descartados - e a unica perda possivel num
     # downgrade; nenhum registro legado e afetado (numero_processo NOT NULL e
     # restaurado apenas para quem ja tinha numero).
+
+    # 0) PRIMEIRO as FKs: no MySQL um indice usado por uma constraint nao
+    #    pode ser removido antes dela (erro 1553) - `ix_casos_responsavel_id`
+    #    e o indice que sustenta `fk_casos_responsavel_id`.
+    with op.batch_alter_table("casos") as batch_op:
+        batch_op.drop_constraint("fk_casos_criado_por", type_="foreignkey")
+        batch_op.drop_constraint("fk_casos_arquivado_por", type_="foreignkey")
+        batch_op.drop_constraint("fk_casos_responsavel_id", type_="foreignkey")
+
     op.drop_index("ix_casos_area", table_name="casos")
     op.drop_index("ix_casos_arquivado", table_name="casos")
     op.drop_index("ix_casos_responsavel_id", table_name="casos")
@@ -137,9 +146,6 @@ def downgrade() -> None:
     op.drop_table("caso_historicos")
 
     with op.batch_alter_table("casos") as batch_op:
-        batch_op.drop_constraint("fk_casos_criado_por", type_="foreignkey")
-        batch_op.drop_constraint("fk_casos_arquivado_por", type_="foreignkey")
-        batch_op.drop_constraint("fk_casos_responsavel_id", type_="foreignkey")
         batch_op.drop_column("atualizado_em")
         batch_op.drop_column("criado_por")
         batch_op.drop_column("arquivado_em")

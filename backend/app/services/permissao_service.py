@@ -83,6 +83,8 @@ class PermissaoCasoService:
             existente.pode_visualizar = dados.pode_visualizar
             existente.pode_registrar_andamento = dados.pode_registrar_andamento
             existente.pode_gerenciar_prazos = dados.pode_gerenciar_prazos
+            existente.pode_gerenciar_processos = dados.pode_gerenciar_processos
+            existente.pode_gerenciar_compromissos = dados.pode_gerenciar_compromissos
             existente.concedido_por = admin.id
             existente.concedido_em = utcnow()
             existente.revogado_por = None
@@ -95,6 +97,8 @@ class PermissaoCasoService:
             pode_visualizar=dados.pode_visualizar,
             pode_registrar_andamento=dados.pode_registrar_andamento,
             pode_gerenciar_prazos=dados.pode_gerenciar_prazos,
+            pode_gerenciar_processos=dados.pode_gerenciar_processos,
+            pode_gerenciar_compromissos=dados.pode_gerenciar_compromissos,
             ativo=True,
             concedido_por=admin.id,
         )
