@@ -15,7 +15,10 @@ settings = get_settings()
 
 def hash_senha(senha: str) -> str:
     """Gera o hash bcrypt da senha (nunca armazenar a senha pura - RNF01)."""
-    return bcrypt.hashpw(senha.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    raw = senha.encode("utf-8")
+    if len(raw) > 72:
+        raise ValueError("A senha excede o limite de 72 bytes do bcrypt")
+    return bcrypt.hashpw(raw, bcrypt.gensalt()).decode("utf-8")
 
 
 def verificar_senha(senha: str, senha_hash: str) -> bool:

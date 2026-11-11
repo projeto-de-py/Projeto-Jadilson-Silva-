@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   addDays,
   addMonths,
@@ -17,6 +17,7 @@ import {
   subWeeks,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useOutletContext } from "react-router-dom";
 import {
   IconChevronLeft,
   IconChevronRight,
@@ -27,9 +28,10 @@ import {
   IconTrash,
   IconCalendar,
 } from "symbols-react";
-import { Button, Badge, Drawer, EmptyState, Field, Input, Modal, Select, Textarea } from "@/components/ui";
+import { Button, Badge, Drawer, EmptyState, Field, Input, Modal, Select, Textarea, Assignees } from "@/components/ui";
 import { HOJE } from "@/lib/prazos";
 import { cn } from "@/lib/cn";
+import { apiJson } from "@/lib/api";
 
 const TIPOS = {
   "Audiência": { ponto: "bg-status-vencido", chip: "bg-status-vencido-soft text-status-vencido-ink", tom: "vencido" },
@@ -39,6 +41,7 @@ const TIPOS = {
   "Despacho": { ponto: "bg-ink-muted", chip: "bg-surface-muted text-ink-muted", tom: "neutral" },
 };
 const NOMES_TIPOS = Object.keys(TIPOS);
+const CODIGOS_TIPOS = ["AUDIENCIA", "AUDIENCIA_VIRTUAL", "REUNIAO", "CONCILIACAO", "DESPACHO"];
 
 const VISOES = [
   { id: "mes", rotulo: "Mês" },
@@ -51,15 +54,6 @@ const HORA_INICIO = 7;
 const HORA_FIM = 20;
 const ALTURA_HORA = 56;
 const HORAS = Array.from({ length: HORA_FIM - HORA_INICIO }, (_, i) => HORA_INICIO + i);
-
-const EVENTOS_INICIAIS = [
-  { id: 1, data: new Date(2026, 9, 20, 9, 0), duracao: 90, titulo: "Audiência de instrução previdenciária", local: "Juizado Especial Federal", descricao: "Cliente: Carlos Eduardo Lima", tipo: "Audiência" },
-  { id: 2, data: new Date(2026, 9, 21, 14, 0), duracao: 60, titulo: "Reunião de alinhamento estratégico", local: "Escritório", descricao: "Cliente: Construtora Alagoas Ltda.", tipo: "Reunião" },
-  { id: 3, data: new Date(2026, 9, 21, 14, 30), duracao: 45, titulo: "Conciliação virtual - ação consumerista", local: "Google Meet", descricao: "Cliente: Patrícia Gomes Barreto", tipo: "Audiência Virtual" },
-  { id: 4, data: new Date(2026, 9, 22, 10, 30), duracao: 60, titulo: "Conciliação prévia", local: "Juizado Especial Cível", descricao: "Cliente: Patrícia Gomes Barreto", tipo: "Conciliação" },
-  { id: 5, data: new Date(2026, 9, 25, 16, 0), duracao: 30, titulo: "Despacho com o Magistrado", local: "Gabinete 2ª Vara Cível", descricao: "", tipo: "Despacho" },
-  { id: 6, data: new Date(2026, 9, 30, 11, 0), duracao: 90, titulo: "Audiência de embargos à execução", local: "Vara Cível Empresarial", descricao: "Cliente: Construtora Alagoas Ltda.", tipo: "Audiência" },
-];
 
 const DIAS_SEMANA = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
 
@@ -85,12 +79,33 @@ function posicionar(eventos) {
 }
 
 export function Agenda() {
+  const { user, csrf } = useOutletContext();
   const [ref, setRef] = useState(HOJE);
   const [visao, setVisao] = useState("mes");
-  const [eventos, setEventos] = useState(EVENTOS_INICIAIS);
+  const [eventos, setEventos] = useState([]);
+  const [contribuidores, setContribuidores] = useState([]);
+  const [erro, setErro] = useState("");
+  const [carregando, setCarregando] = useState(true);
   const [ocultos, setOcultos] = useState(() => new Set());
   const [selecionado, setSelecionado] = useState(null);
   const [novo, setNovo] = useState(null);
+
+  useEffect(() => {
+    let ativo = true;
+    Promise.all([apiJson("agenda/eventos"), apiJson("agenda/contribuidores")])
+      .then(([listaEventos, listaContribuidores]) => {
+        if (!ativo) return;
+        setEventos(listaEventos.map((evento) => ({ ...evento, tipo: NOMES_TIPOS[CODIGOS_TIPOS.indexOf(evento.tipo)] ?? NOMES_TIPOS[0], data: new Date(evento.inicio) })));
+        setContribuidores(listaContribuidores);
+      })
+      .catch((falha) => {
+        if (ativo) setErro(falha.message || "Não foi possível carregar a agenda.");
+      })
+      .finally(() => {
+        if (ativo) setCarregando(false);
+      });
+    return () => { ativo = false; };
+  }, []);
 
   const visiveis = useMemo(() => eventos.filter((e) => !ocultos.has(e.tipo)), [eventos, ocultos]);
   const doDia = (dia) => visiveis.filter((e) => isSameDay(e.data, dia)).sort((a, b) => a.data - b.data);
@@ -114,27 +129,46 @@ export function Agenda() {
   function abrirNovo(dia, hora = 9) {
     const d = new Date(dia);
     d.setHours(hora, 0, 0, 0);
-    setNovo({ titulo: "", tipo: "Audiência", dia: format(d, "yyyy-MM-dd"), hora: format(d, "HH:mm"), duracao: 60, local: "", descricao: "" });
+    setNovo({ titulo: "", tipo: NOMES_TIPOS[0], dia: format(d, "yyyy-MM-dd"), hora: format(d, "HH:mm"), duracao: 60, local: "", descricao: "", destinatarioId: String(user.id) });
   }
 
-  function salvarNovo(e) {
+  async function salvarNovo(e) {
     e.preventDefault();
     if (!novo.titulo.trim()) return;
     const [h, m] = novo.hora.split(":").map(Number);
     const [ano, mes, dia] = novo.dia.split("-").map(Number);
-    setEventos((prev) => [
-      ...prev,
-      { id: Date.now(), data: new Date(ano, mes - 1, dia, h, m), duracao: Number(novo.duracao) || 60, titulo: novo.titulo.trim(), local: novo.local.trim(), descricao: novo.descricao.trim(), tipo: novo.tipo },
-    ]);
-    setRef(new Date(ano, mes - 1, dia));
-    setNovo(null);
+    setErro("");
+    try {
+      const criado = await apiJson("agenda/eventos", {
+        method: "POST",
+        csrf,
+        body: {
+          titulo: novo.titulo.trim(), tipo: CODIGOS_TIPOS[NOMES_TIPOS.indexOf(novo.tipo)],
+          inicio: `${novo.dia}T${novo.hora}:00`,
+          duracao: Number(novo.duracao) || 60,
+          local: novo.local.trim(), descricao: novo.descricao.trim(),
+          destinatario_id: novo.destinatarioId === "todos" ? null : Number(novo.destinatarioId),
+        },
+      });
+      setEventos((prev) => [...prev, { ...criado, tipo: novo.tipo, data: new Date(criado.inicio) }]);
+      setRef(new Date(ano, mes - 1, dia, h, m));
+      setNovo(null);
+      window.dispatchEvent(new CustomEvent("notificacoes:atualizar"));
+    } catch (falha) {
+      setErro(falha.message || "Não foi possível salvar o evento.");
+    }
   }
 
-  function excluir(id) {
-    setEventos((prev) => prev.filter((e) => e.id !== id));
-    setSelecionado(null);
+  async function excluir(id) {
+    setErro("");
+    try {
+      await apiJson(`agenda/eventos/${id}`, { method: "DELETE", csrf });
+      setEventos((prev) => prev.filter((evento) => evento.id !== id));
+      setSelecionado(null);
+    } catch (falha) {
+      setErro(falha.message || "Não foi possível excluir o evento.");
+    }
   }
-
   const titulo = useMemo(() => {
     if (visao === "dia") return format(ref, "d 'de' MMMM 'de' yyyy", { locale: ptBR });
     if (visao === "semana") {
@@ -149,6 +183,8 @@ export function Agenda() {
 
   return (
     <div className="space-y-6">
+      {erro && <p role="alert" className="text-status-vencido-ink text-13">{erro}</p>}
+      {carregando && <p role="status" className="text-ink-muted text-13">Carregando agenda...</p>}
       {/* Barra de ferramentas */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-4">
@@ -242,7 +278,7 @@ export function Agenda() {
         onOpenChange={(v) => !v && setSelecionado(null)}
         titulo={selecionado?.titulo ?? "Evento"}
         footer={
-          selecionado && (
+          selecionado && (selecionado.criado_por_id === user.id || user.administrador) && (
             <Button variant="secondary" className="gap-2 text-status-vencido-ink" onClick={() => excluir(selecionado.id)}>
               <IconTrash className="size-4" fill="currentColor" />
               Excluir evento
@@ -252,7 +288,7 @@ export function Agenda() {
       >
         {selecionado && (
           <div className="space-y-6">
-            <Badge tone={TIPOS[selecionado.tipo].tom}>{selecionado.tipo}</Badge>
+            <Badge tone={(TIPOS[selecionado.tipo] ?? TIPOS[NOMES_TIPOS[0]]).tom}>{selecionado.tipo}</Badge>
             <dl className="space-y-4">
               <div className="flex items-start gap-4">
                 <IconCalendar className="text-ink-muted mt-0.5 size-4 shrink-0" fill="currentColor" />
@@ -270,6 +306,9 @@ export function Agenda() {
                   <dd className="text-14 text-ink">{selecionado.local}</dd>
                 </div>
               )}
+              <div className="flex items-start gap-4">
+                <dd className="text-14 text-ink-muted">Responsável: {selecionado.destinatario_id == null ? "Todos os contribuidores" : contribuidores.find((pessoa) => pessoa.id === selecionado.destinatario_id)?.nome ?? "Contribuidor"}</dd>
+              </div>
               {selecionado.descricao && (
                 <div className="flex items-start gap-4">
                   <IconTextAlignleft className="text-ink-muted mt-0.5 size-4 shrink-0" fill="currentColor" />
@@ -311,6 +350,28 @@ export function Agenda() {
                 <Input id="ev-hora" type="time" required value={novo.hora} onChange={(e) => setNovo({ ...novo, hora: e.target.value })} />
               </Field>
             </div>
+            <Field label="Atribuir evento para" id="ev-responsavel">
+              <Assignees
+                contribuidores={contribuidores.map((pessoa) => ({
+                  id: String(pessoa.id),
+                  nome: pessoa.nome,
+                  role: pessoa.id === user.id ? "Você" : "Advogado",
+                }))}
+                selecionados={
+                  novo.destinatarioId === "todos"
+                    ? []
+                    : [String(novo.destinatarioId)]
+                }
+                placeholder="Todos os contribuidores"
+                onChange={(novos) => {
+                  const escolhido = novos[novos.length - 1];
+                  setNovo({
+                    ...novo,
+                    destinatarioId: escolhido ? String(escolhido) : "todos",
+                  });
+                }}
+              />
+            </Field>
             <Field label="Local" id="ev-local">
               <Input id="ev-local" maxLength={120} value={novo.local} onChange={(e) => setNovo({ ...novo, local: e.target.value })} placeholder="Vara, escritório ou link da reunião" />
             </Field>

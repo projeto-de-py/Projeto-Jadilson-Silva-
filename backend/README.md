@@ -273,4 +273,65 @@ A migração Alembic `0002_casos_prazos` cria as tabelas `casos`, `andamentos` e
 - `GET /api/casos?q=&status=&area=&prioridade=&tipo_demanda=&responsavel_id=&cliente_id=&ordenar=&pagina=1&limite=20`: busca por título, número do processo, cliente ou parte contrária, com filtros, ordenação (abertura/prioridade) e paginação no banco.
 - `GET /api/prazos/urgentes?dias=7&pagina=1&limite=20`: prazos em aberto vencidos ou com vencimento no intervalo informado (máx. 90 dias, data local de Brasília) — a listagem geral e a agenda de compromissos ficam em `GET /api/prazos` e `GET /api/agenda` (ver Fase 4).
 
-As rotas exigem sessão autenticada. O limite máximo da página é 100 itens.
+As duas rotas exigem sessão autenticada. O limite máximo da página é 100 itens.
+
+## IA do escritorio (`app/ia`)
+
+Pasta de controle da IA. O comportamento e definido por arquivos de texto versionados:
+
+| Pasta/arquivo | Para que serve |
+|---|---|
+| `perfis/` | Quem a IA "e": `redator_juridico.md` (sempre) + perfil da area (`trabalhista.md`, `bancario.md`, `previdenciario.md`) |
+| `tarefas/` | Instrucao de cada acao (`resumo`, `contestacao`, `revisar`, `continuar`, `completar`) e o formato JSON obrigatorio da resposta |
+| `guardrails/` | Entrada: odio/ameaca, injecao de prompt, mascara de CPF/CNPJ/e-mail/telefone. Saida: HTML saneado, citacoes marcadas `[CONFIRA A FONTE]` |
+| `revisor.py` | Revisao objetiva (digitacao, gramatica, estilo, tom, requisitos da peca) - roda sem modelo |
+| `provedores.py` | Unica porta para o modelo. Hoje `ProvedorSimulado` (offline). Provedor real: implementar `gerar()` aqui |
+| `servico.py` | Fluxo: entrada -> contexto -> pergunta -> provedor -> validacao -> revisao -> saida -> auditoria |
+
+Para ajustar o comportamento da IA, edite os `.md` (nenhum codigo). Cada resposta devolve `versao_prompt`
+(hash do conjunto usado) e e auditada em `uso_ia` (so metadados, nunca o texto).
+
+| Metodo | Rota | Acesso | Descricao |
+|---|---|---|---|
+| POST | `/api/ia/sugerir` | login + CSRF | `tarefa`: `resumo`/`contestacao`/`revisar`/`continuar`. Devolve `sugestoes`, `perguntas`, `avisos`. `caso_id` obedece o escopo dos casos (404 fora dele). Limite por usuario/hora |
+| POST | `/api/ia/completar` | login + CSRF | Continuacao curta do texto (autocompletar). Limite por usuario/minuto |
+| GET | `/api/ia/controle` | **Admin** | Inventario dos arquivos de controle (nome, tamanho, versao) - nao expoe o texto dos prompts |
+
+Config (`.env`): `IA_PROVEDOR=simulado`, `IA_LIMITE_SUGERIR_HORA=60`, `IA_LIMITE_COMPLETAR_MINUTO=40`.
+
+
+## Integracoes: assinatura (ZapSign), cobranca (Asaas) e IA real
+
+| Metodo | Rota | Acesso | Descricao |
+|---|---|---|---|
+| POST | `/api/assinaturas` | **Admin** + CSRF | Envia um PDF (`pdf_base64`) ao ZapSign para o cliente assinar (WhatsApp/e-mail do cadastro). Valida que e PDF e no maximo 10 MB |
+| GET | `/api/assinaturas` e `/{id}` | **Admin** | Lista/consulta o status (`ENVIADO`, `ASSINADO`, `RECUSADO`) |
+| POST | `/api/financeiro/cobrancas` | **Admin** + CSRF | Emite cobranca Pix ou boleto, avulsa ou parcelada (ate 24x). Cria o cliente no Asaas na primeira vez |
+| GET | `/api/financeiro/cobrancas` | **Admin** | Lista (`cliente_id`, `status`) |
+| GET | `/api/financeiro/clientes/{id}/resumo` | **Admin** | Pendente, recebido e vencido do cliente |
+| POST | `/api/v1/webhooks/zapsign` | segredo no header | Atualiza a assinatura para `ASSINADO` |
+| POST | `/api/v1/webhooks/asaas` | token `asaas-access-token` | `PAYMENT_RECEIVED`/`CONFIRMED` -> RECEBIDA, `PAYMENT_OVERDUE` -> VENCIDA |
+
+Seguranca dos webhooks: sem sessao nem CSRF (quem chama e o provedor), mas **fecham (503) se o segredo nao estiver
+configurado**, comparam o segredo em tempo constante, aceitam no maximo 1 MB, **nao repetem a acao** para o mesmo evento
+(`eventos_webhook`) e **confirmam o estado na API do provedor** antes de gravar (`WEBHOOKS_VERIFICAR_NA_API`).
+Um pagamento recebido nunca volta para vencido por um evento atrasado.
+
+Operacao: chaves so no `.env` (tipo `SecretStr`, nunca em log nem resposta); o Asaas usa o **sandbox por padrao**;
+a IA real (`IA_PROVEDOR=openrouter`, modelo Google gratuito, chave em `OPENROUTER_API_KEY`) recebe so texto com CPF/CNPJ/e-mail/telefone mascarados e leva os exemplos few-shot
+da materia (`app/ia/exemplos/`). Migration `0006`. Conferir nomes de campos e eventos na documentacao oficial de cada
+servico antes de ligar em producao.
+
+## Consultas publicas (feriados, CEP, CNPJ, juros do Banco Central, DataJud)
+
+Arquitetura completa (camadas, classes e como adicionar uma API): [`docs/ARQUITETURA_INTEGRACOES.md`](../docs/ARQUITETURA_INTEGRACOES.md).
+
+| Metodo | Rota | Acesso | Descricao |
+|---|---|---|---|
+| GET | `/api/consultas/feriados/{ano}?anos=3` | login | Feriados nacionais (BrasilAPI), usados na calculadora de prazos |
+| GET | `/api/consultas/cep/{cep}` e `/cnpj/{cnpj}` | login | Endereco e dados publicos do CNPJ (BrasilAPI) |
+| GET | `/api/consultas/juros/series` | login | Modalidades de juros disponiveis (Banco Central) |
+| POST | `/api/consultas/juros/comparar` | login + CSRF | Compara a taxa do contrato com a media do BC no mes da contratacao |
+| GET | `/api/consultas/processos/{numero}` | login | Andamentos no DataJud/CNJ (exige `DATAJUD_API_KEY`) |
+
+Cada usuario tem um teto de consultas por minuto (`CONSULTAS_LIMITE_MINUTO`).

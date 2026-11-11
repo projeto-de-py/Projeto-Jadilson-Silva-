@@ -40,6 +40,8 @@ from app.repositories.usuario_caso_repository import UsuarioCasoRepository
 from app.repositories.usuario_repository import UsuarioRepository
 from app.schemas.caso import CasoCreate, CasoUpdate
 from app.services.cliente_service import ClienteNaoEncontradoError, DadosInvalidosError
+from app.repositories.notificacao_repository import NotificacaoRepository
+from app.services.notificacao_service import GeradorNotificacaoCaso, NotificacaoService
 
 
 class CasoNaoEncontradoError(Exception):
@@ -158,6 +160,8 @@ class CasoService:
             self._garantir_acesso(caso, operador, operador)
 
         self.historico.registrar(caso.id, operador.id, OP_CRIACAO)
+        if responsavel.id != operador.id:
+            GeradorNotificacaoCaso(NotificacaoService(NotificacaoRepository(self.casos.db))).atribuido(responsavel.id, caso.id)
         return caso
 
     # -------------------------------------------------------- atualizacao

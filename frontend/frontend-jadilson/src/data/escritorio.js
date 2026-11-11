@@ -1,162 +1,244 @@
-// Dados de demonstração compartilhados (busca global, risco, funil).
+import { useCallback, useEffect, useState } from "react";
+import { apiJson } from "@/lib/api";
 
-export const PROCESSOS_INICIAIS = [
-  {
-    id: 1,
-    numero: "0000001-12.2026.8.00.0100",
-    cliente: "Maria da Conceição Silva",
-    tipoAcao: "Bancário - Revisional de Contrato",
-    vara: "2ª Vara Cível de Paulo Afonso",
-    status: "Petição inicial",
-    valorCausa: "R$ 45.000,00",
-    criadoEm: "10/10/2026",
-    descricao: "Revisão de cláusulas abusivas e cobrança de juros em contrato de financiamento bancário.",
-  },
-  {
-    id: 2,
-    numero: "0000042-30.2026.8.00.0100",
-    cliente: "João Pereira dos Santos",
-    tipoAcao: "Consumidor - Reparação de Danos",
-    vara: "1ª Vara Cível",
-    status: "Instrução",
-    valorCausa: "R$ 32.500,00",
-    criadoEm: "12/10/2026",
-    descricao: "Reparação de danos morais e materiais por negativação indevida junto a instituição financeira.",
-  },
-  {
-    id: 3,
-    numero: "0000110-05.2026.8.00.0100",
-    cliente: "Construtora Alagoas Ltda.",
-    tipoAcao: "Bancário - Execução de Contrato",
-    vara: "Vara Cível Empresarial",
-    status: "Sentença",
-    valorCausa: "R$ 180.000,00",
-    criadoEm: "05/10/2026",
-    descricao: "Embargos à execução de contrato bancário com pedido de revisão de encargos e efeito suspensivo.",
-  },
-  {
-    id: 4,
-    numero: "0000233-77.2025.8.00.0100",
-    cliente: "Ana Lúcia Santos",
-    tipoAcao: "Previdenciário - Aposentadoria",
-    vara: "Vara Federal Previdenciária",
-    status: "Recursal",
-    valorCausa: "Benefício - R$ 2.100,00/mês",
-    criadoEm: "01/10/2026",
-    descricao: "Concessão de aposentadoria por tempo de contribuição com pedido de revisão de tempo rural.",
-  },
-  {
-    id: 5,
-    numero: "0000311-88.2026.8.00.0100",
-    cliente: "Carlos Eduardo Lima",
-    tipoAcao: "Previdenciário - Benefício por Incapacidade",
-    vara: "Juizado Especial Federal",
-    status: "Instrução",
-    valorCausa: "Benefício - R$ 1.580,00/mês",
-    criadoEm: "14/10/2026",
-    descricao: "Restabelecimento de auxílio-doença cessado indevidamente pelo INSS.",
-  },
-  {
-    id: 6,
-    numero: "0000550-19.2026.8.00.0100",
-    cliente: "Patrícia Gomes Barreto",
-    tipoAcao: "Consumidor - Prática Abusiva",
-    vara: "Juizado Especial Cível",
-    status: "Petição inicial",
-    valorCausa: "R$ 8.500,00",
-    criadoEm: "16/10/2026",
-    descricao: "Cobrança indevida de tarifas bancárias não contratadas em conta corrente.",
-  },
-];
+// Listas vazias por padrão — todos os dados reais vêm do banco SQLite via API.
+export const PROCESSOS_INICIAIS = [];
+export const PRAZOS = [];
 
-export const PRAZOS = [
-  {
-    id: 1,
-    titulo: "Contestação - Revisional Bancária",
-    processo: "0000001-12.2026.8.00.0100",
-    cliente: "Maria da Conceição Silva",
-    area: "Bancário",
-    vara: "2ª Vara Cível de Paulo Afonso",
-    dataLimite: "2026-10-20T23:59:00",
-    diasRestantes: 0,
-    tipo: "Prazo processual",
-      },
-  {
-    id: 2,
-    titulo: "Audiência de Instrução e Julgamento",
-    processo: "0000311-88.2026.8.00.0100",
-    cliente: "Carlos Eduardo Lima",
-    area: "Previdenciário",
-    vara: "Juizado Especial Federal",
-    dataLimite: "2026-10-20T09:00:00",
-    diasRestantes: 0,
-    tipo: "Audiência",
-      },
-  {
-    id: 3,
-    titulo: "Réplica - Cobrança indevida de tarifas",
-    processo: "0000550-19.2026.8.00.0100",
-    cliente: "Patrícia Gomes Barreto",
-    area: "Consumidor",
-    vara: "Juizado Especial Cível",
-    dataLimite: "2026-10-18T23:59:00",
-    diasRestantes: -2,
-    tipo: "Prazo processual",
-      },
-  {
-    id: 4,
-    titulo: "Audiência de Conciliação Virtual",
-    processo: "0000550-19.2026.8.00.0100",
-    cliente: "Patrícia Gomes Barreto",
-    area: "Consumidor",
-    vara: "Google Meet",
-    dataLimite: "2026-10-21T14:30:00",
-    diasRestantes: 1,
-    tipo: "Audiência",
-      },
-  {
-    id: 5,
-    titulo: "Recurso Ordinário (Previdenciário)",
-    processo: "0000233-77.2025.8.00.0100",
-    cliente: "Ana Lúcia Santos",
-    area: "Previdenciário",
-    vara: "Turma Recursal Previdenciária",
-    dataLimite: "2026-10-22T23:59:00",
-    diasRestantes: 2,
-    tipo: "Prazo processual",
-      },
-  {
-    id: 6,
-    titulo: "Manifestação sobre Laudo Pericial",
-    processo: "0000311-88.2026.8.00.0100",
-    cliente: "Carlos Eduardo Lima",
-    area: "Previdenciário",
-    vara: "Juizado Especial Federal",
-    dataLimite: "2026-10-25T23:59:00",
-    diasRestantes: 5,
-    tipo: "Prazo processual",
-      },
-  {
-    id: 7,
-    titulo: "Embargos à Execução Bancária",
-    processo: "0000110-05.2026.8.00.0100",
-    cliente: "Construtora Alagoas Ltda.",
-    area: "Bancário",
-    vara: "Vara Cível Empresarial",
-    dataLimite: "2026-10-30T23:59:00",
-    diasRestantes: 10,
-    tipo: "Prazo processual",
-      },
-  {
-    id: 8,
-    titulo: "Protocolo de Contrarrazões",
-    processo: "0000042-30.2026.8.00.0100",
-    cliente: "João Pereira dos Santos",
-    area: "Consumidor",
-    vara: "1ª Vara Cível",
-    dataLimite: "2026-11-02T23:59:00",
-    diasRestantes: 13,
-    tipo: "Prazo processual",
-      },
-];
+const ROTULO_AREA = {
+  BANCARIO: "Bancário",
+  PREVIDENCIARIO: "Previdenciário",
+  CONSUMIDOR: "Consumidor",
+};
 
+const STATUS_PARA_ETAPA = {
+  NOVO: "Petição inicial",
+  AGUARDANDO_CLIENTE: "Petição inicial",
+  EM_ANDAMENTO: "Instrução",
+  AGUARDANDO_SENTENCA: "Sentença",
+  SUSPENSO: "Recursal",
+  CONCLUIDO: "Concluído",
+};
+
+export const ETAPA_PARA_STATUS_API = {
+  "Petição inicial": "NOVO",
+  "Instrução": "EM_ANDAMENTO",
+  "Sentença": "AGUARDANDO_SENTENCA",
+  "Recursal": "SUSPENSO",
+  "Execução": "EM_ANDAMENTO",
+  "Concluído": "CONCLUIDO",
+};
+
+export function extrairAreaCodigo(tipoAcao = "") {
+  const texto = String(tipoAcao)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  if (texto.includes("previdenciario")) return "PREVIDENCIARIO";
+  if (texto.includes("consumidor")) return "CONSUMIDOR";
+  return "BANCARIO";
+}
+
+export function rotuloArea(codigo) {
+  if (!codigo) return "Bancário";
+  return ROTULO_AREA[String(codigo).toUpperCase()] || String(codigo);
+}
+
+function formatarDataPtBr(isoOuData) {
+  if (!isoOuData) return new Date().toLocaleDateString("pt-BR");
+  const texto = String(isoOuData);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(texto)) {
+    const [ano, mes, dia] = texto.split("-");
+    return `${dia}/${mes}/${ano}`;
+  }
+  const d = new Date(texto);
+  if (Number.isNaN(d.getTime())) return texto;
+  return d.toLocaleDateString("pt-BR");
+}
+
+function formatarDocExibicao(doc) {
+  if (!doc) return "Não informado";
+  const digitos = String(doc).replace(/\D/g, "");
+  if (digitos.length === 11) {
+    return digitos.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+  }
+  if (digitos.length === 14) {
+    return digitos.replace(
+      /(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,
+      "$1.$2.$3/$4-$5",
+    );
+  }
+  return String(doc);
+}
+
+function formatarTelefoneExibicao(tel) {
+  if (!tel) return "Não informado";
+  const digitos = String(tel).replace(/\D/g, "");
+  if (digitos.length === 11) {
+    return digitos.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
+  }
+  if (digitos.length === 10) {
+    return digitos.replace(/(\d{2})(\d{4})(\d{4})/, "($1) $2-$3");
+  }
+  return String(tel);
+}
+
+export function mapearCasoApi(c) {
+  const areaRot = rotuloArea(c.area);
+  const titulo = c.titulo || areaRot;
+  const tipoAcao = titulo.toLowerCase().includes(areaRot.toLowerCase())
+    ? titulo
+    : `${areaRot} - ${titulo}`;
+  return {
+    id: c.id,
+    numero: c.numero_processo || `CASO-${String(c.id).padStart(4, "0")}`,
+    cliente: c.cliente,
+    clienteId: c.cliente_id,
+    area: areaRot,
+    areaCodigo: c.area,
+    tipoAcao,
+    vara: c.vara || "Foro / Vara em definição",
+    status: STATUS_PARA_ETAPA[c.status] || "Petição inicial",
+    statusCodigo: c.status,
+    valorCausa: c.observacoes || "A definir",
+    criadoEm: formatarDataPtBr(c.data_abertura || c.criado_em),
+    descricao: c.descricao || "",
+  };
+}
+
+export function mapearPrazoApi(p) {
+  const dataIso = String(p.data_limite || "").slice(0, 10);
+  const horario = p.tipo === "AUDIENCIA" ? "09:00:00" : "23:59:00";
+  return {
+    id: p.id,
+    casoId: p.caso_id,
+    titulo: p.titulo,
+    processo: p.numero_processo || `CASO-${String(p.caso_id).padStart(4, "0")}`,
+    cliente: p.cliente,
+    area: rotuloArea(p.area),
+    vara: p.vara || "Foro / Vara em definição",
+    dataLimite: `${dataIso}T${horario}`,
+    diasRestantes: Number(p.dias_restantes ?? 0),
+    cumprido: Boolean(p.cumprido),
+    tipo: p.tipo === "AUDIENCIA" ? "Audiência" : "Prazo processual",
+    descricao: p.descricao || "",
+  };
+}
+
+export function mapearClienteApi(cli, casosMapeados = []) {
+  const digitosDoc = String(cli.cpf_cnpj || "").replace(/\D/g, "");
+  const tipo = digitosDoc.length === 14 ? "PJ" : "PF";
+  const processosDoCliente = casosMapeados.filter(
+    (c) =>
+      c.clienteId === cli.id ||
+      c.cliente?.trim().toLowerCase() === cli.nome?.trim().toLowerCase(),
+  );
+  return {
+    id: cli.id,
+    nome: cli.nome,
+    tipo,
+    documento: formatarDocExibicao(cli.cpf_cnpj),
+    telefone: formatarTelefoneExibicao(cli.telefone),
+    email: cli.email || "",
+    cidade: "Paulo Afonso - BA",
+    processosAtivos: processosDoCliente.length,
+    areas: [...new Set(processosDoCliente.map((p) => p.area))],
+    criadoEm: formatarDataPtBr(cli.criado_em),
+    observacoes: "",
+  };
+}
+
+export async function carregarCarteiraApi() {
+  const [resCasos, resPrazos, resClientes] = await Promise.all([
+    apiJson("casos?pagina=1&limite=100").catch(() => ({ itens: [] })),
+    apiJson("prazos").catch(() => []),
+    apiJson("clientes?pagina=1&limite=100").catch(() => ({ itens: [] })),
+  ]);
+
+  const listaCasosBruta = Array.isArray(resCasos?.itens)
+    ? resCasos.itens
+    : Array.isArray(resCasos?.items)
+      ? resCasos.items
+      : Array.isArray(resCasos)
+        ? resCasos
+        : [];
+  const listaPrazosBruta = Array.isArray(resPrazos) ? resPrazos : [];
+  const listaClientesBruta = Array.isArray(resClientes?.itens)
+    ? resClientes.itens
+    : Array.isArray(resClientes?.items)
+      ? resClientes.items
+      : Array.isArray(resClientes)
+        ? resClientes
+        : [];
+
+  const processos = listaCasosBruta.map(mapearCasoApi);
+  const prazos = listaPrazosBruta.map(mapearPrazoApi);
+  const clientes = listaClientesBruta.map((cli) =>
+    mapearClienteApi(cli, processos),
+  );
+
+  return {
+    processos,
+    prazos,
+    clientes,
+    clientesBrutos: listaClientesBruta,
+  };
+}
+
+export function notificarAtualizacaoDados() {
+  window.dispatchEvent(new CustomEvent("dados:atualizar"));
+}
+
+export function useCarteira(ativo = true) {
+  const [processos, setProcessos] = useState([]);
+  const [prazos, setPrazos] = useState([]);
+  const [clientes, setClientes] = useState([]);
+  const [carregando, setCarregando] = useState(Boolean(ativo));
+
+  const recarregar = useCallback(async () => {
+    if (!ativo) return;
+    setCarregando(true);
+    try {
+      const dados = await carregarCarteiraApi();
+      setProcessos(dados.processos);
+      setPrazos(dados.prazos);
+      setClientes(dados.clientes);
+    } finally {
+      setCarregando(false);
+    }
+  }, [ativo]);
+
+  useEffect(() => {
+    if (!ativo) return undefined;
+    let cancelado = false;
+    carregarCarteiraApi()
+      .then((dados) => {
+        if (cancelado) return;
+        setProcessos(dados.processos);
+        setPrazos(dados.prazos);
+        setClientes(dados.clientes);
+      })
+      .finally(() => {
+        if (!cancelado) setCarregando(false);
+      });
+    const handler = () => {
+      recarregar();
+    };
+    window.addEventListener("dados:atualizar", handler);
+    return () => {
+      cancelado = true;
+      window.removeEventListener("dados:atualizar", handler);
+    };
+  }, [ativo, recarregar]);
+
+  return {
+    processos,
+    prazos,
+    clientes,
+    carregando,
+    recarregar,
+    setProcessos,
+    setPrazos,
+    setClientes,
+  };
+}

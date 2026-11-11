@@ -7,34 +7,38 @@ import {
   IconFolder,
   IconClock,
   IconPerson,
-  IconFunction,
   IconReturn,
 } from "symbols-react";
 import { navegacao } from "@/app/navigation";
-import { PROCESSOS_INICIAIS, PRAZOS } from "@/data/escritorio";
+import { useCarteira } from "@/data/escritorio";
 import { cn } from "@/lib/cn";
 
-const norm = (t) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const norm = (t) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
-export function BuscaGlobal({ open, onOpenChange, aoAbrirCalculadora }) {
+export function BuscaGlobal({ open, onOpenChange }) {
   const [termo, setTermo] = useState("");
   const [ativo, setAtivo] = useState(0);
   const navegar = useNavigate();
   const lista = useRef(null);
+  const { processos, prazos, clientes } = useCarteira(open);
 
   const itens = useMemo(() => {
-    const clientes = [...new Set(PROCESSOS_INICIAIS.map((p) => p.cliente))];
+    const nomesClientes = [
+      ...new Set([
+        ...clientes.map((c) => c.nome),
+        ...processos.map((p) => p.cliente),
+      ]),
+    ];
     const todos = [
-      { grupo: "Ações", rotulo: "Calcular prazo (dias úteis)", sub: "Calculadora de prazos", icone: IconFunction, acao: aoAbrirCalculadora },
       ...navegacao.map((n) => ({ grupo: "Páginas", rotulo: n.rotulo, sub: n.grupo, icone: n.icone, ir: n.to })),
-      ...PROCESSOS_INICIAIS.map((p) => ({ grupo: "Processos", rotulo: p.numero, sub: `${p.cliente} · ${p.tipoAcao}`, icone: IconFolder, ir: "/processos" })),
-      ...PRAZOS.map((p) => ({ grupo: "Prazos", rotulo: p.titulo, sub: `${p.cliente} · ${p.processo}`, icone: IconClock, ir: "/prazos" })),
-      ...clientes.map((c) => ({ grupo: "Clientes", rotulo: c, sub: "Cliente", icone: IconPerson, ir: "/clientes" })),
+      ...processos.map((p) => ({ grupo: "Processos", rotulo: p.numero, sub: `${p.cliente} · ${p.tipoAcao}`, icone: IconFolder, ir: "/processos" })),
+      ...prazos.map((p) => ({ grupo: "Prazos", rotulo: p.titulo, sub: `${p.cliente} · ${p.processo}`, icone: IconClock, ir: "/prazos" })),
+      ...nomesClientes.map((c) => ({ grupo: "Clientes", rotulo: c, sub: "Cliente", icone: IconPerson, ir: "/clientes" })),
     ];
     const t = norm(termo.trim());
-    if (!t) return todos.filter((i) => i.grupo === "Ações" || i.grupo === "Páginas");
+    if (!t) return todos.filter((i) => i.grupo === "Páginas");
     return todos.filter((i) => norm(`${i.rotulo} ${i.sub}`).includes(t)).slice(0, 30);
-  }, [termo, aoAbrirCalculadora]);
+  }, [termo, processos, prazos, clientes]);
 
   useEffect(() => {
     lista.current?.querySelector(`[data-i="${ativo}"]`)?.scrollIntoView({ block: "nearest" });

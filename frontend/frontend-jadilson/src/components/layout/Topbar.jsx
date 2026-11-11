@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { IconMagnifyingglass, IconBell, IconLine3Horizontal, IconSunMax, IconMoon } from "symbols-react";
-import { Avatar, KineticTextReveal } from "@/components/ui";
+import { IconMagnifyingglass, IconLine3Horizontal, IconSunMax, IconMoon } from "symbols-react";
+import { Folder, UserPlus, Clock, Calendar, Users } from "lucide-react";
+import { KineticTextReveal, CreateMenu } from "@/components/ui";
+import { PainelNotificacoes } from "@/components/layout/PainelNotificacoes";
 
 function temaInicial() {
   try {
@@ -10,12 +12,35 @@ function temaInicial() {
   }
 }
 
-export function Topbar({ titulo, aoAbrirMenu, aoAbrirBusca, user, onLogout, loading }) {
+export function Topbar({
+  titulo,
+  aoAbrirMenu,
+  aoAbrirBusca,
+  onLogout,
+  loading,
+  csrf,
+  user,
+  onNovoProcesso,
+  onNovoCliente,
+  onNovoPrazo,
+  onNovaAudiencia,
+  onNovoContribuidor,
+}) {
   const [tema, setTema] = useState(() => {
     const t = temaInicial();
     document.documentElement.dataset.theme = t;
     return t;
   });
+
+  const itensCriacao = [
+    { icon: Folder, label: "Novo Processo", onClick: onNovoProcesso },
+    { icon: UserPlus, label: "Novo Cliente", onClick: onNovoCliente },
+    { icon: Clock, label: "Novo Prazo", onClick: onNovoPrazo },
+    { icon: Calendar, label: "Nova Audiência", onClick: onNovaAudiencia },
+    ...(user?.administrador
+      ? [{ icon: Users, label: "Novo Contribuidor", onClick: onNovoContribuidor }]
+      : []),
+  ];
 
   function alternarTema() {
     const novo = tema === "dark" ? "light" : "dark";
@@ -50,6 +75,14 @@ export function Topbar({ titulo, aoAbrirMenu, aoAbrirBusca, user, onLogout, load
       </h1>
 
       <div className="ml-auto flex items-center gap-6">
+        <div className="relative hidden h-10 w-28 items-center justify-center sm:flex">
+          <div className="pointer-events-none absolute top-1/2 left-1/2 z-50 -translate-x-1/2 -translate-y-1/2">
+            <div className="pointer-events-auto">
+              <CreateMenu label="Novo" items={itensCriacao} />
+            </div>
+          </div>
+        </div>
+
         <button
           type="button"
           onClick={aoAbrirBusca}
@@ -73,19 +106,9 @@ export function Topbar({ titulo, aoAbrirMenu, aoAbrirBusca, user, onLogout, load
           )}
         </button>
 
-        <button
-          type="button"
-          aria-label="Notificações"
-          className="text-ink-muted hover:bg-surface-muted hover:text-ink relative flex size-12 items-center justify-center rounded-input transition-colors duration-fast ease-out"
-        >
-          <IconBell className="size-5 shrink-0" fill="currentColor" aria-hidden="true" />
-          <span
-            aria-hidden="true"
-            className="bg-status-vencido absolute top-3 right-3 size-2 rounded-badge"
-          />
-        </button>
+        <PainelNotificacoes csrf={csrf} />
 
-        <Avatar nome={user.nome} size="sm" />
+
         <button type="button" onClick={onLogout} disabled={loading} className="text-ink-muted hover:text-ink rounded-input p-2 lg:hidden">{loading ? "Saindo…" : "Sair"}</button>
       </div>
     </header>

@@ -11,6 +11,7 @@ import { Processos } from "./pages/DashBoard/Processos/Processos";
 import { Prazos } from "./pages/DashBoard/Prazos/Prazos";
 import { Documentos } from "./pages/DashBoard/Documentos/Documentos";
 import { EditorDocumento } from "./pages/DashBoard/Documentos/EditorDocumento";
+import { Financeiro } from "./pages/DashBoard/Financeiro/Financeiro";
 import { Agenda } from "./pages/DashBoard/Agenda/Agenda";
 import { Clientes } from "./pages/DashBoard/Clientes/Clientes";
 import { Configuracoes } from "./pages/DashBoard/Configuracoes/Configurations";
@@ -22,6 +23,11 @@ function App() {
   const [error, setError] = useState('');
   const busy = useRef(false);
   const revision = useRef(0);
+  const sessionRef = useRef(null);
+
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
 
   useEffect(() => {
     let active = true;
@@ -39,25 +45,32 @@ function App() {
       }
     }
     restore();
-    const timer = setInterval(restore, 30000);
-    const visible = () => { if (document.visibilityState === 'visible') restore(); };
+    const timer = setInterval(() => {
+      if (sessionRef.current) restore();
+    }, 30000);
+    const visible = () => {
+      if (document.visibilityState === 'visible' && sessionRef.current) restore();
+    };
     document.addEventListener('visibilitychange', visible);
     return () => { active = false; clearInterval(timer); document.removeEventListener('visibilitychange', visible); };
   }, []);
 
-  async function login(event) {
-    event.preventDefault();
+  async function login(eventOrEmail, senhaArg) {
+    const isEvent = eventOrEmail && typeof eventOrEmail.preventDefault === 'function';
+    if (isEvent) eventOrEmail.preventDefault();
     if (busy.current || checking) return;
     busy.current = true; revision.current += 1;
     setLoading(true); setError('');
-    const form = event.currentTarget;
-    const values = new FormData(form);
+    const form = isEvent ? eventOrEmail.currentTarget : null;
+    const values = form ? new FormData(form) : null;
+    const email = isEvent ? values.get('email') : eventOrEmail;
+    const senha = isEvent ? values.get('password') : senhaArg;
     try {
-      const current = await api('login', { method: 'POST', body: { email: values.get('email'), senha: values.get('password') } });
-      form.reset();
+      const current = await api('login', { method: 'POST', body: { email, senha } });
+      if (form) form.reset();
       setSession(current);
     } catch (failure) {
-      form.elements.password.value = '';
+      if (form?.elements?.password) form.elements.password.value = '';
       setError(failure.message);
     } finally { busy.current = false; setLoading(false); }
   }
@@ -85,13 +98,14 @@ function App() {
             <Route path="/login" element={<Navigate to="/" replace />} />
             <Route path="/design-system" element={checking ? <AuthPage checking /> : session ? <DesignSystemPage /> : <Navigate to="/" replace />} />
 
-            <Route element={checking ? <AuthPage checking /> : session ? <DashboardLayout user={session.usuario} onLogout={logout} loading={loading} error={error} /> : <Navigate to="/" replace />}>
+            <Route element={checking ? <AuthPage checking /> : session ? <DashboardLayout user={session.usuario} csrf={session.csrf_token} onLogout={logout} loading={loading} error={error} /> : <Navigate to="/" replace />}>
               <Route path="/home" element={<Home />} />
               <Route path="/processos" element={<Processos />} />
               <Route path="/prazos" element={<Prazos />} />
               <Route path="/agenda" element={<Agenda />} />
               <Route path="/documentos" element={<Documentos />} />
               <Route path="/documentos/:id" element={<EditorDocumento />} />
+              <Route path="/financeiro" element={<Financeiro />} />
               <Route path="/clientes" element={<Clientes />} />
               <Route path="/configuracoes" element={<Configuracoes />} />
             </Route>

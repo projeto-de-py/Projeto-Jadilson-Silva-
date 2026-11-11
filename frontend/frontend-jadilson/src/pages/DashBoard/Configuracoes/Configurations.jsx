@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   IconBuildingColumns,
   IconScalemass,
   IconBell,
   IconLock,
   IconCheckmark,
+  IconTrash,
 } from "symbols-react";
 import {
   Card,
@@ -20,36 +21,83 @@ import {
   Tabs,
   useToast,
 } from "@/components/ui";
+import { useSessao } from "@/context/sessao";
+import { apiJson } from "@/lib/api";
 
 const AREAS_ATUACAO = [
   {
     id: "bancario",
+    campoApi: "area_bancario",
     titulo: "Direito Bancário",
     descricao: "Revisão de contratos, juros abusivos e execuções bancárias.",
   },
   {
     id: "previdenciario",
+    campoApi: "area_previdenciario",
     titulo: "Direito Previdenciário",
     descricao: "Aposentadorias, benefícios por incapacidade e revisões junto ao INSS.",
   },
   {
     id: "consumidor",
+    campoApi: "area_consumidor",
     titulo: "Direito do Consumidor",
     descricao: "Negativação indevida, práticas abusivas e reparação de danos.",
   },
 ];
 
 function PainelEscritorio() {
+  const { csrf } = useSessao();
   const { toast } = useToast();
   const [salvando, setSalvando] = useState(false);
+  const [form, setForm] = useState({
+    nome: "Jadilson Silva Advocacia",
+    oab: "OAB/AL 00.000",
+    email: "contato@jadilsonsilva.adv.br",
+    telefone: "(82) 3221-0000",
+    endereco: "Paulo Afonso/BA",
+    assinatura: "Atenciosamente,\nJadilson Silva Advocacia\nOAB/AL 00.000",
+  });
 
-  function handleSubmit(e) {
+  useEffect(() => {
+    apiJson("auth/escritorio")
+      .then((dados) => {
+        if (!dados) return;
+        setForm({
+          nome: dados.nome ?? "Jadilson Silva Advocacia",
+          oab: dados.oab ?? "OAB/AL 00.000",
+          email: dados.email ?? "contato@jadilsonsilva.adv.br",
+          telefone: dados.telefone ?? "(82) 3221-0000",
+          endereco: dados.endereco ?? "Paulo Afonso/BA",
+          assinatura:
+            dados.assinatura ??
+            "Atenciosamente,\nJadilson Silva Advocacia\nOAB/AL 00.000",
+        });
+      })
+      .catch(() => {});
+  }, []);
+
+  async function handleSubmit(e) {
     e.preventDefault();
     setSalvando(true);
-    setTimeout(() => {
+    try {
+      await apiJson("auth/escritorio", {
+        method: "PUT",
+        csrf,
+        body: form,
+      });
+      toast({
+        tipo: "sucesso",
+        titulo: "Dados do escritório salvos no banco de dados",
+      });
+    } catch (erro) {
+      toast({
+        tipo: "erro",
+        titulo: "Falha ao salvar dados do escritório",
+        descricao: erro.message || "Tente novamente em instantes.",
+      });
+    } finally {
       setSalvando(false);
-      toast({ tipo: "sucesso", titulo: "Dados do escritório atualizados" });
-    }, 700);
+    }
   }
 
   return (
@@ -65,26 +113,47 @@ function PainelEscritorio() {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Nome do Escritório" id="cfg-nome">
-              <Input id="cfg-nome" defaultValue="Jadilson Silva Advocacia" />
+              <Input
+                id="cfg-nome"
+                value={form.nome}
+                onChange={(e) => setForm((p) => ({ ...p, nome: e.target.value }))}
+              />
             </Field>
             <Field label="OAB Responsável" id="cfg-oab">
-              <Input id="cfg-oab" defaultValue="OAB/AL 00.000" />
+              <Input
+                id="cfg-oab"
+                value={form.oab}
+                onChange={(e) => setForm((p) => ({ ...p, oab: e.target.value }))}
+              />
             </Field>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="E-mail de Contato" id="cfg-email">
-              <Input id="cfg-email" type="email" defaultValue="contato@jadilsonsilva.adv.br" />
+              <Input
+                id="cfg-email"
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+              />
             </Field>
             <Field label="Telefone / WhatsApp" id="cfg-telefone">
-              <Input id="cfg-telefone" defaultValue="(82) 3221-0000" />
+              <Input
+                id="cfg-telefone"
+                value={form.telefone}
+                onChange={(e) => setForm((p) => ({ ...p, telefone: e.target.value }))}
+              />
             </Field>
           </div>
 
           <Field label="Endereço" id="cfg-endereco">
-            <Input id="cfg-endereco" defaultValue="Paulo Afonso/BA" />
+            <Input
+              id="cfg-endereco"
+              value={form.endereco}
+              onChange={(e) => setForm((p) => ({ ...p, endereco: e.target.value }))}
+            />
           </Field>
 
           <Field
@@ -95,7 +164,8 @@ function PainelEscritorio() {
             <Textarea
               id="cfg-assinatura"
               rows={3}
-              defaultValue={"Atenciosamente,\nJadilson Silva Advocacia\nOAB/AL 00.000"}
+              value={form.assinatura}
+              onChange={(e) => setForm((p) => ({ ...p, assinatura: e.target.value }))}
             />
           </Field>
 
@@ -112,19 +182,43 @@ function PainelEscritorio() {
 }
 
 function PainelAreas() {
+  const { csrf } = useSessao();
   const { toast } = useToast();
   const [ativas, setAtivas] = useState({ bancario: true, previdenciario: true, consumidor: true });
 
-  function alternar(id) {
-    setAtivas((prev) => {
-      const novo = { ...prev, [id]: !prev[id] };
+  useEffect(() => {
+    apiJson("auth/escritorio")
+      .then((dados) => {
+        if (!dados) return;
+        setAtivas({
+          bancario: dados.area_bancario ?? true,
+          previdenciario: dados.area_previdenciario ?? true,
+          consumidor: dados.area_consumidor ?? true,
+        });
+      })
+      .catch(() => {});
+  }, []);
+
+  async function alternar(id) {
+    const areaObj = AREAS_ATUACAO.find((a) => a.id === id);
+    if (!areaObj) return;
+    const novoValor = !ativas[id];
+    setAtivas((prev) => ({ ...prev, [id]: novoValor }));
+
+    try {
+      await apiJson("auth/escritorio", {
+        method: "PUT",
+        csrf,
+        body: { [areaObj.campoApi]: novoValor },
+      });
       toast({
         tipo: "info",
-        titulo: novo[id] ? "Área ativada" : "Área desativada",
-        descricao: AREAS_ATUACAO.find((a) => a.id === id)?.titulo,
+        titulo: novoValor ? "Área ativada" : "Área desativada",
+        descricao: areaObj.titulo,
       });
-      return novo;
-    });
+    } catch {
+      setAtivas((prev) => ({ ...prev, [id]: !novoValor }));
+    }
   }
 
   return (
@@ -170,24 +264,137 @@ const PREFERENCIAS_PADRAO = [
   { id: "relatorioSemanal", titulo: "Relatório semanal por e-mail", descricao: "Resumo da carteira enviado toda sexta-feira.", ativo: false },
 ];
 
+const STORAGE_PREFS_KEY = "preferencias_notificacoes";
+
+function carregarPreferenciasNotificacoes() {
+  try {
+    const salvo = JSON.parse(localStorage.getItem(STORAGE_PREFS_KEY) || "null");
+    if (!salvo || typeof salvo !== "object") return PREFERENCIAS_PADRAO;
+    return PREFERENCIAS_PADRAO.map((item) => ({
+      ...item,
+      ativo: typeof salvo[item.id] === "boolean" ? salvo[item.id] : item.ativo,
+    }));
+  } catch {
+    return PREFERENCIAS_PADRAO;
+  }
+}
+
 function PainelNotificacoes() {
-  const [preferencias, setPreferencias] = useState(PREFERENCIAS_PADRAO);
+  const { csrf } = useSessao();
+  const { toast } = useToast();
+  const [preferencias, setPreferencias] = useState(carregarPreferenciasNotificacoes);
+  const [testandoId, setTestandoId] = useState(null);
+  const [limpando, setLimpando] = useState(false);
 
   function alternar(id) {
-    setPreferencias((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, ativo: !p.ativo } : p)),
-    );
+    setPreferencias((prev) => {
+      const proximo = prev.map((p) => (p.id === id ? { ...p, ativo: !p.ativo } : p));
+      try {
+        const mapa = Object.fromEntries(proximo.map((p) => [p.id, p.ativo]));
+        localStorage.setItem(STORAGE_PREFS_KEY, JSON.stringify(mapa));
+      } catch {
+        /* sem persistência local */
+      }
+      return proximo;
+    });
+  }
+
+  async function dispararTeste(idEspecifico = null) {
+    const tipos = idEspecifico
+      ? [idEspecifico]
+      : preferencias.filter((p) => p.ativo).map((p) => p.id);
+
+    if (tipos.length === 0) {
+      toast({
+        tipo: "info",
+        titulo: "Nenhuma notificação ativa",
+        descricao: "Ative pelo menos uma opção ou teste um item individualmente.",
+      });
+      return;
+    }
+
+    setTestandoId(idEspecifico || "todas");
+    try {
+      await apiJson("notificacoes/testar", {
+        method: "POST",
+        csrf,
+        body: { tipos },
+      });
+      window.dispatchEvent(new CustomEvent("notificacoes:atualizar"));
+    } catch (erro) {
+      toast({
+        tipo: "erro",
+        titulo: "Falha ao testar notificação",
+        descricao: erro.message || "Não foi possível criar a notificação de teste.",
+      });
+    } finally {
+      setTestandoId(null);
+    }
+  }
+
+  async function limparNotificacoes() {
+    setLimpando(true);
+    try {
+      const res = await apiJson("notificacoes/limpar", {
+        method: "POST",
+        csrf,
+        body: {},
+      });
+      window.dispatchEvent(new CustomEvent("notificacoes:atualizar"));
+      toast({
+        tipo: "sucesso",
+        titulo: "Notificações limpas",
+        descricao:
+          res?.removidas > 0
+            ? `${res.removidas} notificação(ões) removida(s) do painel.`
+            : "O painel já estava sem notificações.",
+      });
+    } catch (erro) {
+      toast({
+        tipo: "erro",
+        titulo: "Falha ao limpar notificações",
+        descricao: erro.message || "Não foi possível limpar as notificações.",
+      });
+    } finally {
+      setLimpando(false);
+    }
   }
 
   return (
     <Card>
       <CardHeader>
-        <div className="space-y-1">
-          <CardTitle className="flex items-center gap-2 text-18">
-            <IconBell className="size-5 text-accent" fill="currentColor" />
-            Notificações
-          </CardTitle>
-          <CardDescription>Escolha o que deve gerar alertas no painel e por e-mail.</CardDescription>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="space-y-1">
+            <CardTitle className="flex items-center gap-2 text-18">
+              <IconBell className="size-5 text-accent" fill="currentColor" />
+              Notificações
+            </CardTitle>
+            <CardDescription>Escolha o que deve gerar alertas no painel e por e-mail.</CardDescription>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              loading={limpando}
+              onClick={limparNotificacoes}
+              className="gap-2"
+            >
+              <IconTrash className="size-4" fill="currentColor" />
+              Limpar notificações
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              loading={testandoId === "todas"}
+              onClick={() => dispararTeste(null)}
+              className="gap-2"
+            >
+              <IconBell className="size-4" fill="currentColor" />
+              Testar notificações ativas
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -200,11 +407,23 @@ function PainelNotificacoes() {
               <p className="text-14 font-semibold text-ink">{pref.titulo}</p>
               <p className="text-13 text-ink-muted">{pref.descricao}</p>
             </div>
-            <Switch
-              checked={pref.ativo}
-              onCheckedChange={() => alternar(pref.id)}
-              aria-label={`Ativar ${pref.titulo}`}
-            />
+            <div className="flex items-center gap-3">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                loading={testandoId === pref.id}
+                onClick={() => dispararTeste(pref.id)}
+                aria-label={`Testar notificação: ${pref.titulo}`}
+              >
+                Testar
+              </Button>
+              <Switch
+                checked={pref.ativo}
+                onCheckedChange={() => alternar(pref.id)}
+                aria-label={`Ativar ${pref.titulo}`}
+              />
+            </div>
           </div>
         ))}
       </CardContent>
@@ -213,16 +432,58 @@ function PainelNotificacoes() {
 }
 
 function PainelSeguranca() {
+  const { csrf } = useSessao();
   const { toast } = useToast();
   const [salvando, setSalvando] = useState(false);
+  const [senhaAtual, setSenhaAtual] = useState("");
+  const [novaSenha, setNovaSenha] = useState("");
+  const [confirmarSenha, setConfirmarSenha] = useState("");
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
+    if (novaSenha.length < 8) {
+      toast({
+        tipo: "erro",
+        titulo: "Nova senha muito curta",
+        descricao: "A nova senha deve ter no mínimo 8 caracteres.",
+      });
+      return;
+    }
+    if (novaSenha !== confirmarSenha) {
+      toast({
+        tipo: "erro",
+        titulo: "Confirmação divergente",
+        descricao: "A confirmação da nova senha não coincide.",
+      });
+      return;
+    }
+
     setSalvando(true);
-    setTimeout(() => {
+    try {
+      await apiJson("auth/senha", {
+        method: "POST",
+        csrf,
+        body: {
+          senha_atual: senhaAtual,
+          nova_senha: novaSenha,
+        },
+      });
+      setSenhaAtual("");
+      setNovaSenha("");
+      setConfirmarSenha("");
+      toast({
+        tipo: "sucesso",
+        titulo: "Senha atualizada no banco de dados",
+      });
+    } catch (erro) {
+      toast({
+        tipo: "erro",
+        titulo: "Não foi possível alterar a senha",
+        descricao: erro.message || "Verifique sua senha atual e tente novamente.",
+      });
+    } finally {
       setSalvando(false);
-      toast({ tipo: "sucesso", titulo: "Senha atualizada com sucesso" });
-    }, 700);
+    }
   }
 
   return (
@@ -239,13 +500,34 @@ function PainelSeguranca() {
       <CardContent>
         <form onSubmit={handleSubmit} className="max-w-md space-y-4">
           <Field label="Senha atual" id="cfg-senha-atual">
-            <Input id="cfg-senha-atual" type="password" placeholder="••••••••" />
+            <Input
+              id="cfg-senha-atual"
+              type="password"
+              placeholder="••••••••"
+              value={senhaAtual}
+              onChange={(e) => setSenhaAtual(e.target.value)}
+              required
+            />
           </Field>
           <Field label="Nova senha" id="cfg-senha-nova" hint="Mínimo de 8 caracteres">
-            <Input id="cfg-senha-nova" type="password" placeholder="••••••••" />
+            <Input
+              id="cfg-senha-nova"
+              type="password"
+              placeholder="••••••••"
+              value={novaSenha}
+              onChange={(e) => setNovaSenha(e.target.value)}
+              required
+            />
           </Field>
           <Field label="Confirmar nova senha" id="cfg-senha-confirma">
-            <Input id="cfg-senha-confirma" type="password" placeholder="••••••••" />
+            <Input
+              id="cfg-senha-confirma"
+              type="password"
+              placeholder="••••••••"
+              value={confirmarSenha}
+              onChange={(e) => setConfirmarSenha(e.target.value)}
+              required
+            />
           </Field>
           <div className="flex justify-end pt-2">
             <Button variant="primary" type="submit" loading={salvando}>

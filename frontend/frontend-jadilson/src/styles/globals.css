@@ -1,4 +1,4 @@
-/* Base global: corpo, foco visível, seleção e scrollbar (guia 5.7). */
+/* Base global: corpo, foco visível, cantos squircle, cursores e scrollbar. */
 
 @layer base {
   html {
@@ -7,9 +7,6 @@
     height: 100%;
   }
 
-  /* Sem isso, a margem padrão de 8px do navegador no <body> empurra o
-     layout além de 100vh e cria uma segunda barra de rolagem na página
-     inteira, além da barra de rolagem interna do conteúdo do dashboard. */
   body {
     background-color: var(--color-bg);
     color: var(--color-ink);
@@ -17,6 +14,7 @@
     font-size: 16px;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     margin: 0;
     height: 100%;
   }
@@ -25,7 +23,7 @@
     height: 100%;
   }
 
-  /* Brilho neutro e sutil atrás da janela (acompanha os tokens). */
+  /* Brilho neutro e sutil atrás da janela (acompanha os tokens P&B). */
   body::before {
     content: "";
     position: fixed;
@@ -34,21 +32,22 @@
     pointer-events: none;
     background:
       radial-gradient(
-        46% 42% at 50% 112%,
-        color-mix(in srgb, var(--color-ink) 14%, transparent),
-        transparent 72%
+        48% 42% at 50% 112%,
+        color-mix(in srgb, var(--color-ink) 11%, transparent),
+        transparent 74%
       ),
       radial-gradient(
-        36% 30% at 96% 4%,
-        color-mix(in srgb, var(--color-ink) 7%, transparent),
-        transparent 70%
+        38% 30% at 96% 4%,
+        color-mix(in srgb, var(--color-ink) 6%, transparent),
+        transparent 72%
       );
   }
 
-  /* Squircle (curvatura contínua, como nos cantos do macOS/iOS).
-     Pílulas e círculos ficam de fora: squircle deformaria o formato. */
+  /* Squircle (curvatura contínua estilo iOS/macOS).
+     Pílulas e círculos ficam de fora para preservar a forma circular. */
   @supports (corner-shape: squircle) {
-    [class*="rounded-"]:not([class*="rounded-full"]):not([class*="rounded-badge"]) {
+    [class*="rounded-"]:not([class*="rounded-full"]):not([class*="rounded-badge"]),
+    .squircle {
       corner-shape: squircle;
     }
   }
@@ -70,15 +69,48 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* Scrollbar discreta, no tom do token de borda */
+  /* A logo oficial é branca sobre fundo transparente; no tema claro inverte para preto */
+  :root[data-theme="light"] .logo-marca {
+    filter: invert(1);
+  }
+
+  /* Regra de interação: só o que é clicável mostra a mãozinha (cursor: pointer). */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="menuitem"]:not([aria-disabled="true"]),
+  [role="option"]:not([aria-disabled="true"]),
+  [role="tab"]:not([aria-disabled="true"]),
+  a[href],
+  summary,
+  select:not(:disabled),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled),
+  input[type="file"]:not(:disabled),
+  label[for] {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [aria-disabled="true"],
+  select:disabled,
+  input:disabled {
+    cursor: not-allowed;
+  }
+
+  /* Camada invisível que só fecha popovers ao clicar fora */
+  button[aria-label^="Fechar seletor"] {
+    cursor: default;
+  }
+
+  /* Scrollbar discreta */
   * {
     scrollbar-width: thin;
     scrollbar-color: var(--color-border) transparent;
   }
 
   ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+    width: 8px;
+    height: 8px;
   }
 
   ::-webkit-scrollbar-track {
@@ -88,6 +120,5 @@
   ::-webkit-scrollbar-thumb {
     background-color: var(--color-border);
     border-radius: 999px;
-    border: 2px solid var(--color-bg);
   }
 }

@@ -32,6 +32,29 @@ class ClienteCreate(BaseModel):
         return valor
 
 
+class ClienteUpdate(BaseModel):
+    """Atualizacao parcial ou total de cliente (Admin)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    nome: str | None = Field(default=None, min_length=1, max_length=160)
+    cpf_cnpj: str | None = Field(default=None, max_length=20)
+    email: EmailStr | None = None
+    telefone: str | None = Field(default=None, max_length=20)
+    data_nascimento: date | None = None
+    ativo: bool | None = None
+
+    @field_validator("nome")
+    @classmethod
+    def nome_nao_em_branco(cls, valor: str | None) -> str | None:
+        if valor is None:
+            return None
+        valor = valor.strip()
+        if not valor:
+            raise ValueError("Nome e obrigatorio")
+        return valor
+
+
 class ClienteOut(BaseModel):
     """Resposta padrao de cliente - CPF/CNPJ formatado para exibicao."""
 

@@ -3,16 +3,15 @@ import { useNavigate } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
-  IconDocumentOnDocument,
   IconDocumentBadgePlus,
   IconArrowUpDocument,
   IconMagnifyingglass,
   IconTrash,
   IconCheckmarkCircleFill,
 } from "symbols-react";
-import { Badge, Button, EmptyState, Field, Input, Modal, Select, useToast } from "@/components/ui";
+import { Badge, Button, Field, Input, Modal, Select, useToast, HairlineEmptyState } from "@/components/ui";
 import { AREAS_DOC, MODELOS, modelosPorArea, preencherModelo } from "@/data/modelos";
-import { PROCESSOS_INICIAIS } from "@/data/escritorio";
+import { useCarteira } from "@/data/escritorio";
 import { useDocumentos } from "@/lib/documentos";
 import { cn } from "@/lib/cn";
 
@@ -102,8 +101,7 @@ export function Documentos() {
       </div>
 
       {filtrados.length === 0 ? (
-        <EmptyState
-          icon={IconDocumentOnDocument}
+        <HairlineEmptyState
           titulo="Nenhum documento encontrado"
           descricao={docs.length === 0 ? "Crie o primeiro documento a partir de um modelo ou importe um arquivo .docx." : "Nenhum documento corresponde à busca."}
           acao={<Button onClick={() => setNovoAberto(true)}>Novo documento</Button>}
@@ -168,6 +166,7 @@ export function Documentos() {
 }
 
 function ModalNovoDocumento({ open, onOpenChange, aoCriar }) {
+  const { processos } = useCarteira(open);
   const [area, setArea] = useState("trabalhista");
   const [modeloId, setModeloId] = useState("reclamacao-trabalhista");
   const [processoId, setProcessoId] = useState("");
@@ -175,7 +174,7 @@ function ModalNovoDocumento({ open, onOpenChange, aoCriar }) {
 
   const modelos = [...modelosPorArea(area), ...(area === "geral" ? [] : [])];
   const modelo = MODELOS.find((m) => m.id === modeloId);
-  const processo = PROCESSOS_INICIAIS.find((p) => String(p.id) === processoId);
+  const processo = processos.find((p) => String(p.id) === processoId);
 
   function escolherArea(id) {
     setArea(id);
@@ -186,6 +185,7 @@ function ModalNovoDocumento({ open, onOpenChange, aoCriar }) {
     e.preventDefault();
     if (!modelo) return;
     aoCriar({
+      processoId: processo?.id,
       titulo: titulo.trim() || `${modelo.rotulo}${processo ? ` – ${processo.cliente}` : ""}`,
       area: modelo.area,
       tipo: modelo.rotulo,
@@ -229,7 +229,7 @@ function ModalNovoDocumento({ open, onOpenChange, aoCriar }) {
           <Field label="Processo (opcional)" id="nd-processo" hint="Preenche cliente e número do processo.">
             <Select id="nd-processo" value={processoId} onChange={(e) => setProcessoId(e.target.value)}>
               <option value="">Sem vínculo</option>
-              {PROCESSOS_INICIAIS.map((p) => <option key={p.id} value={p.id}>{p.cliente}</option>)}
+              {processos.map((p) => <option key={p.id} value={p.id}>{p.cliente}</option>)}
             </Select>
           </Field>
           <Field label="Título" id="nd-titulo">

@@ -8,7 +8,22 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
 
-from app.api.routes import auth, usuarios, casos, clientes, prazos, processos, compromissos
+from app.api.routes import (
+    agenda,
+    assinaturas,
+    auth,
+    casos,
+    clientes,
+    compromissos,
+    consultas,
+    financeiro,
+    ia,
+    notificacoes,
+    prazos,
+    processos,
+    usuarios,
+    webhooks,
+)
 from app.config import get_settings, eh_producao, validar_configuracao_seguranca
 from app.core import security
 from app.core.ratelimit import Limiter
@@ -57,7 +72,9 @@ def create_app() -> FastAPI:
         """
         if request.method in _MUTANTES and request.url.path.startswith(
             settings.api_prefix
-        ) and request.url.path != f"{settings.api_prefix}/auth/login":
+        ) and request.url.path != f"{settings.api_prefix}/auth/login" and not request.url.path.startswith(
+            f"{settings.api_prefix}/v1/webhooks/"
+        ):
             token = request.cookies.get(settings.auth_cookie_name)
             payload = security.decodificar_token(token) if token else None
             if payload is None:
@@ -97,6 +114,8 @@ def create_app() -> FastAPI:
     prefix = settings.api_prefix
     app.include_router(auth.router, prefix=f"{prefix}/auth", tags=["auth"])
     app.include_router(usuarios.router, prefix=f"{prefix}/usuarios", tags=["usuarios"])
+    app.include_router(agenda.router, prefix=f"{prefix}/agenda", tags=["agenda"])
+    app.include_router(notificacoes.router, prefix=f"{prefix}/notificacoes", tags=["notificacoes"])
     app.include_router(casos.router, prefix=f"{prefix}/casos", tags=["casos"])
     app.include_router(
         processos.router_caso, prefix=f"{prefix}/casos", tags=["processos"]
@@ -106,6 +125,14 @@ def create_app() -> FastAPI:
     )
     app.include_router(clientes.router, prefix=f"{prefix}/clientes", tags=["clientes"])
     app.include_router(prazos.router, prefix=f"{prefix}/prazos", tags=["prazos"])
+    app.include_router(ia.router, prefix=f"{prefix}/ia", tags=["ia"])
+    app.include_router(consultas.router, prefix=f"{prefix}/consultas", tags=["consultas"])
+    app.include_router(assinaturas.router, prefix=f"{prefix}/assinaturas", tags=["assinaturas"])
+    app.include_router(financeiro.router, prefix=f"{prefix}/financeiro", tags=["financeiro"])
+    # Webhooks: sem sessao/CSRF (autenticados por segredo do provedor) - ver routes/webhooks.py
+    app.include_router(webhooks.router, prefix=f"{prefix}/v1/webhooks", tags=["webhooks"])
+    # Pre-entrega (Fase 4): prazos/compromissos + agenda por periodo em /api/agenda
+    # (GET raiz). Convive com /api/agenda/eventos e /contribuidores acima.
     app.include_router(
         compromissos.router, prefix=f"{prefix}/compromissos", tags=["compromissos"]
     )

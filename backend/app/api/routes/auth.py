@@ -1,4 +1,4 @@
-"""RF01: autenticacao - login, sessao atual e logout."""
+"""RF01: autenticacao - login, sessao atual, logout, senha e configuracoes do escritorio."""
 
 import hashlib
 
@@ -10,6 +10,8 @@ from fastapi import (
     Response,
     status,
 )
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from app.api.deps import (
     _get_revogados,
@@ -19,9 +21,17 @@ from app.api.deps import (
 from app.config import get_settings
 from app.core.ratelimit import Limiter
 from app.core.revogados import TokenRevogados
+from app.database import get_db
+from app.models.configuracao_escritorio import ConfiguracaoEscritorio
 from app.models.usuario import Usuario
 from app.repositories.usuario_repository import UsuarioRepository
-from app.schemas.auth import LoginRequest, LoginResponse
+from app.schemas.auth import (
+    AlterarSenhaRequest,
+    ConfiguracaoEscritorioIn,
+    ConfiguracaoEscritorioOut,
+    LoginRequest,
+    LoginResponse,
+)
 from app.schemas.usuario import UsuarioOut
 from app.services.auth_service import (
     AuthService,
@@ -47,6 +57,17 @@ def _ip_do_cliente(request: Request) -> str:
     return request.client.host if request.client else "desconhecido"
 
 
+def _obter_ou_criar_configuracao_escritorio(db: Session) -> ConfiguracaoEscritorio:
+    ConfiguracaoEscritorio.__table__.create(bind=db.get_bind(), checkfirst=True)
+    cfg = db.scalar(select(ConfiguracaoEscritorio).limit(1))
+    if cfg is None:
+        cfg = ConfiguracaoEscritorio()
+        db.add(cfg)
+        db.commit()
+        db.refresh(cfg)
+    return cfg
+
+
 @router.post(
     "/login",
     response_model=LoginResponse,
@@ -59,20 +80,10 @@ def login(
     repo: UsuarioRepository = Depends(get_usuario_repo),
     limiter: Limiter = Depends(_get_limiter),
 ):
-    """RF01: login com rate limit por IP e por e-mail (forca bruta).
-
-    O JWT e setado como cookie HttpOnly (JS nao le) + SameSite. O corpo da
-    resposta traz apenas o usuario e o token CSRF (claim embutido no JWT).
-
-    O limite por IP evita flood; o por e-mail evita forca bruta numa conta.
-    As falhas de e-mail sao contadas somente quando a autenticacao falha (para
-    nao travar quem esta logando certo) e o bucket e limpo apos um login valido.
-    """
+    """RF01: login com rate limit por IP e por e-mail (forca bruta)."""
     ip = _ip_do_cliente(request)
     limiter.check(f"ip:{ip}", settings.rate_limit_login_ip)
 
-    # Hash do email no bucket: o limiter fica em memoria e nao deve guardar
-    # dados pessoais identificaveis.
     chave_email = (
         "email:"
         + hashlib.sha256(dados.email.strip().lower().encode()).hexdigest()
@@ -94,18 +105,17 @@ def login(
             "E-mail ou senha invalidos",
         )
     except UsuarioInativoError as exc:
-        # conta existe mas esta desativada: nao conta como tentativa de senha
         raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc))
 
-    limiter.limpar(chave_email)  # login valido: zera o contador da conta
+    limiter.limpar(chave_email)
     token, csrf = service.gerar_sessao(usuario)
     response.set_cookie(
         key=settings.auth_cookie_name,
         value=token,
         max_age=settings.jwt_expire_minutes * 60,
-        httponly=True,  # inacessivel ao JavaScript (anti-XSS)
-        secure=settings.auth_cookie_secure,  # True em producao (HTTPS)
-        samesite=settings.auth_cookie_samesite,  # anti-CSRF + UX
+        httponly=True,
+        secure=settings.auth_cookie_secure,
+        samesite=settings.auth_cookie_samesite,
         path="/",
     )
     return LoginResponse(
@@ -145,12 +155,7 @@ def logout(
     _usuario: Usuario = Depends(get_current_user),
     revogados: TokenRevogados = Depends(_get_revogados),
 ) -> Response:
-    """Apaga o cookie de sessao E revoga o `jti` no servidor.
-
-    Revogar e essencial: sem isso, um token roubado continuaria valido ate
-    expirar mesmo depois do usuario deslogar. Exige token CSRF (mutacao sem
-    CSRF nao passa pelo middleware).
-    """
+    """Apaga o cookie de sessao E revoga o `jti` no servidor."""
     revogados.revogar(request.state.jti, request.state.exp)
     resp = Response(status_code=status.HTTP_204_NO_CONTENT)
     resp.delete_cookie(
@@ -161,3 +166,56 @@ def logout(
         samesite=settings.auth_cookie_samesite,
     )
     return resp
+
+
+@router.post(
+    "/senha",
+    response_model=UsuarioOut,
+    summary="Alterar senha da conta logada",
+)
+def alterar_senha(
+    dados: AlterarSenhaRequest,
+    usuario: Usuario = Depends(get_current_user),
+    repo: UsuarioRepository = Depends(get_usuario_repo),
+) -> UsuarioOut:
+    service = AuthService(repo)
+    try:
+        atualizado = service.alterar_senha(
+            usuario, dados.senha_atual, dados.nova_senha
+        )
+    except ErroAutenticacao as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+    return UsuarioOut.model_validate(atualizado)
+
+
+@router.get(
+    "/escritorio",
+    response_model=ConfiguracaoEscritorioOut,
+    summary="Obter configuracoes gerais do escritorio",
+)
+def obter_escritorio(
+    _usuario: Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ConfiguracaoEscritorioOut:
+    cfg = _obter_ou_criar_configuracao_escritorio(db)
+    return ConfiguracaoEscritorioOut.model_validate(cfg)
+
+
+@router.put(
+    "/escritorio",
+    response_model=ConfiguracaoEscritorioOut,
+    summary="Atualizar configuracoes gerais do escritorio",
+)
+def atualizar_escritorio(
+    dados: ConfiguracaoEscritorioIn,
+    _usuario: Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ConfiguracaoEscritorioOut:
+    cfg = _obter_ou_criar_configuracao_escritorio(db)
+    for campo, valor in dados.model_dump(exclude_unset=True).items():
+        if valor is not None:
+            setattr(cfg, campo, valor)
+    db.add(cfg)
+    db.commit()
+    db.refresh(cfg)
+    return ConfiguracaoEscritorioOut.model_validate(cfg)

@@ -1,4 +1,4 @@
-"""Service Layer: regras de negocio de clientes (cadastro e consulta)."""
+"""Service Layer: regras de negocio de clientes (cadastro, consulta, atualizacao e remocao)."""
 
 from datetime import date
 
@@ -40,18 +40,20 @@ class ClienteService:
         telefone: str | None = None,
         data_nascimento: date | None = None,
     ) -> Cliente:
-        # DocumentoInvalidoError/TelefoneInvalidoError sao de negocios e sao
-        # traduzidos em 422 pela rota.
         documento = normalizar_documento(cpf_cnpj)
         fone = normalizar_telefone(telefone)
         email_norm = email.strip().lower() if email else None
         nome_norm = nome.strip()
 
         if data_nascimento is not None and data_nascimento > date.today():
-            raise DadosInvalidosError("Data de nascimento nao pode ser no futuro")
+            raise DadosInvalidosError(
+                "Data de nascimento nao pode ser no futuro"
+            )
 
         if documento is not None and self.repo.buscar_por_documento(documento):
-            raise DocumentoJaCadastradoError("Ja existe um cliente com este CPF/CNPJ")
+            raise DocumentoJaCadastradoError(
+                "Ja existe um cliente com este CPF/CNPJ"
+            )
 
         cliente = Cliente(
             nome=nome_norm,
@@ -64,9 +66,65 @@ class ClienteService:
         try:
             return self.repo.criar(cliente)
         except IntegrityError:
-            # corrida entre o check acima e o INSERT: o banco rejeitou o duplicado
             self.repo.db.rollback()
-            raise DocumentoJaCadastradoError("Ja existe um cliente com este CPF/CNPJ")
+            raise DocumentoJaCadastradoError(
+                "Ja existe um cliente com este CPF/CNPJ"
+            )
+
+    def atualizar(
+        self,
+        cliente_id: int,
+        *,
+        nome: str | None = None,
+        cpf_cnpj: str | None = None,
+        email: str | None = None,
+        telefone: str | None = None,
+        data_nascimento: date | None = None,
+        ativo: bool | None = None,
+    ) -> Cliente:
+        cliente = self.repo.buscar_por_id(cliente_id)
+        if cliente is None:
+            raise ClienteNaoEncontradoError("Cliente nao encontrado")
+
+        if nome is not None:
+            nome_norm = nome.strip()
+            if not nome_norm:
+                raise DadosInvalidosError("Nome e obrigatorio")
+            cliente.nome = nome_norm
+
+        if cpf_cnpj is not None:
+            documento = normalizar_documento(cpf_cnpj)
+            if documento is not None:
+                existente = self.repo.buscar_por_documento(documento)
+                if existente and existente.id != cliente.id:
+                    raise DocumentoJaCadastradoError(
+                        "Ja existe um cliente com este CPF/CNPJ"
+                    )
+            cliente.cpf_cnpj = documento
+
+        if email is not None:
+            cliente.email = email.strip().lower() if email.strip() else None
+
+        if telefone is not None:
+            cliente.telefone = normalizar_telefone(telefone)
+
+        if data_nascimento is not None:
+            if data_nascimento > date.today():
+                raise DadosInvalidosError(
+                    "Data de nascimento nao pode ser no futuro"
+                )
+            cliente.data_nascimento = data_nascimento
+
+        if ativo is not None:
+            cliente.ativo = ativo
+
+        try:
+            return self.repo.salvar(cliente)
+        except IntegrityError:
+            self.repo.db.rollback()
+            raise DocumentoJaCadastradoError(
+                "Ja existe um cliente com este CPF/CNPJ"
+            )
 
     def listar(
         self,
@@ -79,13 +137,24 @@ class ClienteService:
         itens, total = self.repo.listar(
             usuario=usuario, q=q, pagina=pagina, limite=limite
         )
-        return {"itens": itens, "total": total, "pagina": pagina, "limite": limite}
+        return {
+            "itens": itens,
+            "total": total,
+            "pagina": pagina,
+            "limite": limite,
+        }
 
     def buscar(self, cliente_id: int, usuario: Usuario) -> Cliente:
         cliente = self.repo.buscar_visivel(cliente_id, usuario)
         if cliente is None:
             raise ClienteNaoEncontradoError("Cliente nao encontrado")
         return cliente
+
+    def remover(self, cliente_id: int, usuario: Usuario) -> None:
+        cliente = self.repo.buscar_visivel(cliente_id, usuario)
+        if cliente is None:
+            raise ClienteNaoEncontradoError("Cliente nao encontrado")
+        self.repo.remover(cliente)
 
 
 __all__ = [

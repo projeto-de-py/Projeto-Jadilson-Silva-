@@ -6,6 +6,7 @@ import {
   IconPerson2,
   IconGearshape,
   IconDocumentOnDocument,
+  IconBanknote,
 } from "symbols-react";
 
 export const navegacao = [
@@ -14,6 +15,7 @@ export const navegacao = [
   { to: "/prazos", rotulo: "Prazos", icone: IconClock, grupo: "Visão geral" },
   { to: "/agenda", rotulo: "Agenda", icone: IconCalendar, grupo: "Visão geral" },
   { to: "/documentos", rotulo: "Documentos", icone: IconDocumentOnDocument, grupo: "Visão geral" },
+  { to: "/financeiro", rotulo: "Financeiro", icone: IconBanknote, grupo: "Escritório" },
   { to: "/clientes", rotulo: "Clientes", icone: IconPerson2, grupo: "Escritório" },
   { to: "/configuracoes", rotulo: "Configurações", icone: IconGearshape, grupo: "Escritório" },
 ];

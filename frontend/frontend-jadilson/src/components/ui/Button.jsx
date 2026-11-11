@@ -26,7 +26,7 @@ export function Button({
     "inline-flex items-center justify-center font-medium whitespace-nowrap transition-colors",
     "h-10 gap-2 rounded-input px-4 text-14",
     "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-bg focus-visible:outline-none",
-    "disabled:pointer-events-none disabled:opacity-50",
+    "cursor-pointer disabled:cursor-not-allowed disabled:opacity-50",
     variants[variant] ?? variants.primary,
     className,
   );

@@ -1,22 +1,25 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import {
-  IconFolder,
   IconFolderBadgePlus,
   IconMagnifyingglass,
   IconClockBadgeCheckmark,
   IconArrowDownDocument,
-  IconWandAndSparkles,
+  IconSquareAndPencil,
   IconListBullet,
   IconRectangle3Group,
   IconPerson,
   IconScalemass,
 } from "symbols-react";
-import { Card, Button, Badge, Input, Select, EmptyState, Drawer } from "@/components/ui";
+import { Card, Button, Badge, Input, Select, Drawer, HairlineEmptyState } from "@/components/ui";
 import { ModalCadastrarProcesso } from "@/components/modais/ModalCadastrarProcesso";
-import { ModalRedatorIA } from "@/components/modais/ModalRedatorIA";
+import { MODELOS, preencherModelo } from "@/data/modelos";
+import { useDocumentos } from "@/lib/documentos";
 import { exportarProcessoPdf } from "@/lib/exportarPdf";
-import { PROCESSOS_INICIAIS } from "@/data/escritorio";
+import { PainelDataJud } from "@/components/consultas/PainelDataJud";
+import { useArea } from "@/context/area-context";
+import { useCarteira } from "@/data/escritorio";
 import { cn } from "@/lib/cn";
 
 const ETAPAS = [
@@ -28,7 +31,6 @@ const ETAPAS = [
 ];
 const TOM = Object.fromEntries(ETAPAS.map((e) => [e.id, e.tom]));
 
-// Linha do tempo gerada a partir da etapa atual (demonstração).
 const MARCOS = {
   "Petição inicial": ["Petição inicial protocolada", "Distribuição ao juízo"],
   "Instrução": ["Citação da parte ré", "Contestação juntada", "Designada audiência de instrução"],
@@ -48,10 +50,19 @@ function montarLinhaDoTempo(proc) {
   return eventos.reverse();
 }
 
+function normalizarTexto(texto = "") {
+  return String(texto)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
 export function Processos() {
-  const [processos, setProcessos] = useState(PROCESSOS_INICIAIS);
+  const { area } = useArea();
+  const { processos, setProcessos } = useCarteira();
   const [modalAberto, setModalAberto] = useState(false);
-  const [processoIA, setProcessoIA] = useState(null);
+  const navegar = useNavigate();
+  const { docs, criar } = useDocumentos();
   const [processoLinha, setProcessoLinha] = useState(null);
   const [busca, setBusca] = useState("");
   const [filtroStatus, setFiltroStatus] = useState("TODOS");
@@ -60,15 +71,45 @@ export function Processos() {
   const processosFiltrados = useMemo(() => {
     const termo = busca.toLowerCase();
     return processos.filter((p) => {
+      const matchArea =
+        !area ||
+        area === "todas" ||
+        normalizarTexto(p.area).includes(normalizarTexto(area)) ||
+        normalizarTexto(p.tipoAcao).includes(normalizarTexto(area));
       const matchStatus = filtroStatus === "TODOS" || p.status === filtroStatus;
       const matchBusca =
         p.numero.toLowerCase().includes(termo) ||
         p.cliente.toLowerCase().includes(termo) ||
         p.tipoAcao.toLowerCase().includes(termo) ||
         p.vara.toLowerCase().includes(termo);
-      return matchStatus && matchBusca;
+      return matchArea && matchStatus && matchBusca;
     });
-  }, [processos, busca, filtroStatus]);
+  }, [processos, area, busca, filtroStatus]);
+
+  function editarDocumento(proc) {
+    const existente = docs.find((d) => d.processoId === proc.id || d.html.includes(proc.numero));
+    if (existente) {
+      navegar(`/documentos/${existente.id}`);
+      return;
+    }
+    const areaDoc = proc.tipoAcao.toLowerCase();
+    const idModelo = areaDoc.startsWith("bancário")
+      ? "revisional-contrato"
+      : areaDoc.startsWith("previdenciário")
+        ? "aposentadoria"
+        : areaDoc.startsWith("trabalhista")
+          ? "reclamacao-trabalhista"
+          : "em-branco";
+    const modelo = MODELOS.find((m) => m.id === idModelo);
+    const novo = criar({
+      processoId: proc.id,
+      titulo: `${modelo.rotulo} – ${proc.cliente}`,
+      area: modelo.area,
+      tipo: modelo.rotulo,
+      html: preencherModelo(modelo.html, { cliente: proc.cliente, numero: proc.numero, vara: proc.vara }),
+    });
+    navegar(`/documentos/${novo.id}`);
+  }
 
   const acoes = (proc) => (
     <div className="flex flex-wrap items-center gap-2">
@@ -80,9 +121,9 @@ export function Processos() {
         <IconArrowDownDocument className="size-3.5" fill="currentColor" />
         PDF
       </Button>
-      <Button variant="ghost" className="h-8 gap-2 px-4 text-12 text-accent hover:text-accent-hover" onClick={() => setProcessoIA(proc)}>
-        <IconWandAndSparkles className="size-3.5" fill="currentColor" />
-        Redator IA
+      <Button variant="ghost" className="h-8 gap-2 px-4 text-12 text-accent hover:text-accent-hover" onClick={() => editarDocumento(proc)}>
+        <IconSquareAndPencil className="size-3.5" fill="currentColor" />
+        Editar documento
       </Button>
     </div>
   );
@@ -93,10 +134,10 @@ export function Processos() {
         <div>
           <h2 className="font-heading text-24 font-bold tracking-tight text-ink">Gestão de Processos</h2>
           <p className="text-14 text-ink-muted">
-            {processos.length} processos · acompanhe por lista ou pelo funil de etapas.
+            {processosFiltrados.length} {processosFiltrados.length === 1 ? "processo" : "processos"} · acompanhe por lista ou pelo funil de etapas.
           </p>
         </div>
-        <Button variant="primary" onClick={() => setModalAberto(true)} className="gap-2 shrink-0">
+        <Button variant="primary" onClick={() => setModalAberto(true)} className="shrink-0 gap-2">
           <IconFolderBadgePlus className="size-4" fill="currentColor" />
           Novo Processo
         </Button>
@@ -149,10 +190,19 @@ export function Processos() {
       </div>
 
       {processosFiltrados.length === 0 ? (
-        <EmptyState
-          icon={IconFolder}
+        <HairlineEmptyState
           titulo="Nenhum processo encontrado"
-          descricao={busca ? "Nenhum processo corresponde aos termos pesquisados." : "Nenhum processo cadastrado. Clique no botão acima para adicionar o primeiro."}
+          descricao={
+            busca
+              ? "Nenhum processo corresponde aos termos pesquisados."
+              : "Nenhum processo cadastrado no banco de dados. Adicione o primeiro processo para começar."
+          }
+          acao={
+            <Button variant="primary" onClick={() => setModalAberto(true)} className="gap-2">
+              <IconFolderBadgePlus className="size-4" fill="currentColor" />
+              Novo Processo
+            </Button>
+          }
         />
       ) : visao === "lista" ? (
         <div className="grid gap-4">
@@ -244,23 +294,26 @@ export function Processos() {
         footer={processoLinha && acoes(processoLinha)}
       >
         {processoLinha && (
-          <ol className="relative space-y-6 border-l border-border pl-6">
-            {montarLinhaDoTempo(processoLinha).map((ev, i) => (
-              <li key={`${ev.titulo}-${i}`} className="relative">
-                <span
-                  className={cn(
-                    "absolute top-1 -left-[31px] size-3 rounded-full border-2 border-surface",
-                    ev.atual ? "bg-primary ring-4 ring-primary/25" : "bg-border",
-                  )}
-                />
-                <p className={cn("text-14 font-medium", ev.atual ? "text-ink" : "text-ink-muted")}>{ev.titulo}</p>
-                <div className="mt-1 flex items-center gap-2">
-                  <Badge tone={TOM[ev.etapa]}>{ev.etapa}</Badge>
-                  {ev.atual && <span className="text-11 text-primary font-semibold">Atual</span>}
-                </div>
-              </li>
-            ))}
-          </ol>
+          <div className="space-y-8">
+            <PainelDataJud key={processoLinha.id} numeroInicial={processoLinha.numero} />
+            <ol className="relative space-y-6 border-l border-border pl-6">
+              {montarLinhaDoTempo(processoLinha).map((ev, i) => (
+                <li key={`${ev.titulo}-${i}`} className="relative">
+                  <span
+                    className={cn(
+                      "absolute top-1 -left-[31px] size-3 rounded-full border-2 border-surface",
+                      ev.atual ? "bg-primary ring-4 ring-primary/25" : "bg-border",
+                    )}
+                  />
+                  <p className={cn("text-14 font-medium", ev.atual ? "text-ink" : "text-ink-muted")}>{ev.titulo}</p>
+                  <div className="mt-1 flex items-center gap-2">
+                    <Badge tone={TOM[ev.etapa]}>{ev.etapa}</Badge>
+                    {ev.atual && <span className="text-11 text-primary font-semibold">Atual</span>}
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
         )}
       </Drawer>
 
@@ -268,11 +321,6 @@ export function Processos() {
         open={modalAberto}
         onOpenChange={setModalAberto}
         onProcessoSalvo={(novo) => setProcessos((prev) => [novo, ...prev])}
-      />
-      <ModalRedatorIA
-        open={!!processoIA}
-        onOpenChange={(v) => !v && setProcessoIA(null)}
-        processo={processoIA}
       />
     </div>
   );

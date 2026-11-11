@@ -4,10 +4,13 @@ import { IconCheckmarkCircleFill, IconExclamationmarkCircleFill, IconInfoCircleF
 import { ToastContext } from "./toastContext";
 import { spring } from "@/lib/motion";
 import { cn } from "@/lib/cn";
+import { tocarSomPorTipo } from "@/lib/somNotificacao";
 
 const tons = {
   sucesso: { Icone: IconCheckmarkCircleFill, cor: "text-status-ok" },
   erro: { Icone: IconExclamationmarkCircleFill, cor: "text-status-vencido" },
+  atencao: { Icone: IconExclamationmarkCircleFill, cor: "text-status-hoje-ink" },
+  aviso: { Icone: IconExclamationmarkCircleFill, cor: "text-status-hoje-ink" },
   info: { Icone: IconInfoCircleFill, cor: "text-primary" },
 };
 
@@ -49,9 +52,12 @@ export function ToastProvider({ children }) {
   }, []);
 
   const toast = useCallback(
-    ({ tipo = "info", titulo, descricao, acao }) => {
+    ({ tipo = "info", titulo, descricao, acao, som = true }) => {
       const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
       setToasts((atual) => [...atual, { id, tipo, titulo, descricao, acao }]);
+      if (som !== false) {
+        tocarSomPorTipo(tipo);
+      }
       setTimeout(() => fechar(id), 4000);
       return id;
     },
