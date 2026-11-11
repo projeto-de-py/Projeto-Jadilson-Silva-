@@ -126,7 +126,7 @@ Pasta [`backend/app/ia/`](../backend/app/ia/):
 - Criações de clientes, atribuições de casos, concessões/revogações de acesso e eventos financeiros também geram avisos sem incluir dados pessoais no texto.
 - `notificacoes` guarda proprietário, tipo, severidade, texto curto, link interno, chave de deduplicação e data de leitura. O backend aplica o escopo de usuário em toda leitura e escrita.
 
-Na implementação, `models/notificacao.py` define a tabela, `repositories/notificacao_repository.py` mantém todas as consultas por proprietário, `services/notificacao_service.py` aplica deduplicação e gera avisos de prazo/ações, e `api/routes/notificacoes.py` publica os endpoints autenticados. A migração `0008_notificacoes.py` cria o armazenamento depois da migração local de agenda `0007`. No navegador, `hooks/useNotificacoes.js` atualiza lista/contador por polling e dispara toast para itens novos; `components/layout/PainelNotificacoes.jsx`, usado pelo `Topbar`, mostra o badge e o dropdown.
+Na implementação, `models/notificacao.py` define a tabela, `repositories/notificacao_repository.py` mantém todas as consultas por proprietário, `services/notificacao_service.py` aplica deduplicação e gera avisos de prazo/ações, e `api/routes/notificacoes.py` publica os endpoints autenticados. A migração `0012_notificacoes.py` cria o armazenamento depois da migração local de agenda `0011`. No navegador, `hooks/useNotificacoes.js` atualiza lista/contador por polling e dispara toast para itens novos; `components/layout/PainelNotificacoes.jsx`, usado pelo `Topbar`, mostra o badge e o dropdown.
 
 ---
 

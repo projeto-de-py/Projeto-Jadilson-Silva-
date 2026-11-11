@@ -5,8 +5,8 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 
-revision: str = "0008_notificacoes"
-down_revision: Union[str, None] = "0007_eventos_agenda"
+revision: str = "0012_notificacoes"
+down_revision: Union[str, None] = "0011_eventos_agenda"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -33,6 +33,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("ix_notificacoes_criado_em", table_name="notificacoes")
-    op.drop_index("ix_notificacoes_usuario_id", table_name="notificacoes")
+    # DROP TABLE remove os indices (inclusive os das FKs) junto - no MySQL
+    # dropar um index que sustenta FK falha com erro 1553.
     op.drop_table("notificacoes")

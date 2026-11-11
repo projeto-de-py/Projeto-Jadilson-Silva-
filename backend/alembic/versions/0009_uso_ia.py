@@ -4,7 +4,7 @@ Cria `uso_ia`: um registro por solicitacao a IA (usuario, tarefa, area,
 provedor, versao do prompt, se foi bloqueada, quantas sugestoes, tokens e
 duracao). Nao guarda o texto do pedido nem do documento.
 
-Revision ID: 0005_uso_ia
+Revision ID: 0009_uso_ia
 Revises: 0004_casos_gestao
 Create Date: 2026-10-31
 """
@@ -13,8 +13,8 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 
-revision: str = "0005_uso_ia"
-down_revision: Union[str, None] = "0004_casos_gestao"
+revision: str = "0009_uso_ia"
+down_revision: Union[str, None] = "0007_permissoes_compromissos"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -43,6 +43,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("ix_uso_ia_criado_em", table_name="uso_ia")
-    op.drop_index("ix_uso_ia_usuario_id", table_name="uso_ia")
+    # DROP TABLE remove os indices (inclusive o da FK usuario_id) junto -
+    # no MySQL dropar index que sustenta FK falha com erro 1553.
     op.drop_table("uso_ia")

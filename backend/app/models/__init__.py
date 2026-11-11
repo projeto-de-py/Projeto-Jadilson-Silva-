@@ -5,8 +5,13 @@ from app.models.cliente import Cliente
 from app.models.usuario_caso import UsuarioCaso
 from app.models.caso import Caso
 from app.models.caso_historico import CasoHistorico
+from app.models.processo_judicial import ProcessoJudicial
+from app.models.processo_historico import ProcessoHistorico
 from app.models.andamento import Andamento
 from app.models.prazo import Prazo
+from app.models.prazo_historico import PrazoHistorico
+from app.models.compromisso import Compromisso
+from app.models.compromisso_historico import CompromissoHistorico
 from app.models.uso_ia import UsoIA
 from app.models.assinatura import Assinatura
 from app.models.cobranca import Cobranca
@@ -22,8 +27,13 @@ __all__ = [
     "UsuarioCaso",
     "Caso",
     "CasoHistorico",
+    "ProcessoJudicial",
+    "ProcessoHistorico",
     "Andamento",
     "Prazo",
+    "PrazoHistorico",
+    "Compromisso",
+    "CompromissoHistorico",
     "UsoIA",
     "Assinatura",
     "Cobranca",

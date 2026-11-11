@@ -64,6 +64,29 @@ def isolar_integracoes_externas(monkeypatch):
         monkeypatch.setattr(cfg, campo, None)
 
 
+def gerar_numero_cnj(
+    sequencia: int,
+    ano: str = "2026",
+    justica: str = "8",
+    tribunal: str = "26",
+    origem: str = "0100",
+) -> str:
+    """Gera um numero CNJ VALIDO (20 digitos, resto 1 na divisao por 97).
+
+    O digito verificador fica no meio (NNNNNNN-DD.AAAA.J.TR.OOOO), entao nao
+    ha formula fechada simples: varre DD de 00 a 99 e usa o primeiro que
+    satisfaz `int(numero) % 97 == 1` (algoritmo modulo 97 do padrao CNJ).
+    """
+    prefixo = f"{sequencia:07d}"
+    sufixo = f"{ano}.{justica}.{tribunal}.{origem}"
+    sufixo_digitos = f"{ano}{justica}{tribunal}{origem}"
+    for dd in range(100):
+        candidato = f"{prefixo}{dd:02d}{sufixo_digitos}"
+        if int(candidato) % 97 == 1:
+            return f"{prefixo}-{dd:02d}.{sufixo}"
+    raise AssertionError(f"nao achou DD valido para {prefixo}/{sufixo}")
+
+
 @pytest.fixture()
 def engine():
     eng = create_engine(

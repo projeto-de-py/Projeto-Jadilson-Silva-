@@ -5,8 +5,8 @@
 - eventos_webhook: eventos ja processados (idempotencia);
 - clientes.asaas_customer_id: id do cliente no Asaas (evita cadastrar duas vezes).
 
-Revision ID: 0006_assinaturas_financeiro
-Revises: 0005_uso_ia
+Revision ID: 0010_assinaturas_financeiro
+Revises: 0009_uso_ia
 Create Date: 2026-11-01
 """
 from typing import Sequence, Union
@@ -14,8 +14,8 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 
-revision: str = "0006_assinaturas_financeiro"
-down_revision: Union[str, None] = "0005_uso_ia"
+revision: str = "0010_assinaturas_financeiro"
+down_revision: Union[str, None] = "0009_uso_ia"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -95,12 +95,10 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # DROP TABLE remove os indices e FKs junto; dropar os indices separadamente
+    # falharia no MySQL (1553: index needed in a foreign key constraint).
     op.drop_table("eventos_webhook")
-    for ix in ("status", "vencimento", "asaas_installment_id", "caso_id", "cliente_id"):
-        op.drop_index(f"ix_cobrancas_{ix}", table_name="cobrancas")
     op.drop_table("cobrancas")
-    for ix in ("status", "caso_id", "cliente_id"):
-        op.drop_index(f"ix_assinaturas_{ix}", table_name="assinaturas")
     op.drop_table("assinaturas")
     with op.batch_alter_table("clientes") as batch_op:
         batch_op.drop_constraint("uq_clientes_asaas_customer_id", type_="unique")

@@ -11,11 +11,21 @@ from app.models.usuario import Perfil, Usuario
 from app.repositories.caso_historico_repository import CasoHistoricoRepository
 from app.repositories.caso_repository import CasoRepository
 from app.repositories.cliente_repository import ClienteRepository
+from app.repositories.compromisso_historico_repository import (
+    CompromissoHistoricoRepository,
+)
+from app.repositories.compromisso_repository import CompromissoRepository
+from app.repositories.prazo_historico_repository import PrazoHistoricoRepository
 from app.repositories.prazo_repository import PrazoRepository
+from app.repositories.processo_historico_repository import ProcessoHistoricoRepository
+from app.repositories.processo_judicial_repository import ProcessoJudicialRepository
 from app.repositories.usuario_caso_repository import UsuarioCasoRepository
 from app.repositories.usuario_repository import UsuarioRepository
 from app.services.caso_service import CasoService
+from app.services.compromisso_service import CompromissoService
 from app.services.permissao_service import PermissaoCasoService
+from app.services.prazo_service import PrazoService
+from app.services.processo_service import ProcessoJudicialService
 
 settings = get_settings()
 
@@ -34,12 +44,34 @@ def get_caso_historico_repo(db: Session = Depends(get_db)) -> CasoHistoricoRepos
     return CasoHistoricoRepository(db)
 
 
+def get_processo_repo(db: Session = Depends(get_db)) -> ProcessoJudicialRepository:
+    return ProcessoJudicialRepository(db)
+
+
+def get_processo_historico_repo(db: Session = Depends(get_db)) -> ProcessoHistoricoRepository:
+    return ProcessoHistoricoRepository(db)
+
+
 def get_cliente_repo(db: Session = Depends(get_db)) -> ClienteRepository:
     return ClienteRepository(db)
 
 
 def get_prazo_repo(db: Session = Depends(get_db)) -> PrazoRepository:
     return PrazoRepository(db)
+
+
+def get_prazo_historico_repo(db: Session = Depends(get_db)) -> PrazoHistoricoRepository:
+    return PrazoHistoricoRepository(db)
+
+
+def get_compromisso_repo(db: Session = Depends(get_db)) -> CompromissoRepository:
+    return CompromissoRepository(db)
+
+
+def get_compromisso_historico_repo(
+    db: Session = Depends(get_db),
+) -> CompromissoHistoricoRepository:
+    return CompromissoHistoricoRepository(db)
 
 
 def get_usuario_caso_repo(db: Session = Depends(get_db)) -> UsuarioCasoRepository:
@@ -69,6 +101,56 @@ def get_caso_service(
         clientes=clientes,
         usuarios=usuarios,
         permissoes=permissoes,
+    )
+
+
+def get_processo_service(
+    processos: ProcessoJudicialRepository = Depends(get_processo_repo),
+    historico: ProcessoHistoricoRepository = Depends(get_processo_historico_repo),
+    casos: CasoRepository = Depends(get_caso_repo),
+    permissoes: UsuarioCasoRepository = Depends(get_usuario_caso_repo),
+) -> ProcessoJudicialService:
+    return ProcessoJudicialService(
+        processos=processos,
+        historico=historico,
+        casos=casos,
+        permissoes=permissoes,
+    )
+
+
+def get_prazo_service(
+    prazos: PrazoRepository = Depends(get_prazo_repo),
+    historico: PrazoHistoricoRepository = Depends(get_prazo_historico_repo),
+    casos: CasoRepository = Depends(get_caso_repo),
+    permissoes: UsuarioCasoRepository = Depends(get_usuario_caso_repo),
+    usuarios: UsuarioRepository = Depends(get_usuario_repo),
+    processos: ProcessoJudicialRepository = Depends(get_processo_repo),
+) -> PrazoService:
+    return PrazoService(
+        prazos=prazos,
+        historico=historico,
+        casos=casos,
+        permissoes=permissoes,
+        usuarios=usuarios,
+        processos=processos,
+    )
+
+
+def get_compromisso_service(
+    compromissos: CompromissoRepository = Depends(get_compromisso_repo),
+    historico: CompromissoHistoricoRepository = Depends(get_compromisso_historico_repo),
+    casos: CasoRepository = Depends(get_caso_repo),
+    permissoes: UsuarioCasoRepository = Depends(get_usuario_caso_repo),
+    usuarios: UsuarioRepository = Depends(get_usuario_repo),
+    processos: ProcessoJudicialRepository = Depends(get_processo_repo),
+) -> CompromissoService:
+    return CompromissoService(
+        compromissos=compromissos,
+        historico=historico,
+        casos=casos,
+        permissoes=permissoes,
+        usuarios=usuarios,
+        processos=processos,
     )
 
 

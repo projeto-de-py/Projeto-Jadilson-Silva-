@@ -5,9 +5,25 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
 
-from app.api.routes import agenda, assinaturas, auth, casos, clientes, consultas, financeiro, ia, notificacoes, prazos, usuarios, webhooks
+from app.api.routes import (
+    agenda,
+    assinaturas,
+    auth,
+    casos,
+    clientes,
+    compromissos,
+    consultas,
+    financeiro,
+    ia,
+    notificacoes,
+    prazos,
+    processos,
+    usuarios,
+    webhooks,
+)
 from app.config import get_settings, eh_producao, validar_configuracao_seguranca
 from app.core import security
 from app.core.ratelimit import Limiter
@@ -101,6 +117,12 @@ def create_app() -> FastAPI:
     app.include_router(agenda.router, prefix=f"{prefix}/agenda", tags=["agenda"])
     app.include_router(notificacoes.router, prefix=f"{prefix}/notificacoes", tags=["notificacoes"])
     app.include_router(casos.router, prefix=f"{prefix}/casos", tags=["casos"])
+    app.include_router(
+        processos.router_caso, prefix=f"{prefix}/casos", tags=["processos"]
+    )
+    app.include_router(
+        processos.router, prefix=f"{prefix}/processos", tags=["processos"]
+    )
     app.include_router(clientes.router, prefix=f"{prefix}/clientes", tags=["clientes"])
     app.include_router(prazos.router, prefix=f"{prefix}/prazos", tags=["prazos"])
     app.include_router(ia.router, prefix=f"{prefix}/ia", tags=["ia"])
@@ -109,10 +131,58 @@ def create_app() -> FastAPI:
     app.include_router(financeiro.router, prefix=f"{prefix}/financeiro", tags=["financeiro"])
     # Webhooks: sem sessao/CSRF (autenticados por segredo do provedor) - ver routes/webhooks.py
     app.include_router(webhooks.router, prefix=f"{prefix}/v1/webhooks", tags=["webhooks"])
+    # Pre-entrega (Fase 4): prazos/compromissos + agenda por periodo em /api/agenda
+    # (GET raiz). Convive com /api/agenda/eventos e /contribuidores acima.
+    app.include_router(
+        compromissos.router, prefix=f"{prefix}/compromissos", tags=["compromissos"]
+    )
+    app.include_router(
+        compromissos.router_agenda, prefix=f"{prefix}/agenda", tags=["agenda"]
+    )
 
     @app.get("/health", tags=["status"])
     def health() -> dict:
         return {"status": "ok", "versao": settings.app_version}
+
+    # Documenta no OpenAPI o header X-CSRF-Token exigido pelo middleware em
+    # toda requisicao mutante (POST/PUT/PATCH/DELETE) sob /api. E APENAS
+    # documentacao: o comportamento da API nao muda - sem isso o Swagger nao
+    # expoe o campo e todo POST/PUT/PATCH/DELETE "try it out" responde 403.
+    def openapi_com_csrf() -> dict:
+        if app.openapi_schema is not None:
+            return app.openapi_schema
+        schema = get_openapi(
+            title=app.title, version=app.version, routes=app.routes
+        )
+        descricao = (
+            "Claim `csrf` do JWT devolvido pelo login (POST /api/auth/login) "
+            "ou por GET /api/auth/me. Obrigatorio em todo POST/PUT/PATCH/"
+            "DELETE sob /api (o proprio login nao exige)."
+        )
+        for caminho, operacoes in schema.get("paths", {}).items():
+            if not caminho.startswith(prefix):
+                continue
+            if caminho == f"{prefix}/auth/login":
+                continue  # login nao exige CSRF (ainda nao ha sessao)
+            for metodo, operacao in operacoes.items():
+                if metodo.upper() in ("POST", "PUT", "PATCH", "DELETE"):
+                    params = operacao.setdefault("parameters", [])
+                    if not any(
+                        p.get("name") == "X-CSRF-Token" for p in params
+                    ):
+                        params.append(
+                            {
+                                "name": "X-CSRF-Token",
+                                "in": "header",
+                                "required": False,
+                                "schema": {"type": "string"},
+                                "description": descricao,
+                            }
+                        )
+        app.openapi_schema = schema
+        return schema
+
+    app.openapi = openapi_com_csrf
 
     return app
 

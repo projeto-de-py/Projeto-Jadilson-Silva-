@@ -21,6 +21,10 @@ class PermissaoCasoCreate(BaseModel):
     pode_visualizar: bool = True
     pode_registrar_andamento: bool = False
     pode_gerenciar_prazos: bool = False
+    pode_gerenciar_processos: bool = False
+    # Compromissos de agenda tem permissao PROPRIA (Fase 4): conceder
+    # `pode_gerenciar_prazos` NAO concede esta automaticamente.
+    pode_gerenciar_compromissos: bool = False
 
 
 class PermissaoCasoOut(BaseModel):
@@ -32,6 +36,8 @@ class PermissaoCasoOut(BaseModel):
     pode_visualizar: bool
     pode_registrar_andamento: bool
     pode_gerenciar_prazos: bool
+    pode_gerenciar_processos: bool
+    pode_gerenciar_compromissos: bool
     ativo: bool
     concedido_por: int | None
     concedido_em: datetime
