@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
 import {
   IconClock,
@@ -23,7 +24,6 @@ import {
   Textarea,
   useToast,
 } from "@/components/ui";
-import { useArea } from "@/context/area-context";
 import { useSessao } from "@/context/sessao";
 import { mapearPrazoApi, notificarAtualizacaoDados, useCarteira } from "@/data/escritorio";
 import { apiJson } from "@/lib/api";
@@ -39,13 +39,6 @@ function formatarData(iso) {
   });
 }
 
-function normalizarTexto(texto = "") {
-  return String(texto)
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-}
-
 const GRUPOS = [
   { id: "vencidos", titulo: "Vencidos", descricao: "Exigem atenção imediata", icone: IconExclamationmarkTriangle, cor: "text-status-vencido", barra: "bg-status-vencido" },
   { id: "hoje", titulo: "Vencem hoje", descricao: "Prioridade máxima do dia", icone: IconClock, cor: "text-status-hoje-ink", barra: "bg-status-hoje" },
@@ -55,11 +48,24 @@ const GRUPOS = [
 export function Prazos() {
   const { csrf } = useSessao();
   const { toast } = useToast();
-  const { area } = useArea();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { prazos, processos, setPrazos } = useCarteira();
-  const [busca, setBusca] = useState("");
+  const [busca, setBusca] = useState(() => searchParams.get("busca") || "");
   const [filtroArea, setFiltroArea] = useState("TODAS");
-  const [novoPrazoAberto, setNovoPrazoAberto] = useState(false);
+  const [novoPrazoManual, setNovoPrazoManual] = useState(false);
+
+  const novoPrazoAberto = novoPrazoManual || searchParams.get("novo") === "1";
+  const processoPreSelecionado = searchParams.get("processo") || "";
+
+  function fecharNovoPrazo() {
+    setNovoPrazoManual(false);
+    if (searchParams.has("novo") || searchParams.has("processo")) {
+      const next = new URLSearchParams(searchParams);
+      next.delete("novo");
+      next.delete("processo");
+      setSearchParams(next, { replace: true });
+    }
+  }
 
   async function alternar(prazo) {
     const proximoValor = !prazo.cumprido;
@@ -107,14 +113,10 @@ export function Prazos() {
           p.cliente.toLowerCase().includes(termo) ||
           p.processo.toLowerCase().includes(termo);
         const matchAreaLocal = filtroArea === "TODAS" || p.area === filtroArea;
-        const matchAreaGlobal =
-          !area ||
-          area === "todas" ||
-          normalizarTexto(p.area).includes(normalizarTexto(area));
-        return matchBusca && matchAreaLocal && matchAreaGlobal;
+        return matchBusca && matchAreaLocal;
       })
       .sort((a, b) => a.diasRestantes - b.diasRestantes);
-  }, [prazos, busca, filtroArea, area]);
+  }, [prazos, busca, filtroArea]);
 
   const abertos = prazosProcessados.filter((p) => !p.cumprido);
   const porGrupo = (id) => abertos.filter((p) => p.grupo === id);
@@ -133,7 +135,7 @@ export function Prazos() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
-          <Button variant="primary" onClick={() => setNovoPrazoAberto(true)} className="shrink-0 gap-2">
+          <Button variant="primary" onClick={() => setNovoPrazoManual(true)} className="shrink-0 gap-2">
             <IconPlus className="size-4" fill="currentColor" />
             Novo Prazo
           </Button>
@@ -257,9 +259,14 @@ export function Prazos() {
       )}
 
       <ModalNovoPrazo
+        key={processoPreSelecionado || "novo"}
         open={novoPrazoAberto}
-        onOpenChange={setNovoPrazoAberto}
+        onOpenChange={(v) => {
+          if (!v) fecharNovoPrazo();
+          else setNovoPrazoManual(true);
+        }}
         processos={processos}
+        processoInicial={processoPreSelecionado}
         aoSalvar={(novoPrazo) => {
           setPrazos((prev) => [novoPrazo, ...prev]);
           notificarAtualizacaoDados();
@@ -269,11 +276,11 @@ export function Prazos() {
   );
 }
 
-function ModalNovoPrazo({ open, onOpenChange, processos, aoSalvar }) {
+function ModalNovoPrazo({ open, onOpenChange, processos, processoInicial = "", aoSalvar }) {
   const { csrf } = useSessao();
   const { toast } = useToast();
   const [salvando, setSalvando] = useState(false);
-  const [casoId, setCasoId] = useState("");
+  const [casoId, setCasoId] = useState(processoInicial || "");
   const [titulo, setTitulo] = useState("");
   const [dataLimite, setDataLimite] = useState(() => new Date().toISOString().slice(0, 10));
   const [tipo, setTipo] = useState("PROCESSUAL");

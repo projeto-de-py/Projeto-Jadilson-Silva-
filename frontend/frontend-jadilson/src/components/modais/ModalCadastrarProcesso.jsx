@@ -7,6 +7,7 @@ import {
   Select,
   Textarea,
   Field,
+  Dropdown,
   useToast,
 } from "@/components/ui";
 import { useSessao } from "@/context/sessao";
@@ -262,19 +263,21 @@ export function ModalCadastrarProcesso({ open, onOpenChange, onProcessoSalvo }) 
             id="proc-cliente"
             error={erros.cliente}
           >
-            <Input
+            <Dropdown
               id="proc-cliente"
-              list="lista-clientes-cadastrados"
+              searchable
+              allowCustom
               placeholder="Selecione ou digite o nome"
+              options={clientesExistentes.map((c) => ({
+                value: c.nome,
+                label: c.nome,
+                description: c.documento || c.email || undefined,
+              }))}
               value={form.cliente}
-              onChange={(e) => handleChange("cliente", e.target.value)}
+              onChange={(val) => handleChange("cliente", val)}
               disabled={salvando}
+              error={!!erros.cliente}
             />
-            <datalist id="lista-clientes-cadastrados">
-              {clientesExistentes.map((c) => (
-                <option key={c.id} value={c.nome} />
-              ))}
-            </datalist>
           </Field>
 
           <Field label="Valor da Causa" id="proc-valor" hint="Opcional">

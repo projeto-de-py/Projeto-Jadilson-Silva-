@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "motion/react";
 import {
   IconFolderBadgePlus,
@@ -11,16 +11,23 @@ import {
   IconRectangle3Group,
   IconPerson,
   IconScalemass,
+  IconTrash,
+  IconClock,
+  IconPlus,
 } from "symbols-react";
-import { Card, Button, Badge, Input, Select, Drawer, HairlineEmptyState } from "@/components/ui";
+import { Card, Button, Badge, Input, Dropdown, Drawer, HairlineEmptyState, Modal, useToast } from "@/components/ui";
 import { ModalCadastrarProcesso } from "@/components/modais/ModalCadastrarProcesso";
 import { MODELOS, preencherModelo } from "@/data/modelos";
 import { useDocumentos } from "@/lib/documentos";
 import { exportarProcessoPdf } from "@/lib/exportarPdf";
 import { PainelDataJud } from "@/components/consultas/PainelDataJud";
-import { useArea } from "@/context/area-context";
 import { useCarteira } from "@/data/escritorio";
+import { classificar } from "@/lib/prazos";
+import { useSessao } from "@/context/sessao";
+import { apiJson } from "@/lib/api";
+import { notificarAtualizacaoDados } from "@/data/escritorio";
 import { cn } from "@/lib/cn";
+
 
 const ETAPAS = [
   { id: "Petição inicial", tom: "neutral", ponto: "bg-ink-muted" },
@@ -50,41 +57,55 @@ function montarLinhaDoTempo(proc) {
   return eventos.reverse();
 }
 
-function normalizarTexto(texto = "") {
-  return String(texto)
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-}
-
 export function Processos() {
-  const { area } = useArea();
-  const { processos, setProcessos } = useCarteira();
+  const { processos, prazos, setProcessos } = useCarteira();
   const [modalAberto, setModalAberto] = useState(false);
   const navegar = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { docs, criar } = useDocumentos();
-  const [processoLinha, setProcessoLinha] = useState(null);
-  const [busca, setBusca] = useState("");
+  const [processoSelecionado, setProcessoSelecionado] = useState(null);
+  const [paraRemover, setParaRemover] = useState(null);
+  const [removendo, setRemovendo] = useState(false);
+  const [busca, setBusca] = useState(() => searchParams.get("busca") || "");
   const [filtroStatus, setFiltroStatus] = useState("TODOS");
   const [visao, setVisao] = useState("lista");
+  const { csrf } = useSessao();
+  const { toast } = useToast();
+
+  const idUrl = searchParams.get("id");
+  const processoLinha = useMemo(
+    () => processoSelecionado ?? (idUrl ? processos.find((p) => String(p.id) === idUrl) ?? null : null),
+    [processoSelecionado, idUrl, processos],
+  );
+
+  function setProcessoLinha(proc) {
+    setProcessoSelecionado(proc);
+    if (!proc && searchParams.has("id")) {
+      const next = new URLSearchParams(searchParams);
+      next.delete("id");
+      setSearchParams(next, { replace: true });
+    }
+  }
 
   const processosFiltrados = useMemo(() => {
     const termo = busca.toLowerCase();
     return processos.filter((p) => {
-      const matchArea =
-        !area ||
-        area === "todas" ||
-        normalizarTexto(p.area).includes(normalizarTexto(area)) ||
-        normalizarTexto(p.tipoAcao).includes(normalizarTexto(area));
       const matchStatus = filtroStatus === "TODOS" || p.status === filtroStatus;
       const matchBusca =
         p.numero.toLowerCase().includes(termo) ||
         p.cliente.toLowerCase().includes(termo) ||
         p.tipoAcao.toLowerCase().includes(termo) ||
         p.vara.toLowerCase().includes(termo);
-      return matchArea && matchStatus && matchBusca;
+      return matchStatus && matchBusca;
     });
-  }, [processos, area, busca, filtroStatus]);
+  }, [processos, busca, filtroStatus]);
+
+  const prazosDoProcesso = useMemo(() => {
+    if (!processoLinha) return [];
+    return prazos
+      .filter((p) => p.casoId === processoLinha.id || p.processo === processoLinha.numero)
+      .sort((a, b) => a.diasRestantes - b.diasRestantes);
+  }, [prazos, processoLinha]);
 
   function editarDocumento(proc) {
     const existente = docs.find((d) => d.processoId === proc.id || d.html.includes(proc.numero));
@@ -111,6 +132,38 @@ export function Processos() {
     navegar(`/documentos/${novo.id}`);
   }
 
+  async function confirmarRemocao() {
+    if (!paraRemover) return;
+    setRemovendo(true);
+    try {
+      await apiJson(`casos/${paraRemover.id}/arquivar`, {
+        method: "POST",
+        csrf,
+      });
+
+      setProcessos((prev) => prev.filter((p) => p.id !== paraRemover.id));
+      if (processoLinha?.id === paraRemover.id) {
+        setProcessoLinha(null);
+      }
+      notificarAtualizacaoDados();
+
+      toast({
+        tipo: "sucesso",
+        titulo: "Processo arquivado",
+        descricao: `O processo ${paraRemover.numero} foi removido da listagem ativa.`,
+      });
+      setParaRemover(null);
+    } catch (error) {
+      toast({
+        tipo: "erro",
+        titulo: "Não foi possível remover o processo",
+        descricao: error.message || "Tente novamente em instantes.",
+      });
+    } finally {
+      setRemovendo(false);
+    }
+  }
+
   const acoes = (proc) => (
     <div className="flex flex-wrap items-center gap-2">
       <Button variant="secondary" className="h-8 gap-2 px-4 text-12" onClick={() => setProcessoLinha(proc)}>
@@ -124,6 +177,10 @@ export function Processos() {
       <Button variant="ghost" className="h-8 gap-2 px-4 text-12 text-accent hover:text-accent-hover" onClick={() => editarDocumento(proc)}>
         <IconSquareAndPencil className="size-3.5" fill="currentColor" />
         Editar documento
+      </Button>
+      <Button variant="ghost" className="h-8 gap-2 px-4 text-12 text-status-vencido-ink hover:text-status-vencido" onClick={() => setParaRemover(proc)}>
+        <IconTrash className="size-3.5" fill="currentColor" />
+        Remover
       </Button>
     </div>
   );
@@ -159,12 +216,15 @@ export function Processos() {
         </div>
         {visao === "lista" && (
           <div className="sm:w-52">
-            <Select value={filtroStatus} onChange={(e) => setFiltroStatus(e.target.value)} className="h-10 text-14">
-              <option value="TODOS">Todos os estágios</option>
-              {ETAPAS.map((e) => (
-                <option key={e.id} value={e.id}>{e.id}</option>
-              ))}
-            </Select>
+            <Dropdown
+              aria-label="Filtrar por estágio"
+              value={filtroStatus}
+              onChange={setFiltroStatus}
+              options={[
+                { value: "TODOS", label: "Todos os estágios" },
+                ...ETAPAS.map((e) => ({ value: e.id, label: e.id })),
+              ]}
+            />
           </div>
         )}
         <div role="group" aria-label="Modo de visualização" className="bg-surface-muted border-border flex rounded-input border p-0.5">
@@ -289,19 +349,93 @@ export function Processos() {
       <Drawer
         open={!!processoLinha}
         onOpenChange={(v) => !v && setProcessoLinha(null)}
-        titulo="Andamentos"
+        titulo="Detalhes do processo"
         descricao={processoLinha ? `${processoLinha.numero} · ${processoLinha.cliente}` : undefined}
         footer={processoLinha && acoes(processoLinha)}
       >
         {processoLinha && (
           <div className="space-y-8">
+            <div className="bg-surface-muted/50 border-border space-y-2.5 rounded-card border p-4 text-13">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-ink-muted">Cliente</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nome = processoLinha.cliente;
+                    setProcessoLinha(null);
+                    navegar(`/clientes?busca=${encodeURIComponent(nome)}&cliente=${encodeURIComponent(nome)}`);
+                  }}
+                  className="text-primary hover:underline font-medium"
+                >
+                  {processoLinha.cliente}
+                </button>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-ink-muted">Vara / Foro</span>
+                <span className="text-ink text-right font-medium">{processoLinha.vara}</span>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-ink-muted">Valor da causa</span>
+                <span className="text-ink font-medium tabular-nums">{processoLinha.valorCausa}</span>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-14 font-semibold text-ink flex items-center gap-2">
+                  <IconClock className="size-4 text-primary" fill="currentColor" />
+                  Prazos vinculados ({prazosDoProcesso.length})
+                </h3>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="gap-1.5"
+                  onClick={() => {
+                    const id = processoLinha.id;
+                    setProcessoLinha(null);
+                    navegar(`/prazos?novo=1&processo=${id}`);
+                  }}
+                >
+                  <IconPlus className="size-3.5" fill="currentColor" />
+                  Novo prazo
+                </Button>
+              </div>
+              {prazosDoProcesso.length === 0 ? (
+                <p className="border-border text-ink-muted rounded-input border border-dashed px-4 py-3 text-12">
+                  Nenhum prazo vinculado a este processo.
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {prazosDoProcesso.map((prazo) => {
+                    const sit = classificar(prazo.diasRestantes);
+                    return (
+                      <li
+                        key={prazo.id}
+                        className="border-border bg-surface-muted/40 flex items-center justify-between gap-3 rounded-input border px-3.5 py-2.5"
+                      >
+                        <div className="min-w-0">
+                          <p className={cn("text-13 font-medium text-ink truncate", prazo.cumprido && "line-through opacity-60")}>
+                            {prazo.titulo}
+                          </p>
+                          <p className="text-11 text-ink-muted">{prazo.tipo}</p>
+                        </div>
+                        <Badge tone={prazo.cumprido ? "cumprido" : sit.tom} className="shrink-0">
+                          {prazo.cumprido ? "Cumprido" : sit.rotulo}
+                        </Badge>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+
             <PainelDataJud key={processoLinha.id} numeroInicial={processoLinha.numero} />
             <ol className="relative space-y-6 border-l border-border pl-6">
               {montarLinhaDoTempo(processoLinha).map((ev, i) => (
                 <li key={`${ev.titulo}-${i}`} className="relative">
                   <span
                     className={cn(
-                      "absolute top-1 -left-[31px] size-3 rounded-full border-2 border-surface",
+                      "absolute top-1 -left-7.75 size-3 rounded-full border-2 border-surface",
                       ev.atual ? "bg-primary ring-4 ring-primary/25" : "bg-border",
                     )}
                   />
@@ -321,6 +455,40 @@ export function Processos() {
         open={modalAberto}
         onOpenChange={setModalAberto}
         onProcessoSalvo={(novo) => setProcessos((prev) => [novo, ...prev])}
+      />
+
+      {/* Modal de Confirmação de Remoção (Soft Delete / Arquivamento) */}
+      <Modal
+        open={!!paraRemover}
+        onOpenChange={(aberto) => !aberto && !removendo && setParaRemover(null)}
+        titulo="Remover processo?"
+        descricao={
+          paraRemover
+            ? `Tem certeza de que deseja remover o processo "${paraRemover.numero}" (${paraRemover.cliente})? Ele será arquivado e sairá da listagem ativa.`
+            : undefined
+        }
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              type="button"
+              onClick={() => setParaRemover(null)}
+              disabled={removendo}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="danger"
+              type="button"
+              loading={removendo}
+              onClick={confirmarRemocao}
+              className="gap-2"
+            >
+              <IconTrash className="size-4" fill="currentColor" />
+              Remover processo
+            </Button>
+          </>
+        }
       />
     </div>
   );

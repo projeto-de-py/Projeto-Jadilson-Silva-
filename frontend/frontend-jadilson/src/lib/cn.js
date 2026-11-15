@@ -1,8 +1,6 @@
 import { clsx } from "clsx";
 import { extendTailwindMerge } from "tailwind-merge";
 
-// tailwind-merge precisa conhecer os tokens próprios (escala de fontes e raios),
-// senão trata `text-14` como cor e descarta a cor real (ou o tamanho) na mescla.
 const twMerge = extendTailwindMerge({
   extend: {
     classGroups: {

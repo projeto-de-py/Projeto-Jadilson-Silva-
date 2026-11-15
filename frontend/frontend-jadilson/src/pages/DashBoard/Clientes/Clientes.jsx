@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   IconPerson2,
   IconPersonBadgePlus,
@@ -24,6 +25,7 @@ import {
   Select,
   EmptyState,
   Modal,
+  Drawer,
   useToast,
 } from "@/components/ui";
 import { ModalCadastrarCliente } from "@/components/modais/ModalCadastrarCliente";
@@ -34,13 +36,40 @@ import { apiJson } from "@/lib/api";
 export function Clientes() {
   const { csrf } = useSessao();
   const { toast } = useToast();
-  const { clientes, setClientes } = useCarteira();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { clientes, processos, setClientes } = useCarteira();
   const [modalAberto, setModalAberto] = useState(false);
   const [clienteEmEdicao, setClienteEmEdicao] = useState(null);
+  const [clienteSelecionado, setClienteSelecionado] = useState(null);
   const [paraRemover, setParaRemover] = useState(null);
   const [removendo, setRemovendo] = useState(false);
-  const [busca, setBusca] = useState("");
+  const [busca, setBusca] = useState(() => searchParams.get("busca") || "");
   const [filtroTipo, setFiltroTipo] = useState("TODOS");
+
+  const clienteUrl = searchParams.get("cliente");
+  const clienteDetalhe = useMemo(() => {
+    if (clienteSelecionado) return clienteSelecionado;
+    if (!clienteUrl) return null;
+    return clientes.find((c) => c.nome.toLowerCase() === clienteUrl.toLowerCase()) ?? null;
+  }, [clienteSelecionado, clienteUrl, clientes]);
+
+  function setClienteDetalhe(cliente) {
+    setClienteSelecionado(cliente);
+    if (!cliente && searchParams.has("cliente")) {
+      const next = new URLSearchParams(searchParams);
+      next.delete("cliente");
+      setSearchParams(next, { replace: true });
+    }
+  }
+
+  const processosDoCliente = useMemo(() => {
+    if (!clienteDetalhe) return [];
+    const nome = clienteDetalhe.nome.toLowerCase();
+    return processos.filter(
+      (p) => p.clienteId === clienteDetalhe.id || p.cliente.toLowerCase() === nome,
+    );
+  }, [clienteDetalhe, processos]);
 
   const clientesFiltrados = useMemo(() => {
     return clientes.filter((c) => {
@@ -245,7 +274,11 @@ export function Clientes() {
                   )}
                 </div>
 
-                <div className="bg-surface-muted/60 flex items-center justify-between rounded-input px-4 py-2 text-12">
+                <button
+                  type="button"
+                  onClick={() => setClienteDetalhe(cliente)}
+                  className="bg-surface-muted/60 hover:bg-surface-muted flex w-full items-center justify-between rounded-input px-4 py-2 text-12 transition-colors"
+                >
                   <span className="text-ink-muted flex items-center gap-2">
                     <IconFolder className="size-3.5" fill="currentColor" />
                     Processos Ativos
@@ -253,12 +286,94 @@ export function Clientes() {
                   <span className="font-semibold text-ink">
                     {cliente.processosAtivos}
                   </span>
-                </div>
+                </button>
               </CardContent>
             </Card>
           ))}
         </div>
       )}
+
+      {/* Drawer de Detalhes do Cliente */}
+      <Drawer
+        open={!!clienteDetalhe}
+        onOpenChange={(aberto) => !aberto && setClienteDetalhe(null)}
+        titulo={clienteDetalhe?.nome}
+        descricao={
+          clienteDetalhe
+            ? `${clienteDetalhe.tipo === "PF" ? "Pessoa Física" : "Pessoa Jurídica"} · ${clienteDetalhe.documento}`
+            : undefined
+        }
+        footer={
+          clienteDetalhe && (
+            <Button
+              variant="secondary"
+              onClick={() => {
+                const c = clienteDetalhe;
+                setClienteDetalhe(null);
+                handleAbrirEdicao(c);
+              }}
+              className="gap-2"
+            >
+              <IconSquareAndPencil className="size-4" fill="currentColor" />
+              Editar cliente
+            </Button>
+          )
+        }
+      >
+        {clienteDetalhe && (
+          <div className="space-y-6">
+            <div className="bg-surface-muted/50 border-border space-y-2.5 rounded-card border p-4 text-13">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-ink-muted">Telefone</span>
+                <span className="text-ink font-medium">{clienteDetalhe.telefone}</span>
+              </div>
+              {clienteDetalhe.email && (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-ink-muted">E-mail</span>
+                  <span className="text-ink truncate font-medium">{clienteDetalhe.email}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-ink-muted">Cidade</span>
+                <span className="text-ink font-medium">{clienteDetalhe.cidade}</span>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-14 font-semibold text-ink flex items-center gap-2">
+                <IconFolder className="size-4 text-primary" fill="currentColor" />
+                Processos ({processosDoCliente.length})
+              </h3>
+              {processosDoCliente.length === 0 ? (
+                <p className="border-border text-ink-muted rounded-input border border-dashed px-4 py-4 text-center text-12">
+                  Nenhum processo vinculado a este cliente.
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {processosDoCliente.map((proc) => (
+                    <li key={proc.id}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setClienteDetalhe(null);
+                          navigate(`/processos?id=${proc.id}`);
+                        }}
+                        className="border-border bg-surface hover:border-primary/40 flex w-full items-center justify-between gap-3 rounded-input border px-4 py-3 text-left transition-colors"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-13 font-semibold text-ink tabular-nums truncate">{proc.numero}</p>
+                          <p className="text-12 text-ink-muted truncate">{proc.tipoAcao}</p>
+                        </div>
+                        <Badge tone="neutral" className="shrink-0">{proc.status}</Badge>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        )}
+      </Drawer>
 
       {/* Modal Reutilizável de Cadastro/Edição de Cliente */}
       <ModalCadastrarCliente

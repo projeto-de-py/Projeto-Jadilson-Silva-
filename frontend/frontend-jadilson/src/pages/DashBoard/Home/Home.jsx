@@ -12,12 +12,10 @@ import {
   IconPerson2,
   IconHammer,
   IconDocument,
-  IconXmark,
 } from "symbols-react";
 import { Avatar, Badge, Button, Card, Contador } from "@/components/ui";
 import { ModalCadastrarCliente } from "@/components/modais/ModalCadastrarCliente";
 import { ModalCadastrarProcesso } from "@/components/modais/ModalCadastrarProcesso";
-import { AREAS, useArea } from "@/context/area-context";
 import { useCarteira } from "@/data/escritorio";
 import { classificar } from "@/lib/prazos";
 import { spring } from "@/lib/motion";
@@ -28,18 +26,6 @@ function saudacao() {
   if (hora < 12) return "Bom dia";
   if (hora < 18) return "Boa tarde";
   return "Boa noite";
-}
-
-function normalizarTexto(texto = "") {
-  return String(texto)
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-}
-
-function correspondeArea(textoArea, areaSelecionada) {
-  if (!areaSelecionada || areaSelecionada === "todas") return true;
-  return normalizarTexto(textoArea).includes(normalizarTexto(areaSelecionada));
 }
 
 const pagina = {
@@ -82,91 +68,54 @@ function CabecalhoCartao({ titulo, descricao, para, rotuloLink }) {
 
 export function Home() {
   const { user } = useOutletContext();
-  const { area, setArea } = useArea();
   const { processos: todosProcessos, prazos: todosPrazos, clientes: todosClientes } = useCarteira();
   const [modalCliente, setModalCliente] = useState(false);
   const [modalProcesso, setModalProcesso] = useState(false);
-
-  const areaAtiva = AREAS.find((a) => a.id === area) ?? AREAS[0];
-
-  const processosFiltrados = useMemo(
-    () =>
-      todosProcessos.filter(
-        (proc) => correspondeArea(proc.area, area) || correspondeArea(proc.tipoAcao, area),
-      ),
-    [todosProcessos, area],
-  );
-
-  const idsCasosVisiveis = useMemo(
-    () => new Set(processosFiltrados.map((p) => p.id)),
-    [processosFiltrados],
-  );
 
   const prazosAbertos = useMemo(
     () => todosPrazos.filter((p) => !p.cumprido),
     [todosPrazos],
   );
 
-  const prazosFiltrados = useMemo(
-    () =>
-      area === "todas"
-        ? prazosAbertos
-        : prazosAbertos.filter(
-            (p) =>
-              idsCasosVisiveis.has(p.casoId) ||
-              correspondeArea(p.area, area) ||
-              correspondeArea(p.titulo, area),
-          ),
-    [area, prazosAbertos, idsCasosVisiveis],
-  );
-
   const processos = useMemo(() => {
-    return processosFiltrados
+    return todosProcessos
       .map((proc) => {
-        const prazos = prazosFiltrados
+        const prazos = prazosAbertos
           .filter((p) => p.casoId === proc.id || p.processo === proc.numero)
           .sort((a, b) => a.diasRestantes - b.diasRestantes);
         const proximo = prazos[0];
         return { ...proc, proximo, situacao: proximo ? classificar(proximo.diasRestantes) : null };
       })
       .sort((a, b) => (a.proximo?.diasRestantes ?? 999) - (b.proximo?.diasRestantes ?? 999));
-  }, [processosFiltrados, prazosFiltrados]);
+  }, [todosProcessos, prazosAbertos]);
 
   const prazosOrdenados = useMemo(
     () =>
-      [...prazosFiltrados]
+      [...prazosAbertos]
         .sort((a, b) => a.diasRestantes - b.diasRestantes)
         .slice(0, 6)
         .map((p) => ({ ...p, ...classificar(p.diasRestantes) })),
-    [prazosFiltrados],
+    [prazosAbertos],
   );
 
-  const clientes = useMemo(() => {
-    if (area === "todas") {
-      return todosClientes.map((c) => ({
+  const clientes = useMemo(
+    () =>
+      todosClientes.map((c) => ({
         id: c.id,
         nome: c.nome,
         processos: c.processosAtivos,
         areas: c.areas?.length ? c.areas : ["Cliente cadastrado"],
-      }));
-    }
-    return todosClientes
-      .filter((c) => c.areas?.some((a) => correspondeArea(a, area)))
-      .map((c) => ({
-        id: c.id,
-        nome: c.nome,
-        processos: c.processosAtivos,
-        areas: c.areas?.length ? c.areas : [areaAtiva.rotulo],
-      }));
-  }, [todosClientes, area, areaAtiva.rotulo]);
+      })),
+    [todosClientes],
+  );
 
-  const urgentes = prazosFiltrados.filter((p) => p.diasRestantes <= 0).length;
-  const pertoDeVencer = prazosFiltrados.filter((p) => p.diasRestantes > 0 && p.diasRestantes <= 3).length;
+  const urgentes = prazosAbertos.filter((p) => p.diasRestantes <= 0).length;
+  const pertoDeVencer = prazosAbertos.filter((p) => p.diasRestantes > 0 && p.diasRestantes <= 3).length;
 
   const atalhos = [
     { para: "/prazos", rotulo: "Prazos vencidos ou para hoje", valor: urgentes, icone: IconClock, destaque: urgentes > 0 },
     { para: "/prazos", rotulo: "Perto de vencer (até 3 dias)", valor: pertoDeVencer, icone: IconHammer },
-    { para: "/processos", rotulo: "Processos ativos", valor: processosFiltrados.length, icone: IconFolder },
+    { para: "/processos", rotulo: "Processos ativos", valor: todosProcessos.length, icone: IconFolder },
     { para: "/clientes", rotulo: "Clientes ativos", valor: clientes.length, icone: IconPerson2 },
   ];
 
@@ -178,23 +127,9 @@ export function Home() {
         className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"
       >
         <div className="space-y-1.5">
-          <div className="flex flex-wrap items-center gap-3">
-            <h2 className="font-heading text-28 font-bold tracking-tight text-ink">
-              {saudacao()}, Dr. {user.nome}
-            </h2>
-            {area !== "todas" && (
-              <button
-                type="button"
-                onClick={() => setArea("todas")}
-                aria-label={`Remover filtro de área ${areaAtiva.rotulo}`}
-                className="border-border bg-surface-muted hover:border-primary/40 text-ink inline-flex items-center gap-2 rounded-badge border px-3 py-1 text-12 font-medium transition-colors"
-              >
-                <span className={cn("size-2 rounded-full", areaAtiva.cor)} aria-hidden="true" />
-                {areaAtiva.rotulo}
-                <IconXmark className="text-ink-muted size-3" fill="currentColor" />
-              </button>
-            )}
-          </div>
+          <h2 className="font-heading text-28 font-bold tracking-tight text-ink">
+            {saudacao()}, Dr. {user.nome}
+          </h2>
           <p className="text-14 text-ink-muted">
             Acesso rápido a clientes, prazos e processos salvos no banco de dados.
           </p>
@@ -265,7 +200,7 @@ export function Home() {
               {processos.map((proc) => (
                 <li key={proc.id}>
                   <NavLink
-                    to="/processos"
+                    to={`/processos?id=${proc.id}`}
                     className="hover:bg-surface-muted/60 grid items-center gap-4 px-6 py-4.5 transition-colors sm:px-7 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1.2fr)]"
                   >
                     <div className="min-w-0 space-y-0.5">

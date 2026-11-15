@@ -11,10 +11,9 @@ import { ModalConfirmacaoLogout } from "@/components/modais/ModalConfirmacaoLogo
 import { ModalNovoContribuidor } from "@/components/modais/ModalNovoContribuidor";
 import { ModalCadastrarProcesso } from "@/components/modais/ModalCadastrarProcesso";
 import { ModalCadastrarCliente } from "@/components/modais/ModalCadastrarCliente";
-import { AreaProvider } from "@/context/AreaProvider";
 import { spring } from "@/lib/motion";
 
-function LayoutInterno({ user, csrf, onLogout, loading, error }) {
+export function DashboardLayout({ user, csrf, onLogout, loading, error }) {
   const navegar = useNavigate();
   const [menuAberto, setMenuAberto] = useState(false);
   const [modalLogoutAberto, setModalLogoutAberto] = useState(false);
@@ -65,8 +64,8 @@ function LayoutInterno({ user, csrf, onLogout, loading, error }) {
               csrf={csrf}
               onNovoProcesso={() => setModalProcessoAberto(true)}
               onNovoCliente={() => setModalClienteAberto(true)}
-              onNovoPrazo={() => navegar("/prazos")}
-              onNovaAudiencia={() => navegar("/agenda")}
+              onNovoPrazo={() => navegar("/prazos?novo=1")}
+              onNovaAudiencia={() => navegar("/agenda?novo=1")}
               onNovoContribuidor={() => setModalContribuidorAberto(true)}
             />
             {error && <p role="alert" className="text-destructive px-6 py-2 text-sm">{error}</p>}
@@ -94,6 +93,7 @@ function LayoutInterno({ user, csrf, onLogout, loading, error }) {
         <div className="-mx-8 -mt-8">
           <NavList
             indicador="nav-ativo-mobile"
+            user={user}
             aoNavegar={() => setMenuAberto(false)}
           />
         </div>
@@ -127,14 +127,5 @@ function LayoutInterno({ user, csrf, onLogout, loading, error }) {
         onOpenChange={setModalClienteAberto}
       />
     </div>
-  );
-}
-
-/** A área escolhida na sidebar vale para todas as telas do painel. */
-export function DashboardLayout(props) {
-  return (
-    <AreaProvider>
-      <LayoutInterno {...props} />
-    </AreaProvider>
   );
 }

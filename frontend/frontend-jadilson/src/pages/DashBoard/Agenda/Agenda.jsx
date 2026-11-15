@@ -17,7 +17,7 @@ import {
   subWeeks,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { useOutletContext } from "react-router-dom";
+import { useOutletContext, useSearchParams } from "react-router-dom";
 import {
   IconChevronLeft,
   IconChevronRight,
@@ -80,6 +80,7 @@ function posicionar(eventos) {
 
 export function Agenda() {
   const { user, csrf } = useOutletContext();
+  const [searchParams] = useSearchParams();
   const [ref, setRef] = useState(HOJE);
   const [visao, setVisao] = useState("mes");
   const [eventos, setEventos] = useState([]);
@@ -88,7 +89,21 @@ export function Agenda() {
   const [carregando, setCarregando] = useState(true);
   const [ocultos, setOcultos] = useState(() => new Set());
   const [selecionado, setSelecionado] = useState(null);
-  const [novo, setNovo] = useState(null);
+  const [novo, setNovo] = useState(() => {
+    if (searchParams.get("novo") !== "1") return null;
+    const d = new Date(HOJE);
+    d.setHours(9, 0, 0, 0);
+    return {
+      titulo: "",
+      tipo: NOMES_TIPOS[0],
+      dia: format(d, "yyyy-MM-dd"),
+      hora: format(d, "HH:mm"),
+      duracao: 60,
+      local: "",
+      descricao: "",
+      destinatarioId: String(user.id),
+    };
+  });
 
   useEffect(() => {
     let ativo = true;

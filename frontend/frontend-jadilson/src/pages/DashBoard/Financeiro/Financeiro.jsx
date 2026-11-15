@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { IconBanknote, IconArrowUpRight, IconPlus, IconDocumentOnDocument } from "symbols-react";
-import { Badge, Button, Card, EmptyState, Tabs } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, Skeleton, Tabs } from "@/components/ui";
 import { ModalNovaCobranca } from "@/components/financeiro/ModalNovaCobranca";
 import { useApiDados } from "@/hooks/useApiDados";
 
@@ -54,7 +54,17 @@ function Cobrancas({ aoNova }) {
       </div>
 
       {cobrancas.carregando ? (
-        <p role="status" className="text-14 text-ink-muted">Carregando cobranças…</p>
+        <Card className="divide-border divide-y">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="flex items-center justify-between gap-4 p-6">
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-48" />
+                <Skeleton className="h-3 w-32" />
+              </div>
+              <Skeleton className="h-6 w-20 rounded-badge" />
+            </div>
+          ))}
+        </Card>
       ) : itens.length === 0 ? (
         <EmptyState icon={IconBanknote} titulo="Nenhuma cobrança ainda" descricao="Emita a primeira cobrança de honorários por Pix ou boleto." acao={<Button onClick={aoNova}>Nova cobrança</Button>} />
       ) : (
@@ -97,7 +107,21 @@ function Assinaturas() {
   const nomes = useMemo(() => Object.fromEntries((clientes.dados?.itens ?? []).map((c) => [c.id, c.nome])), [clientes.dados]);
 
   if (erro) return <Erro erro={erro} />;
-  if (carregando) return <p role="status" className="text-14 text-ink-muted">Carregando assinaturas…</p>;
+  if (carregando) {
+    return (
+      <Card className="divide-border divide-y">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="flex items-center justify-between gap-4 p-6">
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-4 w-56" />
+              <Skeleton className="h-3 w-40" />
+            </div>
+            <Skeleton className="h-6 w-24 rounded-badge" />
+          </div>
+        ))}
+      </Card>
+    );
+  }
   if (!dados?.length) {
     return <EmptyState icon={IconDocumentOnDocument} titulo="Nenhum documento enviado para assinatura" descricao="Abra um documento no editor e use “Enviar para assinatura”." />;
   }

@@ -31,9 +31,27 @@ export function BuscaGlobal({ open, onOpenChange }) {
     ];
     const todos = [
       ...navegacao.map((n) => ({ grupo: "Páginas", rotulo: n.rotulo, sub: n.grupo, icone: n.icone, ir: n.to })),
-      ...processos.map((p) => ({ grupo: "Processos", rotulo: p.numero, sub: `${p.cliente} · ${p.tipoAcao}`, icone: IconFolder, ir: "/processos" })),
-      ...prazos.map((p) => ({ grupo: "Prazos", rotulo: p.titulo, sub: `${p.cliente} · ${p.processo}`, icone: IconClock, ir: "/prazos" })),
-      ...nomesClientes.map((c) => ({ grupo: "Clientes", rotulo: c, sub: "Cliente", icone: IconPerson, ir: "/clientes" })),
+      ...processos.map((p) => ({
+        grupo: "Processos",
+        rotulo: p.numero,
+        sub: `${p.cliente} · ${p.tipoAcao}`,
+        icone: IconFolder,
+        ir: `/processos?id=${p.id}&busca=${encodeURIComponent(p.numero)}`,
+      })),
+      ...prazos.map((p) => ({
+        grupo: "Prazos",
+        rotulo: p.titulo,
+        sub: `${p.cliente} · ${p.processo}`,
+        icone: IconClock,
+        ir: `/prazos?busca=${encodeURIComponent(p.titulo)}`,
+      })),
+      ...nomesClientes.map((c) => ({
+        grupo: "Clientes",
+        rotulo: c,
+        sub: "Cliente",
+        icone: IconPerson,
+        ir: `/clientes?busca=${encodeURIComponent(c)}&cliente=${encodeURIComponent(c)}`,
+      })),
     ];
     const t = norm(termo.trim());
     if (!t) return todos.filter((i) => i.grupo === "Páginas");

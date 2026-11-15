@@ -15,14 +15,15 @@ export const navegacao = [
   { to: "/prazos", rotulo: "Prazos", icone: IconClock, grupo: "Visão geral" },
   { to: "/agenda", rotulo: "Agenda", icone: IconCalendar, grupo: "Visão geral" },
   { to: "/documentos", rotulo: "Documentos", icone: IconDocumentOnDocument, grupo: "Visão geral" },
-  { to: "/financeiro", rotulo: "Financeiro", icone: IconBanknote, grupo: "Escritório" },
+  { to: "/financeiro", rotulo: "Financeiro", icone: IconBanknote, grupo: "Escritório", somenteAdmin: true },
   { to: "/clientes", rotulo: "Clientes", icone: IconPerson2, grupo: "Escritório" },
   { to: "/configuracoes", rotulo: "Configurações", icone: IconGearshape, grupo: "Escritório" },
 ];
 
-export function navegacaoAgrupada() {
+export function navegacaoAgrupada(user) {
   const grupos = [];
   for (const item of navegacao) {
+    if (item.somenteAdmin && !user?.administrador) continue;
     let grupo = grupos.find((g) => g.nome === item.grupo);
     if (!grupo) {
       grupo = { nome: item.grupo, itens: [] };
