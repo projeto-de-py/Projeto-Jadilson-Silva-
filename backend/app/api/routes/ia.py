@@ -22,6 +22,9 @@ from app.ia.schemas import (
     SugerirRequest,
     SugerirResponse,
 )
+from app.ia.ner.schemas import EntidadeOut, EntidadesRequest, EntidadesResponse
+from app.ia.ner.servico import ModeloIndisponivelError
+from app.ia.ner.servico import obter_servico as obter_servico_ner
 from app.ia.servico import IABloqueadaError, IAIndisponivelError, IAServico
 from app.models.usuario import Usuario
 from app.repositories.uso_ia_repository import UsoIARepository
@@ -80,6 +83,32 @@ def completar(
         return servico.completar(dados, usuario, caso)
     except IAIndisponivelError as exc:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc))
+
+
+@router.post("/entidades", response_model=EntidadesResponse, summary="Entidades juridicas do texto (modelo treinado)")
+def entidades(
+    dados: EntidadesRequest,
+    request: Request,
+    usuario: Usuario = Depends(get_current_user),
+) -> EntidadesResponse:
+    """Acha pessoas, leis, decisoes, datas, locais e orgaos citados no texto.
+
+    Privacidade: o texto so passa pelo modelo na memoria; NAO e gravado nem vai para log.
+    """
+    _limitar(request, usuario, "ner", 30, 60)
+    ner = obter_servico_ner()
+    try:
+        achadas = ner.extrair(dados.texto)
+    except ModeloIndisponivelError as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc))
+    saida = [
+        EntidadeOut(tipo=e.tipo, texto=e.texto, inicio=e.inicio, fim=e.fim, confianca=round(e.confianca, 4), faixa=e.faixa)
+        for e in achadas
+    ]
+    contagem: dict[str, int] = {}
+    for e in saida:
+        contagem[e.tipo] = contagem.get(e.tipo, 0) + 1
+    return EntidadesResponse(entidades=saida, contagem=contagem, versao_modelo=ner.versao)
 
 
 @router.get("/controle", response_model=ControleIAResponse, summary="Arquivos de controle da IA (admin)")

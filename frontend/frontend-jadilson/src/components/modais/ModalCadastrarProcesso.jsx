@@ -61,23 +61,47 @@ function formatarValorCausa(valor) {
   }).format(Number(digitos) / 100);
 }
 
-export function ModalCadastrarProcesso({ open, onOpenChange, onProcessoSalvo }) {
+const FORM_VAZIO = {
+  numeroProcesso: "",
+  cliente: "",
+  tipoAcao: TIPOS_ACAO[0],
+  vara: VARAS_COMUNS[0],
+  status: "Petição inicial",
+  valorCausa: "",
+  descricao: "",
+  prazoTitulo: "",
+  prazoData: "",
+  prazoTipo: "PROCESSUAL",
+};
+
+function formDoProcesso(processo) {
+  if (!processo) return FORM_VAZIO;
+  return {
+    ...FORM_VAZIO,
+    numeroProcesso: processo.numero.startsWith("CASO-") ? "" : processo.numero,
+    cliente: processo.cliente,
+    tipoAcao: processo.tipoAcao,
+    vara: processo.vara,
+    status: processo.status,
+    valorCausa: processo.valorCausa === "A definir" ? "" : processo.valorCausa,
+    descricao: processo.descricao,
+  };
+}
+
+const comAtual = (opcoes, atual) => (opcoes.includes(atual) ? opcoes : [atual, ...opcoes]);
+
+/**
+ * Cadastra um processo novo ou, com `processo`, edita o existente (o formulário abre preenchido
+ * e só os campos alterados vão ao servidor). Para editar, monte o modal só enquanto ele estiver
+ * aberto (`key` = id do processo): o formulário nasce com os dados do processo escolhido.
+ */
+export function ModalCadastrarProcesso({ open, onOpenChange, onProcessoSalvo, processo = null }) {
   const { csrf } = useSessao();
   const { toast } = useToast();
+  const editando = Boolean(processo);
   const [salvando, setSalvando] = useState(false);
   const [clientesExistentes, setClientesExistentes] = useState([]);
-  const [form, setForm] = useState({
-    numeroProcesso: "",
-    cliente: "",
-    tipoAcao: TIPOS_ACAO[0],
-    vara: VARAS_COMUNS[0],
-    status: "Petição inicial",
-    valorCausa: "",
-    descricao: "",
-    prazoTitulo: "",
-    prazoData: "",
-    prazoTipo: "PROCESSUAL",
-  });
+  const [form, setForm] = useState(() => formDoProcesso(processo));
   const [erros, setErros] = useState({});
 
   useEffect(() => {
@@ -128,12 +152,42 @@ export function ModalCadastrarProcesso({ open, onOpenChange, onProcessoSalvo }) 
     return novoCli.id;
   }
 
+  async function salvarEdicao() {
+    const inicial = formDoProcesso(processo);
+    const mudou = (campo) => form[campo] !== inicial[campo];
+    const corpo = {};
+    if (mudou("cliente")) corpo.cliente_id = await resolverClienteId(form.cliente);
+    if (mudou("numeroProcesso")) corpo.numero_processo = form.numeroProcesso.trim() || null;
+    if (mudou("tipoAcao")) {
+      corpo.titulo = form.tipoAcao;
+      corpo.area = extrairAreaCodigo(form.tipoAcao);
+    }
+    if (mudou("status")) corpo.status = ETAPA_PARA_STATUS_API[form.status] || "NOVO";
+    if (mudou("vara")) corpo.vara = form.vara;
+    if (mudou("valorCausa")) corpo.observacoes = form.valorCausa.trim() || null;
+    if (mudou("descricao")) corpo.descricao = form.descricao.trim() || null;
+
+    if (Object.keys(corpo).length === 0) {
+      onOpenChange(false);
+      return;
+    }
+    const atualizado = mapearCasoApi(await apiJson(`casos/${processo.id}`, { method: "PATCH", csrf, body: corpo }));
+    onProcessoSalvo?.(atualizado);
+    notificarAtualizacaoDados();
+    toast({ tipo: "sucesso", titulo: "Processo atualizado", descricao: `As alterações em ${atualizado.numero} foram salvas.` });
+    onOpenChange(false);
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     if (!validar()) return;
 
     setSalvando(true);
     try {
+      if (editando) {
+        await salvarEdicao();
+        return;
+      }
       const clienteId = await resolverClienteId(form.cliente);
 
       const criado = await apiJson("casos", {
@@ -152,17 +206,22 @@ export function ModalCadastrarProcesso({ open, onOpenChange, onProcessoSalvo }) 
         },
       });
 
+      let erroPrazo = null;
       if (form.prazoTitulo.trim() && form.prazoData) {
-        await apiJson("prazos", {
-          method: "POST",
-          csrf,
-          body: {
-            caso_id: criado.id,
-            titulo: form.prazoTitulo.trim(),
-            data_limite: form.prazoData,
-            tipo: form.prazoTipo,
-          },
-        }).catch(() => {});
+        try {
+          await apiJson("prazos", {
+            method: "POST",
+            csrf,
+            body: {
+              caso_id: criado.id,
+              titulo: form.prazoTitulo.trim(),
+              data_limite: form.prazoData,
+              tipo: form.prazoTipo,
+            },
+          });
+        } catch (falha) {
+          erroPrazo = falha;
+        }
       }
 
       const novoProcesso = mapearCasoApi(criado);
@@ -179,24 +238,20 @@ export function ModalCadastrarProcesso({ open, onOpenChange, onProcessoSalvo }) 
         titulo: "Processo salvo no banco de dados",
         descricao: `O processo ${novoProcesso.numero} foi adicionado à carteira.`,
       });
+      if (erroPrazo) {
+        toast({
+          tipo: "erro",
+          titulo: "O processo foi salvo, mas o prazo não",
+          descricao: erroPrazo.message || "Cadastre o prazo novamente na tela de Prazos.",
+        });
+      }
 
-      setForm({
-        numeroProcesso: "",
-        cliente: "",
-        tipoAcao: TIPOS_ACAO[0],
-        vara: VARAS_COMUNS[0],
-        status: "Petição inicial",
-        valorCausa: "",
-        descricao: "",
-        prazoTitulo: "",
-        prazoData: "",
-        prazoTipo: "PROCESSUAL",
-      });
+      setForm(FORM_VAZIO);
       onOpenChange(false);
     } catch (erro) {
       toast({
         tipo: "erro",
-        titulo: "Erro ao cadastrar processo",
+        titulo: editando ? "Erro ao salvar o processo" : "Erro ao cadastrar processo",
         descricao: erro.message || "Verifique os dados informados e tente novamente.",
       });
     } finally {
@@ -208,8 +263,8 @@ export function ModalCadastrarProcesso({ open, onOpenChange, onProcessoSalvo }) 
     <Modal
       open={open}
       onOpenChange={onOpenChange}
-      titulo="Novo Processo"
-      descricao="Cadastre uma nova ação judicial ou procedimento no banco de dados para acompanhamento."
+      titulo={editando ? "Editar processo" : "Novo Processo"}
+      descricao={editando ? "Altere os dados do processo. Só o que mudar é salvo." : "Cadastre uma nova ação judicial ou procedimento no banco de dados para acompanhamento."}
       className="max-w-2xl"
       footer={
         <>
@@ -227,8 +282,8 @@ export function ModalCadastrarProcesso({ open, onOpenChange, onProcessoSalvo }) 
             form="form-cadastrar-processo"
             loading={salvando}
           >
-            <IconFolderBadgePlus className="size-4" fill="currentColor" />
-            Cadastrar Processo
+            {!editando && <IconFolderBadgePlus className="size-4" fill="currentColor" />}
+            {editando ? "Salvar alterações" : "Cadastrar Processo"}
           </Button>
         </>
       }
@@ -300,7 +355,7 @@ export function ModalCadastrarProcesso({ open, onOpenChange, onProcessoSalvo }) 
               onChange={(e) => handleChange("tipoAcao", e.target.value)}
               disabled={salvando}
             >
-              {TIPOS_ACAO.map((t) => (
+              {comAtual(TIPOS_ACAO, form.tipoAcao).map((t) => (
                 <option key={t} value={t}>
                   {t}
                 </option>
@@ -315,7 +370,7 @@ export function ModalCadastrarProcesso({ open, onOpenChange, onProcessoSalvo }) 
               onChange={(e) => handleChange("vara", e.target.value)}
               disabled={salvando}
             >
-              {VARAS_COMUNS.map((v) => (
+              {comAtual(VARAS_COMUNS, form.vara).map((v) => (
                 <option key={v} value={v}>
                   {v}
                 </option>
@@ -340,50 +395,52 @@ export function ModalCadastrarProcesso({ open, onOpenChange, onProcessoSalvo }) 
           </Select>
         </Field>
 
-        <div className="rounded-card border border-border bg-surface-muted/30 p-4 sm:p-5 space-y-4">
-          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-            <span className="text-13 font-semibold text-ink">
-              Primeiro prazo (opcional)
-            </span>
-            <span className="text-12 text-ink-muted">
-              Cria automaticamente um alerta na Central de Prazos
-            </span>
-          </div>
+        {!editando && (
+          <div className="rounded-card border border-border bg-surface-muted/30 p-4 sm:p-5 space-y-4">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <span className="text-13 font-semibold text-ink">
+                Primeiro prazo (opcional)
+              </span>
+              <span className="text-12 text-ink-muted">
+                Cria automaticamente um alerta na Central de Prazos
+              </span>
+            </div>
 
-          <Field label="Título do prazo" id="proc-prazo-titulo">
-            <Input
-              id="proc-prazo-titulo"
-              placeholder="Ex.: Contestação, Réplica, Audiência..."
-              value={form.prazoTitulo}
-              onChange={(e) => handleChange("prazoTitulo", e.target.value)}
-              disabled={salvando}
-            />
-          </Field>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Data limite" id="proc-prazo-data">
+            <Field label="Título do prazo" id="proc-prazo-titulo">
               <Input
-                id="proc-prazo-data"
-                type="date"
-                value={form.prazoData}
-                onChange={(e) => handleChange("prazoData", e.target.value)}
+                id="proc-prazo-titulo"
+                placeholder="Ex.: Contestação, Réplica, Audiência..."
+                value={form.prazoTitulo}
+                onChange={(e) => handleChange("prazoTitulo", e.target.value)}
                 disabled={salvando}
               />
             </Field>
 
-            <Field label="Tipo de prazo" id="proc-prazo-tipo">
-              <Select
-                id="proc-prazo-tipo"
-                value={form.prazoTipo}
-                onChange={(e) => handleChange("prazoTipo", e.target.value)}
-                disabled={salvando}
-              >
-                <option value="PROCESSUAL">Prazo processual</option>
-                <option value="AUDIENCIA">Audiência</option>
-              </Select>
-            </Field>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field label="Data limite" id="proc-prazo-data">
+                <Input
+                  id="proc-prazo-data"
+                  type="date"
+                  value={form.prazoData}
+                  onChange={(e) => handleChange("prazoData", e.target.value)}
+                  disabled={salvando}
+                />
+              </Field>
+
+              <Field label="Tipo de prazo" id="proc-prazo-tipo">
+                <Select
+                  id="proc-prazo-tipo"
+                  value={form.prazoTipo}
+                  onChange={(e) => handleChange("prazoTipo", e.target.value)}
+                  disabled={salvando}
+                >
+                  <option value="PROCESSUAL">Prazo processual</option>
+                  <option value="AUDIENCIA">Audiência</option>
+                </Select>
+              </Field>
+            </div>
           </div>
-        </div>
+        )}
 
         <Field
           label="Objeto da Ação / Descrição Sumária"

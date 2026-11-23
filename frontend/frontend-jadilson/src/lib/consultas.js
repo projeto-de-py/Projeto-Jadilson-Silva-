@@ -6,7 +6,7 @@ import { apiJson } from "@/lib/api";
  * limita o uso; aqui só montamos as chamadas.
  *
  *   feriados  -> BrasilAPI        cep, cnpj -> BrasilAPI
- *   juros     -> Banco Central    processo  -> DataJud (CNJ)
+ *   juros     -> Banco Central
  *
  * Todas lançam Error com `status` e a mensagem do servidor (ver `apiJson`).
  */
@@ -24,9 +24,7 @@ export const consultas = {
       method: "POST",
       csrf,
       body: { serie, data_contrato: dataContrato, taxa_contrato_mensal: taxaMensal },
-    }),
-
-  processo: (numeroCnj) => apiJson(`consultas/processos/${encodeURIComponent(numeroCnj)}`),
+    })
 };
 
 export function taxaParaApi(texto) {

@@ -162,7 +162,11 @@ export async function carregarCarteiraApi() {
       : Array.isArray(resCasos)
         ? resCasos
         : [];
-  const listaPrazosBruta = Array.isArray(resPrazos) ? resPrazos : [];
+  const listaPrazosBruta = Array.isArray(resPrazos?.itens)
+    ? resPrazos.itens
+    : Array.isArray(resPrazos)
+      ? resPrazos
+      : [];
   const listaClientesBruta = Array.isArray(resClientes?.itens)
     ? resClientes.itens
     : Array.isArray(resClientes?.items)

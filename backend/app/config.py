@@ -67,6 +67,9 @@ class Settings(BaseSettings):
         default="simulado",
         validation_alias=AliasChoices("IA_PROVEDOR", "LLM_PROVIDER"),
     )
+    # Mascara NOMES de pessoas (modelo NER da equipe) antes de enviar texto ao provedor externo.
+    # Desligado por padrao: a peca volta com [NOME] no lugar do nome do cliente.
+    ia_mascarar_nomes: bool = False
     ia_limite_sugerir_hora: int = 60  # pedidos de sugestao por usuario/hora
     ia_limite_completar_minuto: int = 40  # autocompletar por usuario/minuto
     # OpenRouter: cole a chave em OPENROUTER_API_KEY no .env (https://openrouter.ai/keys).

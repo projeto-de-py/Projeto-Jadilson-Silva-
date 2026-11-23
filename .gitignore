@@ -12,3 +12,6 @@ __pycache__/
 
 # Estado privado dos scripts de preparação MySQL
 backend/.local/
+
+# LeNER-Br baixado por ai-model/scripts/baixar_lener.py (3 MB; não precisa versionar)
+datasets/lener_br/

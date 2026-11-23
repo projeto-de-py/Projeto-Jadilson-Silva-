@@ -1,0 +1,5 @@
+# Dependências do módulo de IA (treino e uso do reconhecedor de entidades).
+# Instalar:  pip install -r ai-model/requirements.txt
+scikit-learn==1.9.1
+joblib==1.6.0
+seqeval==1.2.2

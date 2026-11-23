@@ -66,7 +66,9 @@ vê o quê.
 
 ### 3.2 Processos
 - Lista e **funil por etapa** (petição inicial, instrução, sentença, recursal, concluído).
-- **Andamentos** em linha do tempo, **exportar PDF** do processo e **Editar documento**.
+- **Andamentos** reais em linha do tempo: o advogado **registra** cada um (data, título, detalhes) ou usa **Atualizar pelo tribunal**, que importa as movimentações do DataJud (CNJ) e grava só as novas. Repetir a atualização não duplica; o que veio do tribunal não se apaga.
+- **Editar processo** abre o mesmo formulário do cadastro, preenchido; só os campos alterados são salvos.
+- **Documentos** abre a pasta do cliente do processo, na tela de Documentos.
 - Cadastro de novo processo.
 
 ### 3.3 Prazos
@@ -82,6 +84,8 @@ vê o quê.
 - **Novo evento** e painel de detalhes do evento.
 
 ### 3.5 Documentos: o "Word da advocacia"
+- **Pastas.** Cada cliente que tem processo ganha uma pasta (cliente sem processo e sem documento não aparece). Dentro dela os documentos ficam agrupados por processo. O advogado também cria as **próprias pastas** (nome e cor, como Modelos ou Contratos), muda a cor das pastas de clientes e **move** qualquer documento para a pasta que quiser; "Automática" devolve o documento ao cliente do processo. Excluir uma pasta própria não apaga documentos. As cores usam os tokens da plataforma e acompanham o tema claro e escuro.
+  A busca fora das pastas procura em todos os documentos. Quem não tem cliente fica em "Sem cliente vinculado".
 - **Modelos por área** (trabalhista, bancário, previdenciário e geral): reclamação, contestação, recurso ordinário,
   revisional, exibição de documentos, negativação indevida, aposentadoria, auxílio por incapacidade, BPC/LOAS,
   procuração e contrato de honorários.
@@ -156,14 +160,15 @@ Na implementação, `models/notificacao.py` define a tabela, `repositories/notif
 | Parte | Estado |
 |---|---|
 | Login, sessão, usuários, permissões | **Funcionando** com a API e o banco |
-| API de clientes, casos, prazos e histórico | **Pronta no backend**, ainda **não ligada** às telas |
-| Telas de Início, Processos, Prazos, Agenda, Clientes | **Dados de demonstração** no navegador |
+| Clientes, processos, prazos e andamentos | **Ligados** ao backend e ao banco; os andamentos aceitam registro manual e importação do DataJud |
+| Agenda | Eventos compartilhados no banco |
 | Documentos | Salvos **no navegador** (localStorage); falta guardar no banco |
 | IA: caixa, sugestões, revisão e filtros | **Funcionando** com provedor **simulado** (sem modelo real) |
 | IA com modelo real | **Pronta no backend** (OpenRouter com modelo gratuito do Google, exige `OPENROUTER_API_KEY`); falta colar a chave e avaliar por área |
 | Notificações | **Ligadas ao backend** com deduplicação por usuário, avisos de prazo sob demanda, polling e toast no navegador |
 | Assinatura eletrônica (ZapSign) e cobrança (Asaas) | **Pronto no backend** com webhooks seguros e testes simulados; falta ligar as telas e testar com as contas reais (sandbox) |
-| Integrações (DataJud, Banco Central) | **Planejadas**, ainda não iniciadas |
+| Integrações (BrasilAPI, Banco Central, DataJud) | **Funcionando** no backend; o DataJud só consulta com a chave pública do CNJ em `DATAJUD_API_KEY` |
+| IA treinada pela equipe (NER jurídico) | **Funcionando**: reconhece pessoas, leis, decisões e datas, com confiança (ver `ai-model/README.md`) |
 
 ## 7. Próximos passos
 

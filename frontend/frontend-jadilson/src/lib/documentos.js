@@ -61,7 +61,12 @@ export function useDocumentos() {
 
   const excluir = useCallback((id) => setDocs((atual) => atual.filter((d) => d.id !== id)), []);
 
-  return { docs, criar, atualizar, excluir };
+  /** Muda o documento de pasta (`destino`: pastaId e clienteId) sem alterar a data de edição. */
+  const mover = useCallback((id, destino) => {
+    setDocs((atual) => atual.map((d) => (d.id === id ? { ...d, ...destino } : d)));
+  }, []);
+
+  return { docs, criar, atualizar, excluir, mover };
 }
 
 // ---------- Exportação em PDF (diálogo de impressão: "Salvar como PDF") ----------

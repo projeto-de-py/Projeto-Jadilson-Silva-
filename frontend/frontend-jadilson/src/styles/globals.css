@@ -122,3 +122,50 @@
     border-radius: 999px;
   }
 }
+
+/* ---- Marca da IA e texto "pensando" ------------------------------------- */
+
+/* O giro do logo da IA tem origem fixa no centro do desenho (32,32 de 64): assim o
+   conjunto de círculos nunca sai do eixo ao se aproximar e se afastar. */
+@keyframes logo-ia-giro {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.logo-ia-giro {
+  transform-box: view-box;
+  transform-origin: 50% 50%;
+  animation: logo-ia-giro 28s linear infinite;
+}
+
+/* Texto com brilho que passa (etapa atual da IA). */
+@keyframes texto-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.texto-shimmer {
+  background: linear-gradient(90deg, var(--color-ink-muted) 35%, var(--color-ink) 50%, var(--color-ink-muted) 65%) 0 0 / 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: texto-shimmer 2.2s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logo-ia-giro,
+  .texto-shimmer {
+    animation: none;
+  }
+  .texto-shimmer {
+    -webkit-text-fill-color: currentColor;
+    color: var(--color-ink);
+    background: none;
+  }
+}

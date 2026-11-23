@@ -5,7 +5,7 @@ import {
   IconFolderBadgePlus,
   IconMagnifyingglass,
   IconClockBadgeCheckmark,
-  IconArrowDownDocument,
+  IconFolder,
   IconSquareAndPencil,
   IconListBullet,
   IconRectangle3Group,
@@ -17,17 +17,13 @@ import {
 } from "symbols-react";
 import { Card, Button, Badge, Input, Dropdown, Drawer, HairlineEmptyState, Modal, useToast } from "@/components/ui";
 import { ModalCadastrarProcesso } from "@/components/modais/ModalCadastrarProcesso";
-import { MODELOS, preencherModelo } from "@/data/modelos";
-import { useDocumentos } from "@/lib/documentos";
-import { exportarProcessoPdf } from "@/lib/exportarPdf";
-import { PainelDataJud } from "@/components/consultas/PainelDataJud";
+import { AndamentosDoProcesso } from "@/components/processos/AndamentosDoProcesso";
 import { useCarteira } from "@/data/escritorio";
 import { classificar } from "@/lib/prazos";
 import { useSessao } from "@/context/sessao";
 import { apiJson } from "@/lib/api";
 import { notificarAtualizacaoDados } from "@/data/escritorio";
 import { cn } from "@/lib/cn";
-
 
 const ETAPAS = [
   { id: "Petição inicial", tom: "neutral", ponto: "bg-ink-muted" },
@@ -38,31 +34,12 @@ const ETAPAS = [
 ];
 const TOM = Object.fromEntries(ETAPAS.map((e) => [e.id, e.tom]));
 
-const MARCOS = {
-  "Petição inicial": ["Petição inicial protocolada", "Distribuição ao juízo"],
-  "Instrução": ["Citação da parte ré", "Contestação juntada", "Designada audiência de instrução"],
-  "Sentença": ["Audiência realizada", "Alegações finais", "Autos conclusos para sentença"],
-  "Recursal": ["Sentença publicada", "Recurso interposto", "Contrarrazões apresentadas"],
-  "Concluído": ["Trânsito em julgado", "Arquivamento"],
-};
-const ORDEM = ETAPAS.map((e) => e.id);
-
-function montarLinhaDoTempo(proc) {
-  const idx = Math.max(0, ORDEM.indexOf(proc.status));
-  const eventos = [];
-  for (let i = 0; i <= idx; i += 1) {
-    MARCOS[ORDEM[i]].forEach((titulo) => eventos.push({ titulo, etapa: ORDEM[i], atual: false }));
-  }
-  eventos[eventos.length - 1].atual = true;
-  return eventos.reverse();
-}
-
 export function Processos() {
   const { processos, prazos, setProcessos } = useCarteira();
   const [modalAberto, setModalAberto] = useState(false);
   const navegar = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { docs, criar } = useDocumentos();
+  const [processoEditando, setProcessoEditando] = useState(null);
   const [processoSelecionado, setProcessoSelecionado] = useState(null);
   const [paraRemover, setParaRemover] = useState(null);
   const [removendo, setRemovendo] = useState(false);
@@ -107,31 +84,6 @@ export function Processos() {
       .sort((a, b) => a.diasRestantes - b.diasRestantes);
   }, [prazos, processoLinha]);
 
-  function editarDocumento(proc) {
-    const existente = docs.find((d) => d.processoId === proc.id || d.html.includes(proc.numero));
-    if (existente) {
-      navegar(`/documentos/${existente.id}`);
-      return;
-    }
-    const areaDoc = proc.tipoAcao.toLowerCase();
-    const idModelo = areaDoc.startsWith("bancário")
-      ? "revisional-contrato"
-      : areaDoc.startsWith("previdenciário")
-        ? "aposentadoria"
-        : areaDoc.startsWith("trabalhista")
-          ? "reclamacao-trabalhista"
-          : "em-branco";
-    const modelo = MODELOS.find((m) => m.id === idModelo);
-    const novo = criar({
-      processoId: proc.id,
-      titulo: `${modelo.rotulo} – ${proc.cliente}`,
-      area: modelo.area,
-      tipo: modelo.rotulo,
-      html: preencherModelo(modelo.html, { cliente: proc.cliente, numero: proc.numero, vara: proc.vara }),
-    });
-    navegar(`/documentos/${novo.id}`);
-  }
-
   async function confirmarRemocao() {
     if (!paraRemover) return;
     setRemovendo(true);
@@ -170,13 +122,13 @@ export function Processos() {
         <IconClockBadgeCheckmark className="size-3.5" fill="currentColor" />
         Andamentos
       </Button>
-      <Button variant="ghost" className="h-8 gap-2 px-4 text-12" onClick={() => exportarProcessoPdf(proc)}>
-        <IconArrowDownDocument className="size-3.5" fill="currentColor" />
-        PDF
+      <Button variant="ghost" className="h-8 gap-2 px-4 text-12" onClick={() => navegar(proc.clienteId ? `/documentos?cliente=${proc.clienteId}` : "/documentos")}>
+        <IconFolder className="size-3.5" fill="currentColor" />
+        Documentos
       </Button>
-      <Button variant="ghost" className="h-8 gap-2 px-4 text-12 text-accent hover:text-accent-hover" onClick={() => editarDocumento(proc)}>
+      <Button variant="ghost" className="h-8 gap-2 px-4 text-12 text-accent hover:text-accent-hover" onClick={() => setProcessoEditando(proc)}>
         <IconSquareAndPencil className="size-3.5" fill="currentColor" />
-        Editar documento
+        Editar processo
       </Button>
       <Button variant="ghost" className="h-8 gap-2 px-4 text-12 text-status-vencido-ink hover:text-status-vencido" onClick={() => setParaRemover(proc)}>
         <IconTrash className="size-3.5" fill="currentColor" />
@@ -429,24 +381,7 @@ export function Processos() {
               )}
             </div>
 
-            <PainelDataJud key={processoLinha.id} numeroInicial={processoLinha.numero} />
-            <ol className="relative space-y-6 border-l border-border pl-6">
-              {montarLinhaDoTempo(processoLinha).map((ev, i) => (
-                <li key={`${ev.titulo}-${i}`} className="relative">
-                  <span
-                    className={cn(
-                      "absolute top-1 -left-7.75 size-3 rounded-full border-2 border-surface",
-                      ev.atual ? "bg-primary ring-4 ring-primary/25" : "bg-border",
-                    )}
-                  />
-                  <p className={cn("text-14 font-medium", ev.atual ? "text-ink" : "text-ink-muted")}>{ev.titulo}</p>
-                  <div className="mt-1 flex items-center gap-2">
-                    <Badge tone={TOM[ev.etapa]}>{ev.etapa}</Badge>
-                    {ev.atual && <span className="text-11 text-primary font-semibold">Atual</span>}
-                  </div>
-                </li>
-              ))}
-            </ol>
+            <AndamentosDoProcesso key={processoLinha.id} processo={processoLinha} />
           </div>
         )}
       </Drawer>
@@ -456,6 +391,19 @@ export function Processos() {
         onOpenChange={setModalAberto}
         onProcessoSalvo={(novo) => setProcessos((prev) => [novo, ...prev])}
       />
+
+      {processoEditando && (
+        <ModalCadastrarProcesso
+          key={processoEditando.id}
+          open
+          processo={processoEditando}
+          onOpenChange={(aberto) => !aberto && setProcessoEditando(null)}
+          onProcessoSalvo={(atualizado) => {
+            setProcessos((prev) => prev.map((p) => (p.id === atualizado.id ? atualizado : p)));
+            setProcessoSelecionado((atual) => (atual?.id === atualizado.id ? atualizado : atual));
+          }}
+        />
+      )}
 
       {/* Modal de Confirmação de Remoção (Soft Delete / Arquivamento) */}
       <Modal
