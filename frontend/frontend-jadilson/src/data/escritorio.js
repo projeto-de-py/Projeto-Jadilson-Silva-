@@ -11,6 +11,35 @@ const ROTULO_AREA = {
   CONSUMIDOR: "Consumidor",
 };
 
+// Rótulos do contrato atual da API de prazos (`app/schemas/prazo.py`).
+const ROTULO_TIPO_PRAZO = {
+  PROCESSUAL: "Processual",
+  ADMINISTRATIVO: "Administrativo",
+  CONTRATUAL: "Contratual",
+  INTERNO: "Interno",
+  OUTRO: "Outro",
+};
+
+const ROTULO_STATUS_PRAZO = {
+  PENDENTE: "Pendente",
+  EM_ANDAMENTO: "Em andamento",
+  CONCLUIDO: "Concluído",
+  CANCELADO: "Cancelado",
+};
+
+/** Dias de hoje até `dataIso` (YYYY-MM-DD); negativo quando já venceu.
+
+A data e sempre informada pelo profissional (a API calcula `vencido` no
+servidor); aqui so se conta a diferenca para exibir a urgencia na tela. */
+function diasAte(dataIso) {
+  const [ano, mes, dia] = String(dataIso || "").slice(0, 10).split("-").map(Number);
+  if (!ano || !mes || !dia) return 0;
+  const alvo = Date.UTC(ano, mes - 1, dia);
+  const agora = new Date();
+  const hoje = Date.UTC(agora.getFullYear(), agora.getMonth(), agora.getDate());
+  return Math.round((alvo - hoje) / 86400000);
+}
+
 const STATUS_PARA_ETAPA = {
   NOVO: "Petição inicial",
   AGUARDANDO_CLIENTE: "Petição inicial",
@@ -106,22 +135,47 @@ export function mapearCasoApi(c) {
   };
 }
 
-export function mapearPrazoApi(p) {
-  const dataIso = String(p.data_limite || "").slice(0, 10);
-  const horario = p.tipo === "AUDIENCIA" ? "09:00:00" : "23:59:00";
+/** Converte `PrazoOut` (API) para o formato usado pelas telas.
+
+A API devolve `data_vencimento` + `status` (nao ha `data_limite`/`cumprido`/
+`dias_restantes`) e NAO traz dados do caso: cliente, numero, area e vara vem
+do caso vinculado (`casosMapeados`), resolvido por `caso_id`. Os campos
+legados (`cumprido`, `dataLimite`, `diasRestantes`) continuam existindo no
+retorno porque Home e BuscaGlobal deles dependem. */
+export function mapearPrazoApi(p, casosMapeados = []) {
+  const caso = casosMapeados.find((c) => c.id === p.caso_id);
+  const dataIso = String(p.data_vencimento || p.data_limite || "").slice(0, 10);
+  const status = p.status || (p.cumprido ? "CONCLUIDO" : "PENDENTE");
+  const emAberto = status === "PENDENTE" || status === "EM_ANDAMENTO";
   return {
     id: p.id,
     casoId: p.caso_id,
+    processoId: p.processo_id ?? null,
     titulo: p.titulo,
-    processo: p.numero_processo || `CASO-${String(p.caso_id).padStart(4, "0")}`,
-    cliente: p.cliente,
-    area: rotuloArea(p.area),
-    vara: p.vara || "Foro / Vara em definição",
-    dataLimite: `${dataIso}T${horario}`,
-    diasRestantes: Number(p.dias_restantes ?? 0),
-    cumprido: Boolean(p.cumprido),
-    tipo: p.tipo === "AUDIENCIA" ? "Audiência" : "Prazo processual",
+    processo:
+      p.numero_processo ||
+      caso?.numero ||
+      `CASO-${String(p.caso_id ?? 0).padStart(4, "0")}`,
+    cliente: p.cliente || caso?.cliente || "Cliente não informado",
+    area: caso?.area || rotuloArea(p.area),
+    vara: caso?.vara || "Foro / Vara em definição",
+    dataVencimento: dataIso,
+    dataInicio: p.data_inicio || null,
+    dataLimite: dataIso ? `${dataIso}T23:59:00` : "",
+    diasRestantes: diasAte(dataIso),
+    status,
+    statusRotulo: ROTULO_STATUS_PRAZO[status] || status,
+    cumprido: status === "CONCLUIDO",
+    cancelado: status === "CANCELADO",
+    emAberto,
+    vencido: Boolean(p.vencido) && emAberto,
+    prioridade: p.prioridade || "MEDIA",
+    tipo: p.tipo || "PROCESSUAL",
+    tipoRotulo: ROTULO_TIPO_PRAZO[p.tipo] || p.tipo || "Processual",
     descricao: p.descricao || "",
+    observacoes: p.observacoes || "",
+    responsavelNome: p.responsavel_nome || "",
+    concluidoEm: p.concluido_em || null,
   };
 }
 
@@ -149,10 +203,21 @@ export function mapearClienteApi(cli, casosMapeados = []) {
 }
 
 export async function carregarCarteiraApi() {
+  // Falhas NAO sao mais silenciadas: antes `.catch(() => ({ itens: [] }))`
+  // transformava qualquer queda da API em "estado vazio falso" (a tela
+  // mostrava "Nenhum processo cadastrado"). Agora a falha e registrada e
+  // devolvida em `erro` para a tela exibir o aviso correto.
+  const falhas = [];
+  const capturar = (falha) => {
+    falhas.push(falha);
+    return { itens: [] };
+  };
+
   const [resCasos, resPrazos, resClientes] = await Promise.all([
-    apiJson("casos?pagina=1&limite=100").catch(() => ({ itens: [] })),
-    apiJson("prazos").catch(() => []),
-    apiJson("clientes?pagina=1&limite=100").catch(() => ({ itens: [] })),
+    apiJson("casos?pagina=1&limite=100").catch(capturar),
+    // GET /api/prazos devolve { itens, total, pagina, limite } - nunca uma lista.
+    apiJson("prazos?pagina=1&limite=100").catch(capturar),
+    apiJson("clientes?pagina=1&limite=100").catch(capturar),
   ]);
 
   const listaCasosBruta = Array.isArray(resCasos?.itens)
@@ -162,7 +227,11 @@ export async function carregarCarteiraApi() {
       : Array.isArray(resCasos)
         ? resCasos
         : [];
-  const listaPrazosBruta = Array.isArray(resPrazos) ? resPrazos : [];
+  const listaPrazosBruta = Array.isArray(resPrazos?.itens)
+    ? resPrazos.itens
+    : Array.isArray(resPrazos)
+      ? resPrazos
+      : [];
   const listaClientesBruta = Array.isArray(resClientes?.itens)
     ? resClientes.itens
     : Array.isArray(resClientes?.items)
@@ -172,7 +241,7 @@ export async function carregarCarteiraApi() {
         : [];
 
   const processos = listaCasosBruta.map(mapearCasoApi);
-  const prazos = listaPrazosBruta.map(mapearPrazoApi);
+  const prazos = listaPrazosBruta.map((p) => mapearPrazoApi(p, processos));
   const clientes = listaClientesBruta.map((cli) =>
     mapearClienteApi(cli, processos),
   );
@@ -182,6 +251,9 @@ export async function carregarCarteiraApi() {
     prazos,
     clientes,
     clientesBrutos: listaClientesBruta,
+    // Primeira falha de carga ("" quando tudo carregou). A tela decide o
+    // que exibir - o hook `useCarteira` a expõe como `erro`.
+    erro: falhas.length > 0 ? falhas[0].message || String(falhas[0]) : "",
   };
 }
 
@@ -194,6 +266,9 @@ export function useCarteira(ativo = true) {
   const [prazos, setPrazos] = useState([]);
   const [clientes, setClientes] = useState([]);
   const [carregando, setCarregando] = useState(Boolean(ativo));
+  // Ultima falha de carga da carteira ("" quando nao houve). Permite que as
+  // telas diferenciem "lista vazia de verdade" de "API indisponivel".
+  const [erro, setErro] = useState("");
 
   const recarregar = useCallback(async () => {
     if (!ativo) return;
@@ -203,6 +278,9 @@ export function useCarteira(ativo = true) {
       setProcessos(dados.processos);
       setPrazos(dados.prazos);
       setClientes(dados.clientes);
+      setErro(dados.erro || "");
+    } catch (falha) {
+      setErro(falha.message || "Não foi possível carregar os dados.");
     } finally {
       setCarregando(false);
     }
@@ -217,6 +295,11 @@ export function useCarteira(ativo = true) {
         setProcessos(dados.processos);
         setPrazos(dados.prazos);
         setClientes(dados.clientes);
+        setErro(dados.erro || "");
+      })
+      .catch((falha) => {
+        if (cancelado) return;
+        setErro(falha.message || "Não foi possível carregar os dados.");
       })
       .finally(() => {
         if (!cancelado) setCarregando(false);
@@ -236,6 +319,7 @@ export function useCarteira(ativo = true) {
     prazos,
     clientes,
     carregando,
+    erro,
     recarregar,
     setProcessos,
     setPrazos,

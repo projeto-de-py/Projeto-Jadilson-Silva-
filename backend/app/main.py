@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.routes import (
     agenda,
+    andamentos,
     assinaturas,
     auth,
     casos,
@@ -119,6 +120,9 @@ def create_app() -> FastAPI:
     app.include_router(casos.router, prefix=f"{prefix}/casos", tags=["casos"])
     app.include_router(
         processos.router_caso, prefix=f"{prefix}/casos", tags=["processos"]
+    )
+    app.include_router(
+        andamentos.router, prefix=f"{prefix}/casos", tags=["andamentos"]
     )
     app.include_router(
         processos.router, prefix=f"{prefix}/processos", tags=["processos"]

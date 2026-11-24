@@ -8,6 +8,7 @@ from app.core import security
 from app.core.revogados import TokenRevogados
 from app.database import get_db
 from app.models.usuario import Perfil, Usuario
+from app.repositories.andamento_repository import AndamentoRepository
 from app.repositories.caso_historico_repository import CasoHistoricoRepository
 from app.repositories.caso_repository import CasoRepository
 from app.repositories.cliente_repository import ClienteRepository
@@ -21,6 +22,7 @@ from app.repositories.processo_historico_repository import ProcessoHistoricoRepo
 from app.repositories.processo_judicial_repository import ProcessoJudicialRepository
 from app.repositories.usuario_caso_repository import UsuarioCasoRepository
 from app.repositories.usuario_repository import UsuarioRepository
+from app.services.andamento_service import AndamentoService
 from app.services.caso_service import CasoService
 from app.services.compromisso_service import CompromissoService
 from app.services.permissao_service import PermissaoCasoService
@@ -76,6 +78,10 @@ def get_compromisso_historico_repo(
 
 def get_usuario_caso_repo(db: Session = Depends(get_db)) -> UsuarioCasoRepository:
     return UsuarioCasoRepository(db)
+
+
+def get_andamento_repo(db: Session = Depends(get_db)) -> AndamentoRepository:
+    return AndamentoRepository(db)
 
 
 # --------------------------------------------------------------- services
@@ -152,6 +158,14 @@ def get_compromisso_service(
         usuarios=usuarios,
         processos=processos,
     )
+
+
+def get_andamento_service(
+    andamentos: AndamentoRepository = Depends(get_andamento_repo),
+    casos: CasoRepository = Depends(get_caso_repo),
+    permissoes: UsuarioCasoRepository = Depends(get_usuario_caso_repo),
+) -> AndamentoService:
+    return AndamentoService(andamentos=andamentos, casos=casos, permissoes=permissoes)
 
 
 # ------------------------------------------------------- autenticacao/autorizacao

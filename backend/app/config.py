@@ -5,6 +5,14 @@ from functools import lru_cache
 from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Segredo JWT default do repositorio. Existe apenas para o ambiente local
+# (dev): em PRODUCAO a validacao abaixo rejeita este valor, pois qualquer
+# pessoa com acesso ao codigo conseguiria assinar tokens falsos.
+JWT_SECRET_DEFAULT = (
+    "HceFer1lr8zbksuUuWagVDRSqzrzFvF2jDWYIj08ZZ9yVggNvLK0jhQGCQ1QDu-"
+    "OhYa0S1EHnjYgAqmamidSBA"
+)
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -30,7 +38,10 @@ class Settings(BaseSettings):
     )
 
     # Autenticacao
-    jwt_secret: str = "HceFer1lr8zbksuUuWagVDRSqzrzFvF2jDWYIj08ZZ9yVggNvLK0jhQGCQ1QDu-OhYa0S1EHnjYgAqmamidSBA"
+    # Default do repositorio: NAO vale em producao - a validacao de
+    # seguranca rejeita explicitamente este valor (JWT_SECRET_DEFAULT),
+    # porque qualquer pessoa com acesso ao codigo poderia forjar tokens.
+    jwt_secret: str = JWT_SECRET_DEFAULT
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 480  # 8 horas
 
@@ -161,6 +172,9 @@ def validar_configuracao_seguranca(settings: Settings | None = None) -> None:
     segredo = s.jwt_secret.strip()
     segredo_fraco = (
         segredo.lower() in _SECRET_FRACO
+        # o default versionado no codigo tambem e forjavel por quem tem o
+        # repositorio - em producao e obrigatorio um segredo proprio.
+        or segredo == JWT_SECRET_DEFAULT
         or len(segredo.encode("utf-8")) < _MIN_BYTES_SEGREDO
     )
     if segredo_fraco:

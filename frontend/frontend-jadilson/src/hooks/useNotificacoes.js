@@ -30,6 +30,9 @@ export function useNotificacoes(csrf) {
   const [itens, setItens] = useState([]);
   const [naoLidas, setNaoLidas] = useState(0);
   const [erro, setErro] = useState("");
+  // Verdadeiro ate a PRIMEIRA resposta da API: evita que o painel exiba
+  // "Voce nao tem notificacoes." (estado vazio falso) antes do carregamento.
+  const [carregando, setCarregando] = useState(true);
   const alertadosRef = useRef(carregarIdsAlertados());
 
   const atualizar = useCallback(async () => {
@@ -78,6 +81,8 @@ export function useNotificacoes(csrf) {
       setErro("");
     } catch (falha) {
       setErro(falha.message || "Não foi possível carregar as notificações.");
+    } finally {
+      setCarregando(false);
     }
   }, [toast]);
 
@@ -109,5 +114,5 @@ export function useNotificacoes(csrf) {
     await atualizar();
   }, [atualizar, csrf]);
 
-  return { itens, naoLidas, erro, atualizar, marcarLida, marcarTodas, limparTodas };
+  return { itens, naoLidas, erro, carregando, atualizar, marcarLida, marcarTodas, limparTodas };
 }

@@ -9,18 +9,18 @@ import {
   IconPerson,
   IconReturn,
 } from "symbols-react";
-import { navegacao } from "@/app/navigation";
+import { navegacaoPara } from "@/app/navigation";
 import { useCarteira } from "@/data/escritorio";
 import { cn } from "@/lib/cn";
 
 const norm = (t) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
-export function BuscaGlobal({ open, onOpenChange }) {
+export function BuscaGlobal({ open, onOpenChange, user }) {
   const [termo, setTermo] = useState("");
   const [ativo, setAtivo] = useState(0);
   const navegar = useNavigate();
   const lista = useRef(null);
-  const { processos, prazos, clientes } = useCarteira(open);
+  const { processos, prazos, clientes, carregando, erro } = useCarteira(open);
 
   const itens = useMemo(() => {
     const nomesClientes = [
@@ -29,8 +29,15 @@ export function BuscaGlobal({ open, onOpenChange }) {
         ...processos.map((p) => p.cliente),
       ]),
     ];
+    const paginas = navegacaoPara(user).map((n) => ({
+      grupo: "Páginas",
+      rotulo: n.rotulo,
+      sub: n.grupo,
+      icone: n.icone,
+      ir: n.to,
+    }));
     const todos = [
-      ...navegacao.map((n) => ({ grupo: "Páginas", rotulo: n.rotulo, sub: n.grupo, icone: n.icone, ir: n.to })),
+      ...paginas,
       ...processos.map((p) => ({ grupo: "Processos", rotulo: p.numero, sub: `${p.cliente} · ${p.tipoAcao}`, icone: IconFolder, ir: "/processos" })),
       ...prazos.map((p) => ({ grupo: "Prazos", rotulo: p.titulo, sub: `${p.cliente} · ${p.processo}`, icone: IconClock, ir: "/prazos" })),
       ...nomesClientes.map((c) => ({ grupo: "Clientes", rotulo: c, sub: "Cliente", icone: IconPerson, ir: "/clientes" })),
@@ -38,7 +45,7 @@ export function BuscaGlobal({ open, onOpenChange }) {
     const t = norm(termo.trim());
     if (!t) return todos.filter((i) => i.grupo === "Páginas");
     return todos.filter((i) => norm(`${i.rotulo} ${i.sub}`).includes(t)).slice(0, 30);
-  }, [termo, processos, prazos, clientes]);
+  }, [termo, processos, prazos, clientes, user]);
 
   useEffect(() => {
     lista.current?.querySelector(`[data-i="${ativo}"]`)?.scrollIntoView({ block: "nearest" });
@@ -117,11 +124,19 @@ export function BuscaGlobal({ open, onOpenChange }) {
                   </div>
 
                   <div ref={lista} className="max-h-[52vh] overflow-y-auto p-2">
-                    {itens.length === 0 && (
+                    {erro && itens.length === 0 ? (
+                      <p role="alert" className="text-14 text-status-vencido-ink px-4 py-10 text-center">
+                        Não foi possível carregar os dados para a busca. Tente novamente em instantes.
+                      </p>
+                    ) : carregando && itens.length === 0 ? (
+                      <p role="status" className="text-14 text-ink-muted px-4 py-10 text-center">
+                        Carregando…
+                      </p>
+                    ) : itens.length === 0 ? (
                       <p className="text-14 text-ink-muted px-4 py-10 text-center">
                         Nada encontrado para “{termo}”.
                       </p>
-                    )}
+                    ) : null}
                     {itens.map((item, i) => {
                       const cabecalho = item.grupo !== ultimoGrupo;
                       ultimoGrupo = item.grupo;

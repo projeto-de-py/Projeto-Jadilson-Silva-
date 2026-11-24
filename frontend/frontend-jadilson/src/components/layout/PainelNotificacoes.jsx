@@ -11,7 +11,7 @@ export function PainelNotificacoes({ csrf }) {
   const [aberto, setAberto] = useState(false);
   const ref = useRef(null);
   const navigate = useNavigate();
-  const { itens, naoLidas, erro, marcarLida, marcarTodas, limparTodas } = useNotificacoes(csrf);
+  const { itens, naoLidas, erro, carregando, marcarLida, marcarTodas, limparTodas } = useNotificacoes(csrf);
   const hoje = itens.filter((item) => isToday(new Date(item.criado_em)));
   const anteriores = itens.filter((item) => !isToday(new Date(item.criado_em)));
 
@@ -58,7 +58,8 @@ export function PainelNotificacoes({ csrf }) {
             </div>
             <div className="overflow-y-auto p-2">
               {erro && <p role="alert" className="text-status-vencido-ink px-3 py-2 text-12">{erro}</p>}
-              {!erro && itens.length === 0 && <p className="text-ink-muted px-3 py-8 text-center text-13">Você não tem notificações.</p>}
+              {!erro && carregando && itens.length === 0 && <p role="status" className="text-ink-muted px-3 py-8 text-center text-13">Carregando notificações…</p>}
+              {!erro && !carregando && itens.length === 0 && <p className="text-ink-muted px-3 py-8 text-center text-13">Você não tem notificações.</p>}
               {[["Hoje", hoje], ["Anteriores", anteriores]].map(([grupo, lista]) => lista.length > 0 && (
                 <div key={grupo} className="mb-2 last:mb-0">
                   <p className="text-ink-muted px-3 py-2 text-11 font-semibold tracking-wide uppercase">{grupo}</p>

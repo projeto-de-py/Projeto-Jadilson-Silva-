@@ -83,7 +83,13 @@ function CabecalhoCartao({ titulo, descricao, para, rotuloLink }) {
 export function Home() {
   const { user } = useOutletContext();
   const { area, setArea } = useArea();
-  const { processos: todosProcessos, prazos: todosPrazos, clientes: todosClientes } = useCarteira();
+  const {
+    processos: todosProcessos,
+    prazos: todosPrazos,
+    clientes: todosClientes,
+    carregando: carteiraCarregando,
+    erro: carteiraErro,
+  } = useCarteira();
   const [modalCliente, setModalCliente] = useState(false);
   const [modalProcesso, setModalProcesso] = useState(false);
 
@@ -255,10 +261,25 @@ export function Home() {
           />
           {processos.length === 0 ? (
             <div className="border-t border-border px-6 py-10 text-center sm:px-7">
-              <p className="text-14 font-medium text-ink">Nenhum processo cadastrado ainda</p>
-              <p className="text-13 text-ink-muted mt-1">
-                Clique em &ldquo;Novo Processo&rdquo; no topo para registrar o primeiro caso no banco de dados.
-              </p>
+              {carteiraErro ? (
+                <>
+                  <p role="alert" className="text-14 font-medium text-status-vencido-ink">
+                    Não foi possível carregar os processos
+                  </p>
+                  <p className="text-13 text-ink-muted mt-1">{carteiraErro}</p>
+                </>
+              ) : carteiraCarregando ? (
+                <p role="status" className="text-14 text-ink-muted">
+                  Carregando processos…
+                </p>
+              ) : (
+                <>
+                  <p className="text-14 font-medium text-ink">Nenhum processo cadastrado ainda</p>
+                  <p className="text-13 text-ink-muted mt-1">
+                    Clique em &ldquo;Novo Processo&rdquo; no topo para registrar o primeiro caso no banco de dados.
+                  </p>
+                </>
+              )}
             </div>
           ) : (
             <ul className="divide-border divide-y border-t border-border">
@@ -312,10 +333,21 @@ export function Home() {
             />
             {prazosOrdenados.length === 0 ? (
               <div className="border-t border-border px-6 py-10 text-center sm:px-7">
-                <p className="text-14 font-medium text-ink">Nenhum prazo pendente</p>
-                <p className="text-13 text-ink-muted mt-1">
-                  Os prazos vinculados aos processos aparecerão aqui por ordem de urgência.
-                </p>
+                {carteiraErro ? (
+                  <>
+                    <p role="alert" className="text-14 font-medium text-status-vencido-ink">
+                      Não foi possível carregar os prazos
+                    </p>
+                    <p className="text-13 text-ink-muted mt-1">{carteiraErro}</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-14 font-medium text-ink">Nenhum prazo pendente</p>
+                    <p className="text-13 text-ink-muted mt-1">
+                      Os prazos vinculados aos processos aparecerão aqui por ordem de urgência.
+                    </p>
+                  </>
+                )}
               </div>
             ) : (
               <ul className="divide-border divide-y border-t border-border">
@@ -360,10 +392,21 @@ export function Home() {
             />
             {clientes.length === 0 ? (
               <div className="border-t border-border px-6 py-10 text-center sm:px-7">
-                <p className="text-14 font-medium text-ink">Nenhum cliente cadastrado</p>
-                <p className="text-13 text-ink-muted mt-1">
-                  Cadastre o primeiro cliente para vincular processos e contratos.
-                </p>
+                {carteiraErro ? (
+                  <>
+                    <p role="alert" className="text-14 font-medium text-status-vencido-ink">
+                      Não foi possível carregar os clientes
+                    </p>
+                    <p className="text-13 text-ink-muted mt-1">{carteiraErro}</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-14 font-medium text-ink">Nenhum cliente cadastrado</p>
+                    <p className="text-13 text-ink-muted mt-1">
+                      Cadastre o primeiro cliente para vincular processos e contratos.
+                    </p>
+                  </>
+                )}
               </div>
             ) : (
               <ul className="divide-border divide-y border-t border-border">

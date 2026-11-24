@@ -107,7 +107,19 @@ function App() {
               <Route path="/documentos/:id" element={<EditorDocumento />} />
               <Route path="/financeiro" element={<Financeiro />} />
               <Route path="/clientes" element={<Clientes />} />
-              <Route path="/configuracoes" element={<Configuracoes />} />
+              {/* Configurações são dados GLOBAIS do escritorio: no backend o
+                  PUT exige admin (require_admin) e aqui a rota também fica
+                  reservada - o menu já esconde o item para não-administradores. */}
+              <Route
+                path="/configuracoes"
+                element={
+                  session.usuario?.administrador ? (
+                    <Configuracoes />
+                  ) : (
+                    <Navigate to="/home" replace />
+                  )
+                }
+              />
             </Route>
 
             <Route path="*" element={<Navigate to={session ? "/home" : "/"} replace />} />

@@ -13,6 +13,7 @@ estas condicoes para que a autorizacao nao fique espalhada pela aplicacao.
 from sqlalchemy import Select, and_, select, true
 from sqlalchemy.sql.elements import ColumnElement
 
+from app.models.andamento import Andamento
 from app.models.caso import Caso
 from app.models.cliente import Cliente
 from app.models.compromisso import Compromisso
@@ -52,6 +53,17 @@ def condicao_processo_visivel(usuario: Usuario) -> ColumnElement[bool]:
     if usuario.administrador:
         return true()
     return ProcessoJudicial.caso_id.in_(casos_autorizados(usuario))
+
+
+def condicao_andamento_visivel(usuario: Usuario) -> ColumnElement[bool]:
+    """Andamentos de casos que o usuario pode acessar (herda o escopo do caso).
+
+    Um andamento nunca da acesso indireto a um caso nao autorizado: quem nao
+    ve o caso nao ve o historico de movimentacoes dele (Fase 6/RF06).
+    """
+    if usuario.administrador:
+        return true()
+    return Andamento.caso_id.in_(casos_autorizados(usuario))
 
 
 def condicao_compromisso_visivel(usuario: Usuario) -> ColumnElement[bool]:

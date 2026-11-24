@@ -17,12 +17,19 @@ export const navegacao = [
   { to: "/documentos", rotulo: "Documentos", icone: IconDocumentOnDocument, grupo: "Visão geral" },
   { to: "/financeiro", rotulo: "Financeiro", icone: IconBanknote, grupo: "Escritório" },
   { to: "/clientes", rotulo: "Clientes", icone: IconPerson2, grupo: "Escritório" },
-  { to: "/configuracoes", rotulo: "Configurações", icone: IconGearshape, grupo: "Escritório" },
+  // Configurações alteram dados globais do escritório: o backend exige
+  // administrador e o menu só o exibe para quem pode acessar.
+  { to: "/configuracoes", rotulo: "Configurações", icone: IconGearshape, grupo: "Escritório", somenteAdmin: true },
 ];
 
-export function navegacaoAgrupada() {
+/** Itens visíveis para o usuário (oculta os restritos a administrador). */
+export function navegacaoPara(user) {
+  return navegacao.filter((item) => !item.somenteAdmin || user?.administrador);
+}
+
+export function navegacaoAgrupada(user) {
   const grupos = [];
-  for (const item of navegacao) {
+  for (const item of navegacaoPara(user)) {
     let grupo = grupos.find((g) => g.nome === item.grupo);
     if (!grupo) {
       grupo = { nome: item.grupo, itens: [] };

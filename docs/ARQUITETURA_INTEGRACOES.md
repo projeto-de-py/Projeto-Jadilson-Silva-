@@ -106,9 +106,11 @@ A mensagem de cada erro é **segura para exibir**: nunca leva token, cabeçalho 
 |---|---|---|
 | `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `OPENROUTER_MODELOS_ALTERNATIVOS`, `IA_PROVEDOR` | IA | só com `IA_PROVEDOR=openrouter` |
 | `DATAJUD_API_KEY` | andamentos (chave **pública** do CNJ: <https://datajud-wiki.cnj.jus.br/api-publica/acesso>) | para consultar processos |
-| `ZAPSIGN_API_TOKEN`, `ZAPSIGN_WEBHOOK_SECRET` | assinatura | para assinar |
+| `ASSINATURA_PROVEDOR` (padrão `autentique`), `AUTENTIQUE_API_TOKEN`, `AUTENTIQUE_WEBHOOK_SECRET`, `AUTENTIQUE_WEBHOOK_HEADER` | assinatura (Autentique) | para assinar |
+| `ZAPSIGN_API_TOKEN`, `ZAPSIGN_WEBHOOK_SECRET`, `ZAPSIGN_WEBHOOK_HEADER` | assinatura alternativa (só se `ASSINATURA_PROVEDOR=zapsign`) | para assinar |
 | `ASAAS_API_KEY`, `ASAAS_WEBHOOK_TOKEN`, `ASAAS_API_URL` | cobrança (sandbox por padrão) | para cobrar |
 | `BRASILAPI_URL`, `BCB_SGS_URL`, `CONSULTAS_LIMITE_MINUTO` | consultas públicas (já têm padrão) | não |
+| `APP_ENV` (`development` padrão / `production`), `JWT_SECRET`, `AUTH_COOKIE_SECURE`, `CORS_ORIGINS` | segurança/produção — em `production` a API **aborta o startup** com segredo fraco ou default, cookie sem `Secure` ou CORS com curinga | só em produção |
 
 BrasilAPI e Banco Central **não usam chave**. Chaves ficam só no `.env` (tipo `SecretStr`) e nunca vão para log,
 resposta nem para o navegador.

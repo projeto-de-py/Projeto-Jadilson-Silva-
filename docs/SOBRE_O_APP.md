@@ -147,7 +147,7 @@ Na implementação, `models/notificacao.py` define a tabela, `repositories/notif
 | Frontend | React, Vite, Tailwind CSS, Radix UI, TipTap (editor), Motion, Recharts, ícones SF (`symbols-react`) |
 | Backend | Python, FastAPI, Uvicorn, Pydantic, SQLAlchemy, Alembic |
 | Banco | MySQL (SQLite para desenvolvimento e testes) |
-| Testes | Pytest (mais de 250 testes no backend) |
+| Testes | Pytest (**637 testes** no backend) |
 
 ---
 
@@ -156,21 +156,21 @@ Na implementação, `models/notificacao.py` define a tabela, `repositories/notif
 | Parte | Estado |
 |---|---|
 | Login, sessão, usuários, permissões | **Funcionando** com a API e o banco |
-| API de clientes, casos, prazos e histórico | **Pronta no backend**, ainda **não ligada** às telas |
-| Telas de Início, Processos, Prazos, Agenda, Clientes | **Dados de demonstração** no navegador |
+| API e telas de clientes, casos, processos, prazos, compromissos, andamentos (RF06) e histórico | **Ligadas** (Fases 5–7) — telas e API reais |
+| Telas de Início, Processos, Prazos, Agenda, Clientes, Notificações | **Ligadas à API real** |
 | Documentos | Salvos **no navegador** (localStorage); falta guardar no banco |
 | IA: caixa, sugestões, revisão e filtros | **Funcionando** com provedor **simulado** (sem modelo real) |
 | IA com modelo real | **Pronta no backend** (OpenRouter com modelo gratuito do Google, exige `OPENROUTER_API_KEY`); falta colar a chave e avaliar por área |
 | Notificações | **Ligadas ao backend** com deduplicação por usuário, avisos de prazo sob demanda, polling e toast no navegador |
-| Assinatura eletrônica (ZapSign) e cobrança (Asaas) | **Pronto no backend** com webhooks seguros e testes simulados; falta ligar as telas e testar com as contas reais (sandbox) |
-| Integrações (DataJud, Banco Central) | **Planejadas**, ainda não iniciadas |
+| Assinatura eletrônica (Autentique/ZapSign) e cobrança (Asaas) | **Pronto no backend** com webhooks seguros e testes simulados; falta testar com as contas reais (sandbox). A tela Financeiro já fala com a API |
+| Integrações (DataJud, CEP, CNPJ, feriados, juros) | **Funcionando** no backend (`/api/consultas/*`) com chave de API onde necessário |
 
 ## 7. Próximos passos
 
-1. Ligar as telas à API de casos, clientes e prazos (trocar os dados de demonstração).
-2. Guardar os documentos no banco, com versões e controle de edição simultânea.
-3. Ligar o modelo de IA real e rodar a avaliação por área.
-4. Perfil do usuário e convite de colaboradores.
-5. Integrações: Banco Central e BrasilAPI (taxas, feriados), DataJud (andamentos), assinatura eletrônica.
+1. Guardar os documentos no banco, com versões e controle de edição simultânea (hoje é `localStorage`).
+2. Ligar o modelo de IA real e rodar a avaliação por área.
+3. Perfil do usuário e convite de colaboradores (já existe pela API: `/api/casos/{id}/usuarios` — falta a tela).
+4. Aplicar as migrations `0009`..`0013` no **banco real** (backup + autorização).
+5. UI de atribuição de usuários aos casos e "Cadastrar Processo" criando processo judicial real.
 
 > **Aviso:** a IA é uma ferramenta de apoio. Toda peça deve ser revisada e assumida pelo advogado responsável.

@@ -95,6 +95,7 @@ function LayoutInterno({ user, csrf, onLogout, loading, error }) {
           <NavList
             indicador="nav-ativo-mobile"
             aoNavegar={() => setMenuAberto(false)}
+            user={user}
           />
         </div>
       </Drawer>
@@ -102,6 +103,7 @@ function LayoutInterno({ user, csrf, onLogout, loading, error }) {
       <BuscaGlobal
         open={buscaAberta}
         onOpenChange={setBuscaAberta}
+        user={user}
       />
 
       <ModalConfirmacaoLogout

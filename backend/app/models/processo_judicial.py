@@ -18,6 +18,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     String,
@@ -62,24 +63,36 @@ class ProcessoJudicial(Base):
         UniqueConstraint("numero_processo", name="uq_processos_numero"),
         # Valor da causa nunca negativo (regra + restricao no banco).
         CheckConstraint("valor_causa >= 0", name="ck_processos_valor_causa"),
+        # Nomes EXATOS dos indices criados pela migration 0005. Sem os
+        # nomes explicitos o SQLAlchemy geraria ix_processos_judiciais_*
+        # (drift: o alembic check acusava e um autogenerate futuro
+        # proporria renomes espurios no banco ja existente).
+        Index("ix_processos_caso_id", "caso_id"),
+        Index("ix_processos_tribunal", "tribunal"),
+        Index("ix_processos_comarca", "comarca"),
+        Index("ix_processos_instancia", "instancia"),
+        Index("ix_processos_classe_processual", "classe_processual"),
+        Index("ix_processos_status", "status"),
+        Index("ix_processos_data_distribuicao", "data_distribuicao"),
+        Index("ix_processos_arquivado", "arquivado"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     # Vinculo obrigatorio: todo processo pertence a um caso (N:1).
     caso_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("casos.id", ondelete="CASCADE"), nullable=False, index=True
+        Integer, ForeignKey("casos.id", ondelete="CASCADE"), nullable=False
     )
     # Normalizado (20 digitos) e unico no banco.
     numero_processo: Mapped[str] = mapped_column(String(20), nullable=False)
-    tribunal: Mapped[str | None] = mapped_column(String(120), index=True)
+    tribunal: Mapped[str | None] = mapped_column(String(120))
     orgao_julgador: Mapped[str | None] = mapped_column(String(160))  # vara/origem
-    comarca: Mapped[str | None] = mapped_column(String(120), index=True)
-    instancia: Mapped[str | None] = mapped_column(String(20), index=True)
-    classe_processual: Mapped[str | None] = mapped_column(String(80), index=True)
+    comarca: Mapped[str | None] = mapped_column(String(120))
+    instancia: Mapped[str | None] = mapped_column(String(20))
+    classe_processual: Mapped[str | None] = mapped_column(String(80))
     assunto: Mapped[str | None] = mapped_column(String(200))
-    data_distribuicao: Mapped[date | None] = mapped_column(Date, index=True)
+    data_distribuicao: Mapped[date | None] = mapped_column(Date)
     status: Mapped[str] = mapped_column(
-        String(30), nullable=False, default=StatusProcesso.DISTRIBUIDO.value, index=True
+        String(30), nullable=False, default=StatusProcesso.DISTRIBUIDO.value
     )
     valor_causa: Mapped[float | None] = mapped_column(Numeric(14, 2))
     segredo_justica: Mapped[bool] = mapped_column(
@@ -88,7 +101,7 @@ class ProcessoJudicial(Base):
     observacoes: Mapped[str | None] = mapped_column(Text)
 
     # Arquivamento logico do PROCESSO (distinto do arquivamento do caso).
-    arquivado: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, index=True)
+    arquivado: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     arquivado_por: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True
     )

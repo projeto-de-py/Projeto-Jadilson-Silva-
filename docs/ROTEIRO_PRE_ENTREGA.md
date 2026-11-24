@@ -1,9 +1,17 @@
-# Roteiro de demonstração — Pré-entrega (05/11/2026)
+# Roteiro de demonstração — Pré-entrega (atualizado em 15/11/2026 — Fase 8)
 
-> Documento da **Etapa 6** da preparação para a pré-entrega. Ele descreve apenas
-> funcionalidades **realmente existentes** no sistema hoje: login contra a API
-> real, CRUD completo demonstrado pelo Swagger e telas do frontend (dados de
-> demonstração, quando indicado). Nada aqui foi inventado.
+> Documento da **Etapa 6** da preparação para a pré-entrega, revisado na Fase 8.
+> Ele descreve apenas funcionalidades **realmente existentes** no sistema hoje:
+> login contra a API real, CRUD completo demonstrado pelo Swagger e telas do
+> frontend **ligadas à API real** (Fases 5–7 integraram Dashboard, Processos,
+> Prazos, Agenda, Clientes, Andamentos e Notificações). Nada aqui foi inventado.
+
+> ⚠️ **ATENÇÃO — banco real:** o banco `advocacia` está na revisão
+> **`0007_permissoes_compromissos`**, enquanto o repositório está em
+> **`0013_configuracoes_escritorio`**. **Antes de demonstrar**, aplique as
+> migrations faltantes com backup e autorização (ver §1). Sem isso,
+> notificações, agenda compartilhada, financeiro, assinaturas, IA e
+> configurações do escritório **não funcionarão** (tabelas ausentes).
 
 ---
 
@@ -11,13 +19,13 @@
 
 | Item | Detalhe |
 |---|---|
-| Banco MySQL | `advocacia` — revisão **`0007_permissoes_compromissos`** (atualizado em 04/11/2026, após backup em `backend/.local/backup_advocacia_20261104_pre_upgrade.sql`) |
+| Banco MySQL | `advocacia` — revisão **`0007_permissoes_compromissos`** (real). Revisão do repositório: **`0013_configuracoes_escritorio`** — **upgrade pendente**: backup (`mysqldump`) + `python -c "from alembic.config import main; main(['upgrade','head'])"` **somente com autorização** |
 | Backend | `python -m uvicorn app.main:app --host 127.0.0.1 --port 8000` (dentro de `backend/` com o venv ativo) |
 | Frontend | `npm run dev` em `frontend/frontend-jadilson` → <http://127.0.0.1:5173> |
-| Swagger | <http://127.0.0.1:8000/docs> (mesma origem do backend — os cookies funcionam por lá) |
+| Swagger | <http://127.0.0.1:8000/docs> (mesma origem do backend — os cookies funcionam por lá) — **63 caminhos / 82 operações** |
 | Saúde da API | <http://127.0.0.1:8000/health> deve responder `{"status":"ok","versao":"0.1.0"}` |
 | Login | `admin@jadilson.adv` + a senha do administrador (conta já existente, provisionada pelo seed) |
-| Dados no banco | Seed idempotente já assegurou **6 casos fictícios e 4 prazos fictícios** além da conta admin |
+| Dados no banco | Seed idempotente (`python -m app.seed`) cria/promove **apenas a conta admin** (`CASOS_DEMO=[]` — sem casos/prazos fictícios). Cadastre dados fictícios pela própria demonstração |
 
 **Regra de ouro durante a apresentação:** use apenas **dados fictícios**.
 Não cadastre CPF/CNPJ, nomes, e-mails ou telefones de clientes reais.
@@ -52,15 +60,15 @@ Todo `POST/PUT/PATCH/DELETE` sob `/api` exige o header **`X-CSRF-Token`**
 | # | Funcionalidade | Endpoint ou tela | Dados de exemplo | Resultado esperado | Limitações |
 |---|---|---|---|---|---|
 | 1 | Acessar o sistema | Navegador: <http://127.0.0.1:5173> (e `/health`, `/docs` no backend) | — | Tela de login carrega; `/health` responde `{"status":"ok"}` | Backend e Vite precisam estar no ar |
-| 2 | Login | Tela `/` → `POST /api/auth/login` (via `src/lib/api.js`) | `admin@jadilson.adv` + senha do admin | Dashboard abre em `/home`; sessão em cookie HttpOnly; logout revoga o token | **Única tela do frontend integrada à API** |
+| 2 | Login | Tela `/` → `POST /api/auth/login` (via `src/lib/api.js`) | `admin@jadilson.adv` + senha do admin | Dashboard abre em `/home`; sessão em cookie HttpOnly; logout revoga o token | **Todas as telas do dashboard falam com a API real** (Fases 5–7) |
 | 3 | Gerenciamento de usuários | **Swagger:** `GET/POST /api/usuarios`, `PATCH /api/usuarios/{id}` | `{"nome":"Marina Demonstração","email":"marina.demo@exemplo.test","senha":"Demo123456","perfil":"FUNCIONARIO"}` | 201 com o usuário criado (sem `senha_hash`); `PATCH` alterna `ativo`/`perfil` | **Sem tela no frontend** — só API. Rota exige administrador (403 para outros) |
-| 4 | Cadastro e consulta de clientes | Tela `/clientes` **+ Swagger:** `GET/POST /api/clientes` | `{"nome":"Comércio Exemplo Ltda.","cpf_cnpj":"11.222.333/0001-81","email":"contato@exemplo.test","telefone":"(61) 99999-0000"}` | 201 e listagem paginada (`q`, `pagina`, `limite`); CPF/CNPJ formatado na resposta | A **tela grava em dados locais (demonstração)**; o cadastro real é pela API. Documento inválido → 422 |
-| 5 | Criar e consultar um caso | Tela `/processos` (leitura demo) **+ Swagger:** `POST/GET /api/casos` | `{"titulo":"Ação de cobrança — demonstração","cliente_id":<id do cliente>,"parte_contraria":"Empresa Exemplo S.A.","area":"PREVIDENCIARIO","prioridade":"ALTA"}` | 201 com `status=NOVO`, filtros (`q`, `cliente_id`, `status`, `ordenar`, `pagina`) e `GET /api/casos/{id}` | Tela do frontend usa dados de demonstração; CRUD real pela API |
+| 4 | Cadastro e consulta de clientes | Tela `/clientes` **+ Swagger:** `GET/POST /api/clientes` | `{"nome":"Comércio Exemplo Ltda.","cpf_cnpj":"11.222.333/0001-81","email":"contato@exemplo.test","telefone":"(61) 99999-0000"}` | 201 e listagem paginada (`q`, `pagina`, `limite`); CPF/CNPJ formatado na resposta | A **tela grava pela API real**; documento inválido → 422 |
+| 5 | Criar e consultar um caso | Tela `/processos` **+ Swagger:** `POST/GET /api/casos` | `{"titulo":"Ação de cobrança — demonstração","cliente_id":<id do cliente>,"parte_contraria":"Empresa Exemplo S.A.","area":"PREVIDENCIARIO","prioridade":"ALTA"}` | 201 com `status=NOVO`, filtros (`q`, `cliente_id`, `status`, `ordenar`, `pagina`) e `GET /api/casos/{id}` | Tela usa a API real; o modal "Novo Processo" cria um **Caso** |
 | 6 | Associação e permissões de usuários | **Swagger:** `POST/GET /api/casos/{caso_id}/usuarios`, `DELETE .../{usuario_id}` | `{"usuario_id":<id criado>,"pode_visualizar":true,"pode_gerenciar_prazos":true,"pode_gerenciar_processos":false,"pode_gerenciar_compromissos":false}` | 201 com as flags; listagem mostra quem tem acesso; usuário sem vínculo recebe 403/404 nos recursos do caso | Sem tela no frontend — só API (RF de permissões é do backend) |
-| 7 | Processos judiciais do caso | Tela `/processos` (demo) **+ Swagger:** `POST/GET /api/casos/{caso_id}/processos`, `GET /api/processos?q=` | `{"numero_processo":"0000123-57.2026.8.26.0100","tribunal":"TJSP","instancia":"PRIMEIRA_INSTANCIA","status":"EM_ANDAMENTO"}` | 201 com CNJ normalizado; busca por CNJ parcial; **CNJ inválido** `0000000-00.2026.8.26.0100` → 422 | Tela usa dados de demonstração; gravação é pela API |
-| 8 | Cadastrar e consultar um prazo | Tela `/prazos` (demo) **+ Swagger:** `POST/GET /api/prazos`, `PATCH .../concluir`, `.../reabrir`, `.../cancelar` | `{"caso_id":<caso>,"titulo":"Manifestação recursal — demonstração","tipo":"PROCESSUAL","data_vencimento":"2026-11-20","prioridade":"ALTA"}` | 201; filtros (`status_prazo`, `vencidos`, `prioridade`…); conclusão muda `status` para `CONCLUIDO` | Tela do frontend é demonstrativa; sem `data_inicio > data_vencimento` (422) |
-| 9 | Cadastrar e consultar um compromisso | Tela `/agenda` (demo) **+ Swagger:** `POST/GET /api/compromissos`, `PATCH .../status` | `{"titulo":"Audiência de conciliação — demonstração","tipo":"AUDIENCIA","data_inicio":"2026-11-12T09:00:00","data_fim":"2026-11-12T11:00:00","caso_id":<caso>,"local":"Fórum — sala fictícia"}` | 201 (`status=AGENDADO`); `PATCH /status` aceita `REALIZADO`/`CANCELADO`; `data_fim` menor que início → 422 (CHECK + schema) | Tela do frontend é demonstrativa; gravação é pela API |
-| 10 | Agenda por período | Tela `/agenda` **+ Swagger:** `GET /api/agenda?de=&ate=` | `de=2026-11-05&ate=2026-12-05` | Lista compromissos do período (padrão: hoje +30 dias); período > 366 dias → 422 | A tela exibe dados locais; a agenda real é a da API |
+| 7 | Processos judiciais do caso | Tela `/processos` **+ Swagger:** `POST/GET /api/casos/{caso_id}/processos`, `GET /api/processos?q=` | `{"numero_processo":"0000123-57.2026.8.26.0100","tribunal":"TJSP","instancia":"PRIMEIRA_INSTANCIA","status":"EM_ANDAMENTO"}` | 201 com CNJ normalizado; busca por CNJ parcial; **CNJ inválido** `0000000-00.2026.8.26.0100` → 422 | Leitura na tela via API; o modal "Cadastrar Processo" **não** chama este endpoint (cria um Caso) — gravação é pelo Swagger |
+| 8 | Cadastrar e consultar um prazo | Tela `/prazos` **+ Swagger:** `POST/GET /api/prazos`, `PATCH .../concluir`, `.../reabrir`, `.../cancelar` | `{"caso_id":<caso>,"titulo":"Manifestação recursal — demonstração","tipo":"PROCESSUAL","data_vencimento":"2026-11-20","prioridade":"ALTA"}` | 201; filtros (`status_prazo`, `vencidos`, `prioridade`…); conclusão muda `status` para `CONCLUIDO` | Tela grava pela API real; sem `data_inicio > data_vencimento` (422) |
+| 9 | Cadastrar e consultar um compromisso | Tela `/agenda` **+ Swagger:** `POST/GET /api/compromissos`, `PATCH .../status` | `{"titulo":"Audiência de conciliação — demonstração","tipo":"AUDIENCIA","data_inicio":"2026-11-12T09:00:00","data_fim":"2026-11-12T11:00:00","caso_id":<caso>,"local":"Fórum — sala fictícia"}` | 201 (`status=AGENDADO`); `PATCH /status` aceita `REALIZADO`/`CANCELADO`; `data_fim` menor que início → 422 (CHECK + schema) | Tela grava pela API real |
+| 10 | Agenda por período | Tela `/agenda` **+ Swagger:** `GET /api/agenda?de=&ate=` | `de=2026-11-05&ate=2026-12-05` | Lista compromissos do período (padrão: hoje +30 dias); período > 366 dias → 422 | A tela usa a API real |
 | 11 | Histórico e auditoria | **Swagger:** `GET /api/casos/{id}/historico`, `/api/processos/{id}/historico`, `/api/prazos/{id}/historico`, `/api/compromissos/{id}/historico` | ids criados nas etapas 5–9 | Cada alteração vira registro imutável com autor, data e detalhe (`origem`, `de`/`para`) | Sem tela dedicada no frontend — só API |
 
 ### 3.1 Roteiro narrado (resumo em 11 falas)
@@ -95,9 +103,13 @@ Todo `POST/PUT/PATCH/DELETE` sob `/api` exige o header **`X-CSRF-Token`**
 | Área | No frontend (5173) | Na API (8000/docs) |
 |---|---|---|
 | Login/sessão/logout | **Integral com a API real** | `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/logout` |
-| Dashboard (`/home`), Processos, Prazos, Agenda, Clientes, Documentos, Configurações | Telas completas com **dados de demonstração locais** (`src/data/escritorio`, `localStorage`) | CRUD real correspondente |
+| Dashboard (`/home`), Processos, Prazos, Agenda, Clientes, Notificações, Busca global | **Ligados à API real** (Fases 5–7) | CRUD real correspondente |
+| Financeiro e Assinaturas | Tela ligada à API (admin-only) | `GET/POST /api/financeiro/*`, `/api/assinaturas` |
+| Configurações do escritório | Tela restrita a **administrador** (rota + menu) | `GET/PUT /api/auth/escritorio` (**PUT exige admin**) |
 | Usuários, Associação de usuários ao caso, Permissões, Histórico/auditoria | — (sem tela) | **Somente API** |
-| Andamentos (RF06), MinutaIA, editor de documentos com IA | — | **Não existe ainda** (não demonstrar) |
+| Andamentos (RF06) | **Painel de andamentos** em `/processos` (caso aberto) | `GET/POST /api/casos/{id}/andamentos` |
+| Documentos | Tela usa **`localStorage`** (não há endpoint de documentos) | — |
+| MinutaIA / geração de minuta | — | **Não existe** (não demonstrar) |
 
 ---
 
@@ -114,10 +126,12 @@ npm run dev
 ```
 
 - [ ] `GET http://127.0.0.1:8000/health` → `{"status":"ok","versao":"0.1.0"}`
-- [ ] `http://127.0.0.1:8000/docs` abre com os 34 caminhos
+- [ ] `http://127.0.0.1:8000/docs` abre com os **63 caminhos**
+- [ ] `alembic current` = `0013_configuracoes_escritorio` (senão, ver §1 — banco real pode estar em `0007`)
 - [ ] `http://127.0.0.1:5173` abre a tela de login
 - [ ] Login funcional com o administrador (sem estourar o rate limit)
 - [ ] MySQL80 em execução (`Get-Service MySQL80`)
+- [ ] `npm run lint` em 0 erros e `npm run build` OK (antes da apresentação)
 - [ ] Roteiro e este documento abertos para consulta
 
 ## 6. Possíveis imprevistos e como contornar
@@ -129,4 +143,4 @@ npm run dev
 | 403 no Swagger | Falta o header `X-CSRF-Token` | Use o `csrf_token` devolvido pelo login |
 | 429 no login | Rate limit (20/5min por IP) | Aguarde 5 minutos ou reinicie o backend (limiter é em memória) |
 | Porta 5173 ocupada | Vite anterior aberto | Encerre o processo antigo (`strictPort` recusa outra porta) |
-| Tela sem dados "novos" que você acabou de criar | É esperado: só login fala com a API | Consulte o dado criado no Swagger (etapas 5–9) |
+| Tela sem dados "novos" que você acabou de criar | Cache do navegador ou polling de 15s (notificações) | Recarregue a página (F5) ou aguarde o ciclo de atualização |

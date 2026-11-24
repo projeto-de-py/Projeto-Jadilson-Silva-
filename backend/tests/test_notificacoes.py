@@ -2,6 +2,8 @@
 
 from datetime import date, datetime, timedelta
 
+import pytest
+
 from app.models.caso import Caso
 from app.models.evento_agenda import EventoAgenda
 from app.models.notificacao import Notificacao
@@ -17,6 +19,28 @@ from app.services.notificacao_service import (
 from tests.conftest import PADRAO
 
 
+@pytest.fixture
+def relogio_controlado(monkeypatch):
+    """Congela o 'hoje' dos geradores automaticos em uma quarta-feira.
+
+    `GET /api/notificacoes` e `GET /nao-lidas/contagem` disparam
+    `sincronizar_notificacoes_automaticas`, que chama o
+    GeradorNotificacaoRelatorioSemanal - este so roda em sexta-feira
+    (weekday() == 4) e cria a notifica��o "Relatorio semanal". Sem este
+    relogio, os testes de contagem exata deste arquivo dependem do DIA REAL
+    de execucao e falham toda sexta-feira. O congelamento e feito por
+    monkeypatch no modulo do service (date.today() vira uma quarta-feira
+    fixa), sem alterar o comportamento funcional do sistema.
+    """
+
+    class DataControlada(date):
+        @classmethod
+        def today(cls):
+            return cls(2026, 11, 4)  # quarta-feira (weekday() == 3)
+
+    monkeypatch.setattr("app.services.notificacao_service.date", DataControlada)
+
+
 def _criar_aviso(db, usuario_id: int, chave: str) -> Notificacao:
     return Notificacao(
         usuario_id=usuario_id,
@@ -29,7 +53,7 @@ def _criar_aviso(db, usuario_id: int, chave: str) -> Notificacao:
     )
 
 
-def test_dedupe_por_usuario(client, db_session, admin, csrf_admin):
+def test_dedupe_por_usuario(client, db_session, admin, csrf_admin, relogio_controlado):
     servico = NotificacaoService(NotificacaoRepository(db_session))
     dados = dict(usuario_id=admin.id, tipo="TESTE", titulo="Teste", mensagem="Mensagem", link="/home", severidade="info", chave_dedupe="mesma-chave")
     assert servico.criar(**dados) is not None
@@ -39,7 +63,9 @@ def test_dedupe_por_usuario(client, db_session, admin, csrf_admin):
     assert resposta.json()["total"] == 1
 
 
-def test_usuario_nao_le_ou_marca_aviso_de_outro(client, db_session, admin, advogada, fazer_login):
+def test_usuario_nao_le_ou_marca_aviso_de_outro(
+    client, db_session, admin, advogada, fazer_login, relogio_controlado
+):
     aviso = _criar_aviso(db_session, admin.id, "privado-admin")
     db_session.add(aviso)
     db_session.commit()
@@ -91,7 +117,7 @@ def test_relatorio_semanal_gera_na_sexta_feira(db_session, admin):
     assert repo.contar_nao_lidas(admin.id) == 1
 
 
-def test_endpoint_testar_e_limpar_notificacoes(client, admin, csrf_admin):
+def test_endpoint_testar_e_limpar_notificacoes(client, admin, csrf_admin, relogio_controlado):
     resposta = client.post(
         "/api/notificacoes/testar",
         json={

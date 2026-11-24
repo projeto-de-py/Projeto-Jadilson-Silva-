@@ -356,6 +356,19 @@ class TestValidacaoConfigSeguranca:
                 )
             )
 
+    def test_producao_com_segredo_default_do_repo_levanta(self):
+        """O default versionado no codigo tambem e rejeitado em producao.
+
+        Quem tem acesso ao repositorio conhece este valor e poderia assinar
+        tokens falsos (login e CSRF) se ele fosse aceito em producao.
+        """
+        from app.config import JWT_SECRET_DEFAULT, validar_configuracao_seguranca
+
+        with pytest.raises(RuntimeError, match="JWT_SECRET"):
+            validar_configuracao_seguranca(
+                self._settings(jwt_secret=JWT_SECRET_DEFAULT)
+            )
+
     def test_producao_com_segredo_curto_levanta(self):
         from app.config import validar_configuracao_seguranca
 

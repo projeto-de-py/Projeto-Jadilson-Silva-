@@ -146,8 +146,8 @@ function GrupoNav({ grupo, aoNavegar, indicador }) {
   );
 }
 
-export function NavList({ aoNavegar, indicador = "nav-ativo" }) {
-  const grupos = navegacaoAgrupada();
+export function NavList({ aoNavegar, indicador = "nav-ativo", user }) {
+  const grupos = navegacaoAgrupada(user);
 
   return (
     <nav aria-label="Navegação principal" className="space-y-6 px-4 py-5">
@@ -198,7 +198,7 @@ export function Sidebar({ aoNavegar, indicador, user, onLogout, onAdicionarContr
       <SeletorArea />
 
       <div className="border-border flex-1 overflow-y-auto border-t">
-        <NavList aoNavegar={aoNavegar} indicador={indicador} />
+        <NavList aoNavegar={aoNavegar} indicador={indicador} user={user} />
       </div>
 
       {/* Único card de perfil do advogado: botão interativo com menu da conta */}

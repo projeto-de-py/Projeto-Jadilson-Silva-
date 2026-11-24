@@ -17,6 +17,7 @@ from app.api.deps import (
     _get_revogados,
     get_current_user,
     get_usuario_repo,
+    require_admin,
 )
 from app.config import get_settings
 from app.core.ratelimit import Limiter
@@ -208,9 +209,14 @@ def obter_escritorio(
 )
 def atualizar_escritorio(
     dados: ConfiguracaoEscritorioIn,
-    _usuario: Usuario = Depends(get_current_user),
+    _admin: Usuario = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> ConfiguracaoEscritorioOut:
+    """Atualiza os dados gerais do escritorio.
+
+    Somente o advogado principal (admin): e uma escrita GLOBAL, igual as
+    demais escritas globais do sistema (usuarios, clientes, financeiro).
+    """
     cfg = _obter_ou_criar_configuracao_escritorio(db)
     for campo, valor in dados.model_dump(exclude_unset=True).items():
         if valor is not None:

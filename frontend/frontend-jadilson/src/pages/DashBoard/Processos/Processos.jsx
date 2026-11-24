@@ -18,6 +18,7 @@ import { MODELOS, preencherModelo } from "@/data/modelos";
 import { useDocumentos } from "@/lib/documentos";
 import { exportarProcessoPdf } from "@/lib/exportarPdf";
 import { PainelDataJud } from "@/components/consultas/PainelDataJud";
+import { PainelAndamentos } from "@/components/andamentos/PainelAndamentos";
 import { useArea } from "@/context/area-context";
 import { useCarteira } from "@/data/escritorio";
 import { cn } from "@/lib/cn";
@@ -31,25 +32,6 @@ const ETAPAS = [
 ];
 const TOM = Object.fromEntries(ETAPAS.map((e) => [e.id, e.tom]));
 
-const MARCOS = {
-  "Petição inicial": ["Petição inicial protocolada", "Distribuição ao juízo"],
-  "Instrução": ["Citação da parte ré", "Contestação juntada", "Designada audiência de instrução"],
-  "Sentença": ["Audiência realizada", "Alegações finais", "Autos conclusos para sentença"],
-  "Recursal": ["Sentença publicada", "Recurso interposto", "Contrarrazões apresentadas"],
-  "Concluído": ["Trânsito em julgado", "Arquivamento"],
-};
-const ORDEM = ETAPAS.map((e) => e.id);
-
-function montarLinhaDoTempo(proc) {
-  const idx = Math.max(0, ORDEM.indexOf(proc.status));
-  const eventos = [];
-  for (let i = 0; i <= idx; i += 1) {
-    MARCOS[ORDEM[i]].forEach((titulo) => eventos.push({ titulo, etapa: ORDEM[i], atual: false }));
-  }
-  eventos[eventos.length - 1].atual = true;
-  return eventos.reverse();
-}
-
 function normalizarTexto(texto = "") {
   return String(texto)
     .normalize("NFD")
@@ -59,7 +41,7 @@ function normalizarTexto(texto = "") {
 
 export function Processos() {
   const { area } = useArea();
-  const { processos, setProcessos } = useCarteira();
+  const { processos, setProcessos, carregando, erro } = useCarteira();
   const [modalAberto, setModalAberto] = useState(false);
   const navegar = useNavigate();
   const { docs, criar } = useDocumentos();
@@ -190,20 +172,33 @@ export function Processos() {
       </div>
 
       {processosFiltrados.length === 0 ? (
-        <HairlineEmptyState
-          titulo="Nenhum processo encontrado"
-          descricao={
-            busca
-              ? "Nenhum processo corresponde aos termos pesquisados."
-              : "Nenhum processo cadastrado no banco de dados. Adicione o primeiro processo para começar."
-          }
-          acao={
-            <Button variant="primary" onClick={() => setModalAberto(true)} className="gap-2">
-              <IconFolderBadgePlus className="size-4" fill="currentColor" />
-              Novo Processo
-            </Button>
-          }
-        />
+        erro ? (
+          <div role="alert" className="border-border rounded-card border px-6 py-10 text-center">
+            <p className="text-14 font-medium text-status-vencido-ink">
+              Não foi possível carregar os processos
+            </p>
+            <p className="text-13 text-ink-muted mt-1">{erro}</p>
+          </div>
+        ) : carregando ? (
+          <p role="status" className="text-14 text-ink-muted px-6 py-10 text-center">
+            Carregando processos…
+          </p>
+        ) : (
+          <HairlineEmptyState
+            titulo="Nenhum processo encontrado"
+            descricao={
+              busca
+                ? "Nenhum processo corresponde aos termos pesquisados."
+                : "Nenhum processo cadastrado no banco de dados. Adicione o primeiro processo para começar."
+            }
+            acao={
+              <Button variant="primary" onClick={() => setModalAberto(true)} className="gap-2">
+                <IconFolderBadgePlus className="size-4" fill="currentColor" />
+                Novo Processo
+              </Button>
+            }
+          />
+        )
       ) : visao === "lista" ? (
         <div className="grid gap-4">
           {processosFiltrados.map((proc, i) => (
@@ -295,24 +290,8 @@ export function Processos() {
       >
         {processoLinha && (
           <div className="space-y-8">
+            <PainelAndamentos key={processoLinha.id} casoId={processoLinha.id} />
             <PainelDataJud key={processoLinha.id} numeroInicial={processoLinha.numero} />
-            <ol className="relative space-y-6 border-l border-border pl-6">
-              {montarLinhaDoTempo(processoLinha).map((ev, i) => (
-                <li key={`${ev.titulo}-${i}`} className="relative">
-                  <span
-                    className={cn(
-                      "absolute top-1 -left-[31px] size-3 rounded-full border-2 border-surface",
-                      ev.atual ? "bg-primary ring-4 ring-primary/25" : "bg-border",
-                    )}
-                  />
-                  <p className={cn("text-14 font-medium", ev.atual ? "text-ink" : "text-ink-muted")}>{ev.titulo}</p>
-                  <div className="mt-1 flex items-center gap-2">
-                    <Badge tone={TOM[ev.etapa]}>{ev.etapa}</Badge>
-                    {ev.atual && <span className="text-11 text-primary font-semibold">Atual</span>}
-                  </div>
-                </li>
-              ))}
-            </ol>
           </div>
         )}
       </Drawer>

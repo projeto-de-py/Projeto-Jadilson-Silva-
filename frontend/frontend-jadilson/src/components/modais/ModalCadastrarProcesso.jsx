@@ -152,16 +152,31 @@ export function ModalCadastrarProcesso({ open, onOpenChange, onProcessoSalvo }) 
       });
 
       if (form.prazoTitulo.trim() && form.prazoData) {
-        await apiJson("prazos", {
-          method: "POST",
-          csrf,
-          body: {
-            caso_id: criado.id,
-            titulo: form.prazoTitulo.trim(),
-            data_limite: form.prazoData,
-            tipo: form.prazoTipo,
-          },
-        }).catch(() => {});
+        try {
+          await apiJson("prazos", {
+            method: "POST",
+            csrf,
+            body: {
+              caso_id: criado.id,
+              titulo: form.prazoTitulo.trim(),
+              // Contrato de PrazoCreate: `data_vencimento` (nao ha `data_limite`
+              // nem tipo AUDIENCIA - ambos respondem 422 com extra="forbid").
+              data_vencimento: form.prazoData,
+              tipo: form.prazoTipo,
+            },
+          });
+        } catch (falha) {
+          // O caso ja foi salvo; apenas avisa que o prazo opcional falhou
+          // (antes o `.catch(() => {})` engolia o erro e o usuario via
+          // "Processo salvo" mesmo sem o prazo criado).
+          toast({
+            tipo: "erro",
+            titulo: "Processo salvo, mas o prazo não foi criado",
+            descricao:
+              falha.message ||
+              "Não foi possível criar o prazo vinculado. Cadastre-o manualmente na tela de Prazos.",
+          });
+        }
       }
 
       const novoProcesso = mapearCasoApi(criado);
@@ -358,7 +373,7 @@ export function ModalCadastrarProcesso({ open, onOpenChange, onProcessoSalvo }) 
           </Field>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Data limite" id="proc-prazo-data">
+            <Field label="Data de vencimento" id="proc-prazo-data">
               <Input
                 id="proc-prazo-data"
                 type="date"
@@ -376,7 +391,10 @@ export function ModalCadastrarProcesso({ open, onOpenChange, onProcessoSalvo }) 
                 disabled={salvando}
               >
                 <option value="PROCESSUAL">Prazo processual</option>
-                <option value="AUDIENCIA">Audiência</option>
+                <option value="ADMINISTRATIVO">Administrativo</option>
+                <option value="CONTRATUAL">Contratual</option>
+                <option value="INTERNO">Interno</option>
+                <option value="OUTRO">Outro</option>
               </Select>
             </Field>
           </div>

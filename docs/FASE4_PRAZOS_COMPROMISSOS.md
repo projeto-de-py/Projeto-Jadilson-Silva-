@@ -394,7 +394,11 @@ downgrade removendo a coluna).
 
 ## 9. Fora do escopo desta fase
 
-Andamentos completos (RF06 — tabela existe, sem endpoint), documentos/anexos,
+Andamentos completos (RF06 — tabela existe, sem endpoint **na época**; hoje
+existe: `GET/POST /api/casos/{id}/andamentos`, Fase 7), documentos/anexos,
 tarefas, notificações, cálculo automático de prazo processual (a data é
 informada manualmente pelo profissional), frontend e MinutaIA. Nenhuma dessas
-frentes foi alterada.
+frentes foi alterada **nesta fase**.
+
+> **Atualização (Fase 8, 15/11/2026):** a suíte completa hoje tem **637
+> testes, 0 falhas** — o número 376 acima é o baseline histórico desta fase.

@@ -67,6 +67,46 @@ HTTP → Router (api/routes) → Service (services) → Repository (repositories
 | PATCH | `/api/compromissos/{id}/status` | Escrita no caso + CSRF | **Único caminho do status** (`AGENDADO`/`REALIZADO`/`CANCELADO`) |
 | GET | `/api/compromissos/{id}/historico` | cookie | Auditoria do compromisso (somente leitura) |
 | GET | `/api/agenda` | cookie | Recorte temporal da agenda (`?de=&ate=&responsavel_id=`, semântica de sobreposição, **sem prazos**) |
+| GET | `/api/agenda/contribuidores` | cookie | Usuários que compartilham a agenda com o logado |
+| GET | `/api/agenda/eventos` | cookie | Eventos da agenda compartilhada (`?de=&ate=&status=`) |
+| POST | `/api/agenda/eventos` | **Admin** + CSRF | Cria evento da agenda compartilhada → `201` |
+| DELETE | `/api/agenda/eventos/{evento_id}` | **Admin** + CSRF | Remove evento da agenda compartilhada |
+| GET | `/api/casos/{caso_id}/andamentos` | cookie | **RF06** — andamentos do caso (`?ordem=asc\|desc`, paginação; `404` fora do escopo) |
+| POST | `/api/casos/{caso_id}/andamentos` | Escrita no caso + CSRF | Registra andamento → `201` (caso arquivado → `422`) |
+| GET | `/api/casos/{caso_id}/andamentos/{andamento_id}` | cookie | Detalhe do andamento (`404` fora do escopo) |
+| GET | `/api/auth/session` | cookie | Sessão atual (alias usado pelo login do frontend) |
+| POST | `/api/auth/senha` | cookie + CSRF | Troca a senha atual (exige a senha atual) |
+| GET | `/api/auth/escritorio` | cookie | Configurações gerais do escritório (qualquer logado) |
+| PUT | `/api/auth/escritorio` | **Admin** + CSRF | Atualiza dados globais do escritório (nome, OAB, assinatura, áreas) |
+| PUT | `/api/clientes/{cliente_id}` | **Admin** + CSRF | Atualiza cliente (PF/PJ, `extra="forbid"`) |
+| DELETE | `/api/clientes/{cliente_id}` | **Admin** + CSRF | Desativa cliente (soft delete) |
+| GET | `/api/notificacoes` | cookie | Notificações do usuário logado (`pagina`, `limite`, `tipos`, `nao_lidas`) — dispara a sincronização automática |
+| GET | `/api/notificacoes/nao-lidas/contagem` | cookie | Contagem de não lidas |
+| POST | `/api/notificacoes/{id}/lida` | cookie + CSRF | Marca uma como lida (`404` se for de outro usuário) |
+| POST | `/api/notificacoes/lidas` | cookie + CSRF | Marca todas como lidas |
+| DELETE | `/api/notificacoes` | cookie + CSRF | Limpa todas do usuário |
+| POST | `/api/notificacoes/limpar` | cookie + CSRF | Alias de limpeza |
+| POST | `/api/notificacoes/testar` | cookie + CSRF | Cria uma notificação de teste (dedupe) |
+| GET | `/api/financeiro/cobrancas` | **Admin** | Lista cobranças (filtros `status`, `cliente_id`) |
+| POST | `/api/financeiro/cobrancas` | **Admin** + CSRF | Cria cobrança vinculada a cliente/caso → `201` |
+| GET | `/api/financeiro/clientes/{cliente_id}/resumo` | **Admin** | Resumo financeiro do cliente |
+| GET | `/api/assinaturas` | **Admin** | Lista assinaturas eletrônicas |
+| POST | `/api/assinaturas` | **Admin** + CSRF | Envia documento para assinatura → `201` |
+| GET | `/api/assinaturas/{assinatura_id}` | **Admin** | Detalhe/status da assinatura |
+| GET | `/api/consultas/cep/{cep}` | cookie | Consulta de CEP (ViaCEP) |
+| GET | `/api/consultas/cnpj/{cnpj}` | cookie | Consulta de CNPJ (ReceitaWS) |
+| GET | `/api/consultas/feriados/{ano}` | cookie | Feriados nacionais |
+| GET | `/api/consultas/processos/{numero}` | cookie | Andamentos no DataJud/CNJ (exige `DATAJUD_API_KEY`) |
+| GET | `/api/consultas/juros/series` | cookie | Séries de juros (BACEN) |
+| POST | `/api/consultas/juros/comparar` | cookie + CSRF | Compara juros de 2 séries |
+| POST | `/api/ia/sugerir` | cookie + CSRF | Sugestões de IA (rate limit próprio) |
+| POST | `/api/ia/completar` | cookie + CSRF | Autocompletar via IA |
+| GET | `/api/ia/controle` | cookie | Controle/limites do uso de IA |
+| POST | `/api/v1/webhooks/autentique` | **segredo** | Webhook Autentique (isenso de CSRF por ser externo) |
+| POST | `/api/v1/webhooks/zapsign` | **segredo** | Webhook ZapSign (isenso de CSRF por ser externo) |
+| POST | `/api/v1/webhooks/asaas` | **segredo** | Webhook Asaas (isenso de CSRF por ser externo) |
+
+**Total no OpenAPI: 63 caminhos / 82 operações** (confira sempre em `/docs`).
 
 Documentação interativa: **http://127.0.0.1:8000/docs**
 
@@ -112,9 +152,11 @@ senha : (gerada e impressa pelo seed, ou a definida em ADMIN_SENHA_INICIAL)
 ### Teste rápido do login
 
 ```powershell
+# SUBSTITUA pela senha real impressa pelo seed (ou definida em ADMIN_SENHA_INICIAL).
+# Este exemplo usa um valor fictício — nunca use senhas reais em documentos.
 Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/api/auth/login `
   -ContentType 'application/json' `
-  -Body '{"email":"admin@jadilson.adv","senha":"Admin@123"}'
+  -Body '{"email":"admin@jadilson.adv","senha":"<senha-impressa-pelo-seed>"}'
 ```
 
 ## Segurança implementada
@@ -137,17 +179,19 @@ Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/api/auth/login `
 
 ```powershell
 python -m pip install -r requirements-dev.txt
-python -m pytest          # 376 testes (unit + API + Fases 1-4 + migrations) — rodam em SQLite em memoria
+python -m pytest          # 637 testes (unit + API + Fases 1-7 + migrations) — rodam em SQLite em memoria
 ```
 
-- `tests/test_unit.py`: bcrypt, JWT (assinatura falsa/expirada), `Limiter`, services
-- `tests/test_api.py`: login, cookie HttpOnly, CSRF, rate limit, `/me`, logout, autorização Admin
+- `tests/test_unit.py`: bcrypt, JWT (assinatura falsa/expirada), `Limiter`, services, validação de configuração de segurança
+- `tests/test_api.py`: login, cookie HttpOnly, CSRF, rate limit, `/me`, logout, autorização Admin, configurações do escritório (PUT exige admin)
 - `tests/test_fase1.py`: usuários, clientes (CPF/CNPJ) e permissões por caso (status HTTP reais)
 - `tests/test_fase2.py`: casos — criação, filtros/paginação, atualização, arquivamento e histórico (52 testes)
 - `tests/test_fase3.py`: processos judiciais — CNJ (dígitos verificadores), cadastro, escopo, escrita, status, arquivamento, histórico e dados legados (76 testes)
 - `tests/test_fase4.py`: prazos e compromissos — escopo, permissões (`pode_gerenciar_compromissos` própria), urgentes, agenda com sobreposição, auditoria e **atomicidade** (102 testes)
+- `tests/test_fase7.py`: andamentos RF06 — escopo, escrita, caso arquivado, auditoria (30 testes)
+- `tests/test_notificacoes.py`: propriedade, dedupe por usuário, geradores automáticos (relogio controlado — sem depender do dia da semana)
 - `tests/test_validacao.py`: CPF/CNPJ/telefone/CNJ (unidade)
-- `tests/test_migracoes.py`: upgrade/downgrade/re-upgrade das migrations 0003-0007 em subprocesso (banco descartável)
+- `tests/test_migracoes.py`: upgrade/downgrade/re-upgrade da cadeia completa em subprocesso (banco descartável)
 - As fixtures (`tests/conftest.py`) sobrepõem `get_db` com SQLite em memoria — **nenhum teste toca no MySQL**
 
 ## Banco de dados
@@ -157,6 +201,14 @@ Tabelas: `usuarios` (`id, nome, email unique, senha_hash, perfil ADVOGADO|FUNCIO
 - **Produção/desenvolvimento:** MySQL (InnoDB, utf8mb4) via `DATABASE_URL` no `.env`
 - **Teste local sem MySQL:** `$env:DATABASE_URL="sqlite:///./dev.db"`
 - Migrações com **Alembic** (`alembic/versions/`) — nunca alterar tabela na mão
+- **Migrations `0009`..`0013`** criam as tabelas das Fases 5–8: `cobrancas`,
+  `assinaturas`, `eventos_webhook`, `eventos_agenda`, `notificacoes`, `uso_ia` e
+  `configuracoes_escritorio` (head = **`0013_configuracoes_escritorio`**).
+  ⚠️ O **banco real** pode ainda estar em `0007` — verifique com
+  `python -c "from alembic.config import main; main(['current'])"` e atualize
+  **só com backup e autorização** (procedimento no `README.md` da raiz).
+  Validação local sem tocar no MySQL: `tests/test_migracoes.py` ou um SQLite
+  descartável (`DATABASE_URL=sqlite:///./validacao.db`).
 
 ## Fase 1 - Cadastros e controle de acesso
 
@@ -260,15 +312,18 @@ Migrations `0006_prazos_compromissos` + `0007_permissoes_compromissos`
 1. ~~Tabelas `caso`, `caso_usuario`, `andamento`, `prazo` + escopo de visibilidade~~ ✅ Fase 1
 2. ~~Edição de casos, vínculo cliente↔caso e arquivamento~~ ✅ Fase 2
 3. ~~Processos judiciais (CNJ, escopo, auditoria, migration)~~ ✅ Fase 3
-4. Andamentos e documentos por caso (respeitando o mesmo escopo)
-5. ~~Prazos completos e agenda (RF10/RF11)~~ ✅ Fase 4 (backend)
-6. Tarefas
-7. Módulo MinutaIA (Port/Adapter com mock)
-8. Frontend das telas Prazos/Agenda consumindo a API da Fase 4
+4. ~~Andamentos por caso (RF06)~~ ✅ Fase 7 (`GET/POST /api/casos/{id}/andamentos`)
+5. ~~Prazos completos e agenda (RF10/RF11)~~ ✅ Fase 4
+6. ~~Financeiro, assinaturas, webhooks, eventos de agenda~~ ✅ Fase 5
+7. ~~Notificações e IA do escritório~~ ✅ Fase 6
+8. ~~Frontend das telas consumindo a API~~ ✅ Fases 5–7
+9. **Pendências:** upgrade do **banco real** para `0013` (backup + autorização);
+   UI de atribuição de casos (`/api/casos/{id}/usuarios`); documentos por caso
+   (hoje só `localStorage`); módulo MinutaIA (Port/Adapter com mock)
 
 ## Casos e prazos
 
-A migração Alembic `0002_casos_prazos` cria as tabelas `casos`, `andamentos` e `prazos` sem alterar as tabelas existentes. Após `alembic upgrade head`, execute `python -m app.seed` para carregar seis processos e quatro prazos fictícios; o seed pode ser repetido sem duplicar os registros demonstrativos.
+A migração Alembic `0002_casos_prazos` cria as tabelas `casos`, `andamentos` e `prazos` sem alterar as tabelas existentes. Após `alembic upgrade head`, execute `python -m app.seed` para criar/promover a conta administrativa (idempotente); o seed **não** cadastra casos ou prazos fictícios (`CASOS_DEMO=[]` — cadastre dados de demonstração pela própria API/telas).
 
 - `GET /api/casos?q=&status=&area=&prioridade=&tipo_demanda=&responsavel_id=&cliente_id=&ordenar=&pagina=1&limite=20`: busca por título, número do processo, cliente ou parte contrária, com filtros, ordenação (abertura/prioridade) e paginação no banco.
 - `GET /api/prazos/urgentes?dias=7&pagina=1&limite=20`: prazos em aberto vencidos ou com vencimento no intervalo informado (máx. 90 dias, data local de Brasília) — a listagem geral e a agenda de compromissos ficam em `GET /api/prazos` e `GET /api/agenda` (ver Fase 4).
@@ -300,16 +355,20 @@ Para ajustar o comportamento da IA, edite os `.md` (nenhum codigo). Cada respost
 Config (`.env`): `IA_PROVEDOR=simulado`, `IA_LIMITE_SUGERIR_HORA=60`, `IA_LIMITE_COMPLETAR_MINUTO=40`.
 
 
-## Integracoes: assinatura (ZapSign), cobranca (Asaas) e IA real
+## Integracoes: assinatura (Autentique padrao / ZapSign), cobranca (Asaas) e IA real
+
+O provedor de assinatura e escolhido em `assinatura_provedor` (padrao
+**`autentique`**; `zapsign` como alternativa) — os dois tem webhook proprio.
 
 | Metodo | Rota | Acesso | Descricao |
 |---|---|---|---|
-| POST | `/api/assinaturas` | **Admin** + CSRF | Envia um PDF (`pdf_base64`) ao ZapSign para o cliente assinar (WhatsApp/e-mail do cadastro). Valida que e PDF e no maximo 10 MB |
+| POST | `/api/assinaturas` | **Admin** + CSRF | Envia um PDF (`pdf_base64`) ao provedor configurado (Autentique por padrao) para o cliente assinar (WhatsApp/e-mail do cadastro). Valida que e PDF e no maximo 10 MB |
 | GET | `/api/assinaturas` e `/{id}` | **Admin** | Lista/consulta o status (`ENVIADO`, `ASSINADO`, `RECUSADO`) |
 | POST | `/api/financeiro/cobrancas` | **Admin** + CSRF | Emite cobranca Pix ou boleto, avulsa ou parcelada (ate 24x). Cria o cliente no Asaas na primeira vez |
 | GET | `/api/financeiro/cobrancas` | **Admin** | Lista (`cliente_id`, `status`) |
 | GET | `/api/financeiro/clientes/{id}/resumo` | **Admin** | Pendente, recebido e vencido do cliente |
-| POST | `/api/v1/webhooks/zapsign` | segredo no header | Atualiza a assinatura para `ASSINADO` |
+| POST | `/api/v1/webhooks/autentique` | segredo no header `X-Autentique-Secret` | Atualiza a assinatura para `ASSINADO`/`RECUSADO` |
+| POST | `/api/v1/webhooks/zapsign` | segredo no header `X-Zapsign-Secret` | Atualiza a assinatura para `ASSINADO` |
 | POST | `/api/v1/webhooks/asaas` | token `asaas-access-token` | `PAYMENT_RECEIVED`/`CONFIRMED` -> RECEBIDA, `PAYMENT_OVERDUE` -> VENCIDA |
 
 Seguranca dos webhooks: sem sessao nem CSRF (quem chama e o provedor), mas **fecham (503) se o segredo nao estiver

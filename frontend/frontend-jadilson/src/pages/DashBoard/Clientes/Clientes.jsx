@@ -34,7 +34,7 @@ import { apiJson } from "@/lib/api";
 export function Clientes() {
   const { csrf } = useSessao();
   const { toast } = useToast();
-  const { clientes, setClientes } = useCarteira();
+  const { clientes, setClientes, carregando, erro } = useCarteira();
   const [modalAberto, setModalAberto] = useState(false);
   const [clienteEmEdicao, setClienteEmEdicao] = useState(null);
   const [paraRemover, setParaRemover] = useState(null);
@@ -157,15 +157,28 @@ export function Clientes() {
 
       {/* Grid de Cards de Clientes */}
       {clientesFiltrados.length === 0 ? (
-        <EmptyState
-          icon={IconPerson2}
-          titulo="Nenhum cliente encontrado"
-          descricao={
-            busca
-              ? "Nenhum cliente corresponde ao termo pesquisado. Tente outra busca ou limpe o filtro."
-              : "Você ainda não possui clientes cadastrados. Clique no botão acima para adicionar o primeiro."
-          }
-        />
+        erro ? (
+          <div role="alert" className="border-border rounded-card border px-6 py-10 text-center">
+            <p className="text-14 font-medium text-status-vencido-ink">
+              Não foi possível carregar os clientes
+            </p>
+            <p className="text-13 text-ink-muted mt-1">{erro}</p>
+          </div>
+        ) : carregando ? (
+          <p role="status" className="text-14 text-ink-muted px-6 py-10 text-center">
+            Carregando clientes…
+          </p>
+        ) : (
+          <EmptyState
+            icon={IconPerson2}
+            titulo="Nenhum cliente encontrado"
+            descricao={
+              busca
+                ? "Nenhum cliente corresponde ao termo pesquisado. Tente outra busca ou limpe o filtro."
+                : "Você ainda não possui clientes cadastrados. Clique no botão acima para adicionar o primeiro."
+            }
+          />
+        )
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
           {clientesFiltrados.map((cliente) => (

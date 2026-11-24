@@ -4,7 +4,7 @@ Cobrem: login (RF01), cookie HttpOnly, CSRF, rate limit, /me, logout e
 autorizacao Admin (RF02).
 """
 
-from tests.conftest import ADMIN, PADRAO
+from tests.conftest import ADMIN, FUNCIONARIO, PADRAO
 
 CSRF_HEADER = "X-CSRF-Token"
 
@@ -355,3 +355,35 @@ class TestCSRFCors:
         )
         assert resp.status_code == 401
         assert resp.headers["access-control-allow-origin"] == "http://localhost:5173"
+
+
+# ------------------------------------------- config geral do escritorio
+
+class TestEscritorio:
+    """GET e permitido a qualquer usuario logado; PUT exige administrador.
+
+    A escrita e GLOBAL (dados de todo o escritorio), entao segue o mesmo
+    padrao das demais escritas globais: require_admin no backend.
+    """
+
+    def test_get_escritorio_qualquer_usuario_logado(self, client, csrf_admin):
+        resp = client.get("/api/auth/escritorio")
+        assert resp.status_code == 200
+        assert "nome" in resp.json()
+
+    def test_put_escritorio_sem_admin_403(self, client, csrf_de):
+        resp = client.put(
+            "/api/auth/escritorio",
+            headers={CSRF_HEADER: csrf_de(FUNCIONARIO)},
+            json={"nome": "Tentativa de alteracao indevida"},
+        )
+        assert resp.status_code == 403
+
+    def test_put_escritorio_admin_200(self, client, csrf_admin):
+        resp = client.put(
+            "/api/auth/escritorio",
+            headers={CSRF_HEADER: csrf_admin},
+            json={"nome": "Escritorio Jadilson Silva"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["nome"] == "Escritorio Jadilson Silva"
