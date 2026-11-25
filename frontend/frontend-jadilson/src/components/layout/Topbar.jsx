@@ -77,9 +77,8 @@ export function Topbar({
       <div className="ml-auto flex items-center gap-6">
         <div className="relative hidden h-10 w-28 items-center justify-center sm:flex">
           <div className="pointer-events-none absolute top-1/2 left-1/2 z-50 -translate-x-1/2 -translate-y-1/2">
-            <div className="pointer-events-auto">
-              <CreateMenu label="Novo" items={itensCriacao} />
-            </div>
+            {/* A área de 244 × 244 px do menu não recebe mouse: só a pílula e o painel aberto (bencho.css). */}
+            <CreateMenu label="Novo" items={itensCriacao} />
           </div>
         </div>
 

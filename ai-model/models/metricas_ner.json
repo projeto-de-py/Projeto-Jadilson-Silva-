@@ -1,0 +1,221 @@
+{
+  "semente": 42,
+  "frases": {
+    "treino": 7827,
+    "dev": 1176,
+    "teste": 1389
+  },
+  "baseline_dicionario": {
+    "dev": {
+      "precisao": 0.5851,
+      "revocacao": 0.346,
+      "f1": 0.4348
+    },
+    "teste": {
+      "precisao": 0.6045,
+      "revocacao": 0.401,
+      "f1": 0.4822
+    }
+  },
+  "experimentos_dev": [
+    {
+      "atributos": "palavra",
+      "alpha": 1e-07,
+      "precisao": 0.1247,
+      "revocacao": 0.2233,
+      "f1": 0.16,
+      "segundos": 29
+    },
+    {
+      "atributos": "palavra",
+      "alpha": 1e-06,
+      "precisao": 0.114,
+      "revocacao": 0.203,
+      "f1": 0.146,
+      "segundos": 12
+    },
+    {
+      "atributos": "contexto",
+      "alpha": 1e-07,
+      "precisao": 0.4014,
+      "revocacao": 0.5193,
+      "f1": 0.4528,
+      "segundos": 28
+    },
+    {
+      "atributos": "contexto",
+      "alpha": 1e-06,
+      "precisao": 0.4506,
+      "revocacao": 0.4818,
+      "f1": 0.4657,
+      "segundos": 11
+    },
+    {
+      "atributos": "completo",
+      "alpha": 1e-07,
+      "precisao": 0.434,
+      "revocacao": 0.6238,
+      "f1": 0.5118,
+      "segundos": 44
+    },
+    {
+      "atributos": "completo",
+      "alpha": 1e-06,
+      "precisao": 0.4651,
+      "revocacao": 0.6304,
+      "f1": 0.5353,
+      "segundos": 21
+    }
+  ],
+  "escolhido": {
+    "atributos": "completo",
+    "alpha": 1e-06
+  },
+  "teste": {
+    "precisao": 0.5495,
+    "revocacao": 0.6686,
+    "f1": 0.6032
+  },
+  "teste_por_entidade": {
+    "PESSOA": {
+      "precision": 0.7418,
+      "recall": 0.7768,
+      "f1-score": 0.7589,
+      "exemplos": 233
+    },
+    "ORGANIZACAO": {
+      "precision": 0.6042,
+      "recall": 0.6826,
+      "f1-score": 0.641,
+      "exemplos": 501
+    },
+    "LEGISLACAO": {
+      "precision": 0.4257,
+      "recall": 0.5688,
+      "f1-score": 0.487,
+      "exemplos": 378
+    },
+    "JURISPRUDENCIA": {
+      "precision": 0.3567,
+      "recall": 0.5784,
+      "f1-score": 0.4412,
+      "exemplos": 185
+    },
+    "TEMPO": {
+      "precision": 0.9153,
+      "recall": 0.8438,
+      "f1-score": 0.878,
+      "exemplos": 192
+    },
+    "LOCAL": {
+      "precision": 0.2597,
+      "recall": 0.4255,
+      "f1-score": 0.3226,
+      "exemplos": 47
+    }
+  },
+  "erros": {
+    "falsos_negativos": 509,
+    "falsos_positivos": 842,
+    "exemplos_falsos_negativos": [
+      {
+        "tipo": "ORGANIZACAO",
+        "texto": "PLENÁRIO"
+      },
+      {
+        "tipo": "PESSOA",
+        "texto": "Cristina Machado da Costa e Silva"
+      },
+      {
+        "tipo": "ORGANIZACAO",
+        "texto": "Unidade Técnica Secretaria de Recursos"
+      },
+      {
+        "tipo": "ORGANIZACAO",
+        "texto": "Secretaria de Controle Externo da Defesa Nacional e da Segurança Pública"
+      },
+      {
+        "tipo": "ORGANIZACAO",
+        "texto": "SecexDefes"
+      },
+      {
+        "tipo": "ORGANIZACAO",
+        "texto": "1ª Circunscrição Judiciária Militar no Rio de Janeiro"
+      },
+      {
+        "tipo": "ORGANIZACAO",
+        "texto": "STM"
+      },
+      {
+        "tipo": "LOCAL",
+        "texto": "ILHA DO GOVERNADOR-RJ"
+      },
+      {
+        "tipo": "LEGISLACAO",
+        "texto": "arts . 32 , inciso I , e 33 da Lei nº 8.443"
+      },
+      {
+        "tipo": "PESSOA",
+        "texto": "Bruno Dantas e Vital do Rêgo"
+      },
+      {
+        "tipo": "JURISPRUDENCIA",
+        "texto": "Acórdão 1.466/2013"
+      },
+      {
+        "tipo": "JURISPRUDENCIA",
+        "texto": "Acórdão 633/2014"
+      }
+    ],
+    "exemplos_falsos_positivos": [
+      {
+        "tipo": "TEMPO",
+        "texto": "16/2016"
+      },
+      {
+        "tipo": "ORGANIZACAO",
+        "texto": "Ministério Público Subprocuradora-Geral Cristina"
+      },
+      {
+        "tipo": "PESSOA",
+        "texto": "Machado da Costa"
+      },
+      {
+        "tipo": "PESSOA",
+        "texto": "Silva"
+      },
+      {
+        "tipo": "ORGANIZACAO",
+        "texto": "Técnica"
+      },
+      {
+        "tipo": "ORGANIZACAO",
+        "texto": "Secretaria de Recursos"
+      },
+      {
+        "tipo": "ORGANIZACAO",
+        "texto": "Secretaria de Controle Externo da"
+      },
+      {
+        "tipo": "ORGANIZACAO",
+        "texto": "Nacional"
+      },
+      {
+        "tipo": "ORGANIZACAO",
+        "texto": "Segurança Pública"
+      },
+      {
+        "tipo": "LOCAL",
+        "texto": "Rio de Janeiro"
+      },
+      {
+        "tipo": "ORGANIZACAO",
+        "texto": "1ª Circunscrição Judiciária Militar"
+      },
+      {
+        "tipo": "JURISPRUDENCIA",
+        "texto": "STM"
+      }
+    ]
+  }
+}

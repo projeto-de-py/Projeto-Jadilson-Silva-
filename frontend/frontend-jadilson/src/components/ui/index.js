@@ -34,3 +34,4 @@ export { RotatingText } from "./RotatingText";
 export { CreateMenu, Create } from "./CreateMenu";
 export { Assignees, Picker } from "./Assignees";
 export { HairlineEmptyState } from "./HairlineEmptyState";
+export { Dropdown } from "./Dropdown";

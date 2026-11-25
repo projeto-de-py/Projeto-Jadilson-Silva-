@@ -29,6 +29,8 @@
   position: relative;
   width: 244px;
   height: 244px;
+  /* Área só de animação: sem isto ela cobre o conteúdo da página abaixo da barra e engole o mouse. */
+  pointer-events: none;
   --pill-w: 120px;
   --pill-h: 38px;
   --panel-w: 212px;
@@ -96,6 +98,7 @@
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
+  pointer-events: auto;
   transition:
     width 420ms cubic-bezier(0.22, 1, 0.36, 1),
     opacity 160ms ease,

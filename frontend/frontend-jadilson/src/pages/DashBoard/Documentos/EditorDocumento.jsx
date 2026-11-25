@@ -33,10 +33,12 @@ import {
 import { Button, Select, Badge, useToast } from "@/components/ui";
 import { CaixaIA } from "@/components/ia/CaixaIA";
 import { CartaoSugestao } from "@/components/ia/CartaoSugestao";
+import { PainelEntidades } from "@/components/ia/PainelEntidades";
 import { ModalAssinatura } from "@/components/financeiro/ModalAssinatura";
 import { ModalCompararJuros } from "@/components/consultas/ModalCompararJuros";
 import { SugestoesIA, TextoFantasma, adicionarBlocos, definirFantasma, posicaoDoBloco, posicaoDoBlocoSalvo, removerBloco } from "@/components/ia/extensoes";
 import { completarTexto } from "@/lib/ia";
+import { CampoAuto, dadosDoProcesso, preencherCampos } from "@/lib/camposDocumento";
 import { useSessao } from "@/context/sessao";
 import { LogoIA } from "@/components/ia/LogoIA";
 import { useCarteira } from "@/data/escritorio";
@@ -54,6 +56,11 @@ const TAMANHOS = [10, 11, 12, 13, 14, 16, 18, 20, 24];
 const ENTRELINHAS = ["1", "1.15", "1.5", "2"];
 const ZOOMS = [75, 100, 125];
 const PAGINA_PX = 1122.5; // 297 mm a 96 dpi
+const ABAS = [
+  { id: "processo", rotulo: "Processo" },
+  { id: "estrutura", rotulo: "Estrutura" },
+  { id: "conferir", rotulo: "Conferir" },
+];
 
 function Botao({ ativo, aoClicar, rotulo, children, disabled }) {
   return (
@@ -88,7 +95,7 @@ export function EditorDocumento() {
 }
 
 function Editor({ doc, atualizar }) {
-  const { processos } = useCarteira();
+  const { processos, clientes } = useCarteira();
   const [titulo, setTitulo] = useState(doc.titulo);
   const [salvo, setSalvo] = useState(true);
   const [zoom, setZoom] = useState(100);
@@ -100,6 +107,7 @@ function Editor({ doc, atualizar }) {
   const [iaAberta, setIaAberta] = useState(false);
   const [assinaturaAberta, setAssinaturaAberta] = useState(false);
   const [jurosAberto, setJurosAberto] = useState(false);
+  const [aba, setAba] = useState("processo");
   const [iaOcupada, setIaOcupada] = useState(false); // o autocompletar não conseguiu resposta da IA
   const [alvos, setAlvos] = useState({}); // id da sugestão -> elemento onde o cartão é desenhado
   const [autoCompletar, setAutoCompletar] = useState(() => {
@@ -138,6 +146,7 @@ function Editor({ doc, atualizar }) {
       Placeholder.configure({ placeholder: "Comece a escrever a peça…" }),
       SugestoesIA.configure({ aoRegistrar: registrarAlvo }),
       TextoFantasma,
+      CampoAuto,
     ],
     content: doc.html,
     shouldRerenderOnTransaction: true,
@@ -153,6 +162,30 @@ function Editor({ doc, atualizar }) {
   });
 
   useEffect(() => () => clearTimeout(timer.current), []);
+
+  // Ao vincular ou trocar o processo, preenche os marcadores da peça (lib/camposDocumento.js).
+  const dadosAplicados = useRef({});
+  useEffect(() => {
+    if (!editor) return;
+    const proc = processos.find((p) => String(p.id) === processoId);
+    if (processoId && !proc) return; // a carteira ainda está carregando
+    const cliente = proc ? clientes.find((c) => c.id === proc.clienteId) : null;
+    const novos = dadosDoProcesso(proc, cliente);
+    const mudou = preencherCampos(editor, novos, dadosAplicados.current);
+    dadosAplicados.current = novos;
+    if (!mudou) return;
+    atualizar(doc.id, { html: editor.getHTML() });
+    toast(
+      proc
+        ? { tipo: "sucesso", titulo: "Peça preenchida", descricao: `${mudou} ${mudou === 1 ? "campo atualizado" : "campos atualizados"} com os dados de ${proc.cliente}.` }
+        : { tipo: "info", titulo: "Processo desvinculado", descricao: "Os campos preenchidos voltaram a ser marcadores." },
+    );
+  }, [editor, processoId, processos, clientes, atualizar, doc.id, toast]);
+
+  function mudarProcesso(valor) {
+    setProcessoId(valor);
+    atualizar(doc.id, { processoId: valor });
+  }
 
   // Autocompletar: ao parar de digitar no fim de um parágrafo, pede a continuação.
   useEffect(() => {
@@ -272,6 +305,19 @@ function Editor({ doc, atualizar }) {
     atualizar(doc.id, { titulo: valor });
   }
 
+  // Seleciona no texto a primeira ocorrência do trecho achado pela IA e leva a tela até ela.
+  function localizarTrecho(trecho) {
+    let achado = null;
+    editor.state.doc.descendants((no, pos) => {
+      if (achado !== null || !no.isText) return achado === null;
+      const i = no.text.indexOf(trecho);
+      if (i >= 0) achado = pos + i;
+      return achado === null;
+    });
+    if (achado !== null) editor.chain().focus().setTextSelection({ from: achado, to: achado + trecho.length }).scrollIntoView().run();
+    else toast({ tipo: "info", titulo: "Trecho não localizado", descricao: "O texto pode ter mudado desde a conferência." });
+  }
+
   function irPara(pos) {
     editor.chain().focus().setTextSelection(pos + 1).scrollIntoView().run();
   }
@@ -279,9 +325,8 @@ function Editor({ doc, atualizar }) {
   const area = AREAS_DOC.find((a) => a.id === doc.area);
 
   return (
-    <div className="space-y-6">
-      {/* Cabeçalho do documento */}
-      <div className="flex flex-wrap items-center gap-4">
+    <div className="flex flex-col gap-4 xl:h-[calc(100vh-12rem)]">
+      <div className="flex shrink-0 flex-wrap items-center gap-4">
         <Link to="/documentos" aria-label="Voltar para documentos" className="text-ink-muted hover:bg-surface-muted hover:text-ink flex size-10 items-center justify-center rounded-input transition-colors">
           <IconChevronLeft className="size-4" fill="currentColor" />
         </Link>
@@ -316,9 +361,9 @@ function Editor({ doc, atualizar }) {
         </Button>
       </div>
 
-      <div className="bg-surface border-border overflow-hidden rounded-card border">
+      <div className="bg-surface border-border flex flex-col overflow-hidden rounded-card border xl:min-h-0 xl:flex-1">
         {/* Faixa de formatação */}
-        <div className="border-border bg-surface flex flex-wrap items-center gap-1 border-b p-2" role="toolbar" aria-label="Formatação">
+        <div className="border-border bg-surface flex shrink-0 flex-wrap items-center gap-1 border-b p-2" role="toolbar" aria-label="Formatação">
           <Botao rotulo="Desfazer" aoClicar={() => cmd().undo().run()} disabled={!editor.can().undo()}><IconArrowUturnBackward className="size-4" fill="currentColor" /></Botao>
           <Botao rotulo="Refazer" aoClicar={() => cmd().redo().run()} disabled={!editor.can().redo()}><IconArrowUturnForward className="size-4" fill="currentColor" /></Botao>
           <Divisor />
@@ -398,9 +443,9 @@ function Editor({ doc, atualizar }) {
           )}
         </div>
 
-        <div className="grid xl:grid-cols-[1fr_288px]">
+        <div className="grid xl:min-h-0 xl:flex-1 xl:grid-cols-[minmax(0,1fr)_320px] xl:grid-rows-[minmax(0,1fr)]">
           {/* Mesa de trabalho com a folha A4 */}
-          <div className="bg-surface-muted max-h-[calc(100vh-18rem)] min-h-[520px] overflow-auto p-6">
+          <div className="bg-surface-muted h-[70vh] overflow-auto p-6 xl:h-auto xl:min-h-0">
             <div className="mx-auto w-max" style={{ zoom: zoom / 100 }}>
               <div ref={folha} className="folha-a4" style={{ padding: PADRAO_PAGINA.margens }}>
                 <EditorContent editor={editor} />
@@ -409,74 +454,96 @@ function Editor({ doc, atualizar }) {
             {sugestoes.map((s) => (alvos[s.id] ? createPortal(<CartaoSugestao key={s.id} sugestao={s} aoAdicionar={adicionarSugestao} aoIgnorar={ignorarSugestao} />, alvos[s.id]) : null))}
           </div>
 
-          {/* Painel lateral */}
-          <aside className="border-border space-y-6 border-t p-4 xl:border-t-0 xl:border-l">
-            <section className="space-y-2">
-              <h3 className="text-13 text-ink font-semibold">Dados do processo</h3>
-              <Select value={processoId} onChange={(e) => setProcessoId(e.target.value)} aria-label="Processo vinculado" className="text-13">
-                <option value="">Escolha um processo…</option>
-                {processos.map((p) => <option key={p.id} value={p.id}>{p.cliente}</option>)}
-              </Select>
-              {dadosProcesso.length > 0 ? (
-                <ul className="space-y-1">
-                  {dadosProcesso.map(([rotulo, valor]) => (
-                    <li key={rotulo}>
-                      <button
-                        type="button"
-                        onClick={() => editor.chain().focus().insertContent(valor).run()}
-                        className="hover:bg-surface-muted w-full rounded-input px-2 py-1 text-left transition-colors"
-                      >
-                        <span className="text-11 text-ink-muted block">{rotulo} · inserir</span>
-                        <span className="text-13 text-ink block truncate">{valor}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-12 text-ink-muted">Vincule um processo para inserir cliente, número e vara com um clique.</p>
+          <aside className="border-border flex flex-col border-t xl:min-h-0 xl:border-t-0 xl:border-l">
+            <div role="tablist" aria-label="Painel do documento" className="border-border flex shrink-0 gap-1 border-b p-2">
+              {ABAS.map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={aba === a.id}
+                  onClick={() => setAba(a.id)}
+                  className={cn(
+                    "text-13 h-8 flex-1 rounded-[8px] px-3 font-medium transition-colors",
+                    aba === a.id ? "bg-surface-muted text-ink" : "text-ink-muted hover:text-ink",
+                  )}
+                >
+                  {a.rotulo}
+                  {a.id === "estrutura" && titulos.length > 0 && <span className="text-11 text-ink-muted ml-1 tabular-nums">{titulos.length}</span>}
+                </button>
+              ))}
+            </div>
+
+            <div role="tabpanel" className="space-y-4 p-4 xl:min-h-0 xl:flex-1 xl:overflow-y-auto">
+              {aba === "processo" && (
+                <>
+                  <Select value={processoId} onChange={(e) => mudarProcesso(e.target.value)} aria-label="Processo vinculado" className="text-13">
+                    <option value="">Escolha um processo…</option>
+                    {processos.map((p) => <option key={p.id} value={p.id}>{p.cliente}</option>)}
+                  </Select>
+                  {dadosProcesso.length > 0 ? (
+                    <ul className="space-y-1">
+                      {dadosProcesso.map(([rotulo, valor]) => (
+                        <li key={rotulo}>
+                          <button
+                            type="button"
+                            onClick={() => editor.chain().focus().insertContent(valor).run()}
+                            className="hover:bg-surface-muted w-full rounded-input px-2 py-1 text-left transition-colors"
+                          >
+                            <span className="text-11 text-ink-muted block">{rotulo} · inserir</span>
+                            <span className="text-13 text-ink block truncate">{valor}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-12 text-ink-muted">Vincule um processo: os campos da peça (cliente, número, vara, valor da causa) são preenchidos automaticamente.</p>
+                  )}
+                  <p className="text-12 text-ink-muted border-border border-t pt-3">{PADRAO_PAGINA.nome}: margens 3 cm (sup. e esq.) e 2 cm, Times New Roman 12, entrelinhas 1,5.</p>
+                </>
               )}
-            </section>
 
-            <section className="space-y-2">
-              <h3 className="text-13 text-ink font-semibold">Estrutura</h3>
-              {titulos.length === 0 ? (
-                <p className="text-12 text-ink-muted">Use os estilos Título e Seção para montar o índice.</p>
-              ) : (
-                <ul className="space-y-0.5">
-                  {titulos.map((t, i) => (
-                    <li key={`${t.pos}-${i}`}>
-                      <button
-                        type="button"
-                        onClick={() => irPara(t.pos)}
-                        style={{ paddingLeft: `${(t.nivel - 1) * 12 + 8}px` }}
-                        className="text-12 text-ink-muted hover:bg-surface-muted hover:text-ink w-full truncate rounded-input py-1 pr-2 text-left transition-colors"
-                      >
-                        {t.texto || "Sem título"}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+              {aba === "estrutura" &&
+                (titulos.length === 0 ? (
+                  <p className="text-12 text-ink-muted">Use os estilos Título e Seção para montar o índice da peça.</p>
+                ) : (
+                  <ul className="space-y-0.5">
+                    {titulos.map((t, i) => (
+                      <li key={`${t.pos}-${i}`}>
+                        <button
+                          type="button"
+                          onClick={() => irPara(t.pos)}
+                          style={{ paddingLeft: `${(t.nivel - 1) * 12 + 8}px` }}
+                          className="text-12 text-ink-muted hover:bg-surface-muted hover:text-ink w-full truncate rounded-input py-1 pr-2 text-left transition-colors"
+                        >
+                          {t.texto || "Sem título"}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ))}
+
+              {aba === "conferir" && (
+                <>
+                  <section className="space-y-2">
+                    <h3 className="text-13 text-ink font-semibold">Juros do contrato</h3>
+                    <Button variant="secondary" className="w-full" onClick={() => setJurosAberto(true)}>
+                      Comparar juros (Banco Central)
+                    </Button>
+                    <p className="text-12 text-ink-muted">Compara a taxa do contrato com a média de mercado do mês e insere o parágrafo na peça.</p>
+                  </section>
+                  <section className="border-border space-y-2 border-t pt-4">
+                    <h3 className="text-13 text-ink font-semibold">Conferência da peça</h3>
+                    <PainelEntidades obterTexto={() => editor.getText()} aoLocalizar={localizarTrecho} />
+                  </section>
+                </>
               )}
-            </section>
-
-            <section className="space-y-2">
-              <h3 className="text-13 text-ink font-semibold">Ferramentas</h3>
-              <Button variant="secondary" className="w-full" onClick={() => setJurosAberto(true)}>
-                Comparar juros (Banco Central)
-              </Button>
-              <p className="text-12 text-ink-muted">Compara a taxa do contrato com a média de mercado do mês e insere o parágrafo na peça.</p>
-            </section>
-
-            <section className="space-y-1">
-              <h3 className="text-13 text-ink font-semibold">Padrão de formatação</h3>
-              <p className="text-12 text-ink-muted">{PADRAO_PAGINA.nome}</p>
-              <p className="text-12 text-ink-muted">Margens 3 cm (superior e esquerda) e 2 cm (inferior e direita) · Times New Roman 12 · entrelinhas 1,5 · citações longas com recuo de 4 cm.</p>
-            </section>
+            </div>
           </aside>
         </div>
 
         {/* Barra de status */}
-        <div className="border-border text-12 text-ink-muted flex flex-wrap items-center gap-x-6 gap-y-2 border-t px-4 py-2 tabular-nums">
+        <div className="border-border text-12 text-ink-muted flex shrink-0 flex-wrap items-center gap-x-6 gap-y-2 border-t px-4 py-2 tabular-nums">
           <span>{paginas} {paginas === 1 ? "página" : "páginas"} (A4)</span>
           <span>{editor.storage.characterCount.words()} palavras</span>
           <span>{editor.storage.characterCount.characters()} caracteres</span>
@@ -506,7 +573,7 @@ function Editor({ doc, atualizar }) {
         open={iaAberta}
         onOpenChange={setIaAberta}
         processoId={processoId}
-        aoMudarProcesso={setProcessoId}
+        aoMudarProcesso={mudarProcesso}
         textoDocumento={editor.getText()}
         area={doc.area}
         tipoPeca={doc.tipo}
@@ -523,6 +590,7 @@ function Editor({ doc, atualizar }) {
         ${ESTILO_DOCUMENTO}
         .folha-a4 .ProseMirror table { table-layout: fixed; }
         .folha-a4 .ProseMirror .selectedCell { background: #dbeafe; }
+        .folha-a4 .campo-auto { background: #e6f0ff; border-radius: 3px; box-shadow: 0 0 0 2px #e6f0ff; }
         .folha-a4 .ghost-ia { color: #8d8d8d; }
         .folha-a4 .ghost-ia kbd { margin-left: 6px; padding: 0 5px; border: 1px solid #cfcfcf; border-radius: 5px; font: 11px/16px system-ui, sans-serif; color: #6b6b6b; background: #f4f4f4; vertical-align: 1px; }
         .folha-a4 .sug-bloco { margin: 10px 0 14px; text-indent: 0; text-align: left; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 13px; line-height: 1.45; }

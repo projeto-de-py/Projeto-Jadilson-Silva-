@@ -10,6 +10,9 @@ venv/
 # Banco de teste local
 dev.db
 *.db
+# Backups locais do banco (nunca versionar)
+*.bak
+*.bak-*
 
 # IDE
 .vscode/

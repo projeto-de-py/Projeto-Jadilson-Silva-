@@ -1,7 +1,9 @@
-import { Children, isValidElement, useState } from "react";
+import { Children, isValidElement, useId, useState } from "react";
 import * as RadixSelect from "@radix-ui/react-select";
+import { AnimatePresence, motion } from "motion/react";
 import { IconCheckmark, IconChevronDown } from "symbols-react";
 import { Field } from "./Field";
+import { spring } from "@/lib/motion";
 import { cn } from "@/lib/cn";
 
 // Radix não aceita valor "" em um item (ele é reservado para "limpar").
@@ -10,8 +12,8 @@ const paraRadix = (v) => (v === "" || v == null ? VAZIO : String(v));
 const dePradix = (v) => (v === VAZIO ? "" : v);
 
 const gatilho = [
-  "border-input bg-surface text-ink flex h-10 w-full items-center justify-between gap-2 rounded-input border px-4 text-14",
-  "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+  "border-input bg-surface text-ink flex h-10 w-full items-center justify-between gap-2 rounded-input border px-4 text-14 transition-colors",
+  "hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
   "disabled:cursor-not-allowed disabled:opacity-50 data-[placeholder]:text-ink-muted",
 ].join(" ");
 
@@ -57,13 +59,25 @@ export function Select({
   "aria-label": ariaLabel,
   placeholder,
 }) {
+  const uid = useId();
   const [interno, setInterno] = useState(defaultValue ?? "");
+  const [aberto, setAberto] = useState(false);
+  const [destaque, setDestaque] = useState(null);
   const value = valorControlado !== undefined ? valorControlado : interno;
   const opcoes = lerOpcoes(children);
   const atual = opcoes.find((o) => o.valor === String(value ?? ""));
 
+  const aoMudarAberto = (proximo) => {
+    setAberto(proximo);
+    if (proximo) {
+      setDestaque(paraRadix(value));
+    }
+  };
+
   const select = (
     <RadixSelect.Root
+      open={aberto}
+      onOpenChange={aoMudarAberto}
       value={paraRadix(value)}
       onValueChange={(v) => {
         setInterno(dePradix(v));
@@ -81,34 +95,77 @@ export function Select({
       >
         <span className={cn("truncate", !atual && "text-ink-muted")}>{atual?.rotulo || placeholder || ""}</span>
         <RadixSelect.Icon asChild>
-          <IconChevronDown aria-hidden="true" fill="currentColor" className="text-ink-muted size-4 shrink-0" />
+          <motion.span
+            animate={{ rotate: aberto ? 180 : 0 }}
+            transition={spring.snappy}
+            className="text-ink-muted inline-flex shrink-0"
+          >
+            <IconChevronDown aria-hidden="true" fill="currentColor" className="size-4" />
+          </motion.span>
         </RadixSelect.Icon>
       </RadixSelect.Trigger>
 
-      <RadixSelect.Portal>
-        <RadixSelect.Content
-          position="popper"
-          sideOffset={6}
-          collisionPadding={16}
-          className="bg-surface border-border text-ink shadow-popover z-70 max-h-[min(320px,var(--radix-select-content-available-height))] w-(--radix-select-trigger-width) min-w-40 overflow-hidden rounded-input border"
-        >
-          <RadixSelect.Viewport className="p-2">
-            {opcoes.map((o) => (
-              <RadixSelect.Item
-                key={`${o.valor}`}
-                value={paraRadix(o.valor)}
-                disabled={o.desabilitada}
-                className="text-14 data-highlighted:bg-surface-muted data-[state=checked]:font-medium relative flex min-h-10 cursor-pointer items-center rounded-lg py-2 ps-3 pe-9 outline-none select-none data-disabled:opacity-40"
+      <AnimatePresence>
+        {aberto && (
+          <RadixSelect.Portal forceMount>
+            <RadixSelect.Content
+              position="popper"
+              sideOffset={6}
+              collisionPadding={16}
+              className="z-[80] w-(--radix-select-trigger-width) min-w-40 outline-none"
+            >
+              <motion.div
+                initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                transition={spring.snappy}
+                style={{ transformOrigin: "top center" }}
+                className="bg-surface border-border text-ink shadow-popover max-h-[min(320px,var(--radix-select-content-available-height))] overflow-hidden rounded-card border"
               >
-                <RadixSelect.ItemText>{o.rotulo}</RadixSelect.ItemText>
-                <RadixSelect.ItemIndicator className="absolute inset-e-3 inline-flex">
-                  <IconCheckmark className="text-ink size-3.5" fill="currentColor" />
-                </RadixSelect.ItemIndicator>
-              </RadixSelect.Item>
-            ))}
-          </RadixSelect.Viewport>
-        </RadixSelect.Content>
-      </RadixSelect.Portal>
+                <RadixSelect.Viewport className="max-h-[min(320px,var(--radix-select-content-available-height))] overflow-y-auto p-1.5">
+                  {opcoes.map((o) => {
+                    const valorRadix = paraRadix(o.valor);
+                    const estaDestacada = destaque === valorRadix;
+
+                    return (
+                      <RadixSelect.Item
+                        key={`${o.valor}`}
+                        value={valorRadix}
+                        disabled={o.desabilitada}
+                        onPointerMove={() => setDestaque(valorRadix)}
+                        onFocus={() => setDestaque(valorRadix)}
+                        className="text-14 text-ink-muted data-highlighted:text-ink data-[state=checked]:text-ink data-[state=checked]:font-medium relative flex min-h-10 cursor-pointer items-center rounded-input py-2 ps-3 pe-9 transition-colors outline-none select-none data-disabled:opacity-40"
+                      >
+                        {estaDestacada && (
+                          <motion.span
+                            layoutId={`${uid}-highlight`}
+                            transition={spring.snappy}
+                            aria-hidden="true"
+                            className="bg-surface-muted absolute inset-0 rounded-input"
+                          />
+                        )}
+                        <span className="relative z-10 min-w-0 flex-1 leading-snug">
+                          <RadixSelect.ItemText>{o.rotulo}</RadixSelect.ItemText>
+                        </span>
+                        <RadixSelect.ItemIndicator asChild>
+                          <motion.span
+                            initial={{ scale: 0.4, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            transition={spring.snappy}
+                            className="absolute inset-e-3 z-10 inline-flex text-primary"
+                          >
+                            <IconCheckmark className="size-3.5" fill="currentColor" />
+                          </motion.span>
+                        </RadixSelect.ItemIndicator>
+                      </RadixSelect.Item>
+                    );
+                  })}
+                </RadixSelect.Viewport>
+              </motion.div>
+            </RadixSelect.Content>
+          </RadixSelect.Portal>
+        )}
+      </AnimatePresence>
     </RadixSelect.Root>
   );
 
