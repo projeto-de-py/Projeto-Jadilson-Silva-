@@ -147,7 +147,7 @@ Na implementação, `models/notificacao.py` define a tabela, `repositories/notif
 | Frontend | React, Vite, Tailwind CSS, Radix UI, TipTap (editor), Motion, Recharts, ícones SF (`symbols-react`) |
 | Backend | Python, FastAPI, Uvicorn, Pydantic, SQLAlchemy, Alembic |
 | Banco | MySQL (SQLite para desenvolvimento e testes) |
-| Testes | Pytest (**637 testes** no backend) |
+| Testes | Pytest (**641 testes** no backend) |
 
 ---
 
@@ -170,7 +170,7 @@ Na implementação, `models/notificacao.py` define a tabela, `repositories/notif
 1. Guardar os documentos no banco, com versões e controle de edição simultânea (hoje é `localStorage`).
 2. Ligar o modelo de IA real e rodar a avaliação por área.
 3. Perfil do usuário e convite de colaboradores (já existe pela API: `/api/casos/{id}/usuarios` — falta a tela).
-4. Aplicar as migrations `0009`..`0013` no **banco real** (backup + autorização).
+4. ✅ Aplicar as migrations `0009`..`0014` no **banco MySQL** (feito em 26/11/2026).
 5. UI de atribuição de usuários aos casos e "Cadastrar Processo" criando processo judicial real.
 
 > **Aviso:** a IA é uma ferramenta de apoio. Toda peça deve ser revisada e assumida pelo advogado responsável.

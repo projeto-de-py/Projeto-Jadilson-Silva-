@@ -55,31 +55,29 @@ python -m app.seed
 
 **Login inicial (seed):** `admin@jadilson.adv` — a senha é **gerada aleatoriamente e impressa no terminal** pelo `python -m app.seed` (ou defina `ADMIN_SENHA_INICIAL` no `.env`). Troque após o 1º acesso.
 
-### Situação das migrações (15/11/2026)
+### Situação das migrações (26/11/2026)
 
 Cadeia versionada: `0001` (usuários) → `0002` (casos/prazos) → `0003` (Fase 1) →
 `0004` (Fase 2) → `0005` (Fase 3) → `0006` (Fase 4) → `0007` (permissão de
-compromissos) → `0009` (financeiro/assinaturas) → `0010` (eventos de agenda) →
-`0011` (eventos/webhooks) → `0012` (notificações) → **`0013`
-(configurações do escritório)** — head atual. A cadeia completa foi
-**validada em SQLite descartável** (upgrade → downgrade → re-upgrade, e
-`alembic check` sem divergências entre models e migrations) e em
+compromissos) → `0009` (uso de IA) → `0010` (financeiro/assinaturas) → `0011`
+(eventos de agenda) → `0012` (notificações) → `0013` (configurações do
+escritório) → **`0014` (origem dos andamentos)** — head atual.
+
+**Banco MySQL `advocacia` em dia desde 26/11/2026:** a base foi criada/ atualizada
+com **a cadeia completa até `0014`**, e `alembic check` confirmou **sem
+divergências entre models e migrations** no MySQL (20 tabelas). A cadeia também foi
+**validada em SQLite descartável** (upgrade → downgrade → re-upgrade) e em
 `tests/test_migracoes.py`.
 
-> ⚠️ **O banco real (`advocacia`) está ATRÁS do repositório:** revisão
-> aplicada **`0007_permissoes_compromissos`** (atualizado em 04/11/2026 de
-> `0002_casos_prazos`, após backup). **Faltam `0009`..`0013`** — sem elas,
-> notificações, agenda compartilhada, financeiro, assinaturas, uso de IA,
-> webhooks e configurações do escritório **não funcionam no banco real**
-> (tabelas ausentes). O procedimento abaixo vale para qualquer atualização —
-> **só execute com backup e autorização do time**:
+Para qualquer atualização futura de schema, **só execute com backup e autorização
+do time**:
 
 ```bash
 # 1) backup (ajuste usuário/senha; NUNCA commite o arquivo gerado)
 mysqldump -u root -p advocacia > backup_advocacia_antes_upgrade.sql
 
-# 2) revisão aplicada NO banco (deve imprimir 0007_permissoes_compromissos; se
-#    imprimir 0013_configuracoes_escritorio, o banco já está atualizado)
+# 2) revisão aplicada NO banco (deve imprimir 0014_andamentos_origem; se
+#    imprimir outra coisa, o banco está atrás do repositório)
 python -c "from alembic.config import main; main(['current'])"
 
 # 3) em caso de dúvida, confirme direto no banco (somente leitura)
@@ -115,10 +113,11 @@ Abra `http://127.0.0.1:5173`. O Vite encaminha `/api` para `127.0.0.1:8000`, ent
 ```bash
 cd backend
 source .venv/bin/activate
-python -m pytest          # 637 testes (unit + API + Fases 1-7 + migrations) — SQLite em memória, sem tocar o MySQL
+python -m pytest          # 641 testes (unit + API + Fases 1-7 + migrations) — SQLite em memória, sem tocar o MySQL
 ```
 
-Suíte executada em **15/11/2026: 637 testes aprovados, 0 falhas**.
+Suíte executada em **26/11/2026: 641 testes aprovados, 1 ignorado (NER sem
+scikit-learn instalado), 0 falhas**.
 Detalhes em [`backend/README.md`](backend/README.md).
 
 ```bash

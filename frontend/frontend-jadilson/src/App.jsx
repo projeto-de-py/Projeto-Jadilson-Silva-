@@ -113,7 +113,7 @@ function App() {
               <Route
                 path="/configuracoes"
                 element={
-                  session.usuario?.administrador ? (
+                  session?.usuario?.administrador ? (
                     <Configuracoes />
                   ) : (
                     <Navigate to="/home" replace />

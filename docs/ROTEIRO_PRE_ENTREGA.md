@@ -1,17 +1,15 @@
-# Roteiro de demonstração — Pré-entrega (atualizado em 15/11/2026 — Fase 8)
+# Roteiro de demonstração — Pré-entrega (atualizado em 26/11/2026)
 
-> Documento da **Etapa 6** da preparação para a pré-entrega, revisado na Fase 8.
+> Documento da **Etapa 6** da preparação para a pré-entrega.
 > Ele descreve apenas funcionalidades **realmente existentes** no sistema hoje:
 > login contra a API real, CRUD completo demonstrado pelo Swagger e telas do
 > frontend **ligadas à API real** (Fases 5–7 integraram Dashboard, Processos,
 > Prazos, Agenda, Clientes, Andamentos e Notificações). Nada aqui foi inventado.
 
-> ⚠️ **ATENÇÃO — banco real:** o banco `advocacia` está na revisão
-> **`0007_permissoes_compromissos`**, enquanto o repositório está em
-> **`0013_configuracoes_escritorio`**. **Antes de demonstrar**, aplique as
-> migrations faltantes com backup e autorização (ver §1). Sem isso,
-> notificações, agenda compartilhada, financeiro, assinaturas, IA e
-> configurações do escritório **não funcionarão** (tabelas ausentes).
+> ✅ **Banco MySQL em dia:** o banco `advocacia` está na revisão
+> **`0014_andamentos_origem`**, igual ao repositório (cadeia `0001`..`0014`
+> aplicada em 26/11/2026, com `alembic check` sem divergências). Antes de
+> qualquer mudança de schema no futuro, repita o procedimento de backup do §1.
 
 ---
 
@@ -19,10 +17,10 @@
 
 | Item | Detalhe |
 |---|---|
-| Banco MySQL | `advocacia` — revisão **`0007_permissoes_compromissos`** (real). Revisão do repositório: **`0013_configuracoes_escritorio`** — **upgrade pendente**: backup (`mysqldump`) + `python -c "from alembic.config import main; main(['upgrade','head'])"` **somente com autorização** |
+| Banco MySQL | `advocacia` — revisão **`0014_andamentos_origem`** (igual ao repositório). Backup antes de qualquer mudança: `mysqldump -u root -p advocacia > backup.sql` + `python -c "from alembic.config import main; main(['upgrade','head'])"` |
 | Backend | `python -m uvicorn app.main:app --host 127.0.0.1 --port 8000` (dentro de `backend/` com o venv ativo) |
 | Frontend | `npm run dev` em `frontend/frontend-jadilson` → <http://127.0.0.1:5173> |
-| Swagger | <http://127.0.0.1:8000/docs> (mesma origem do backend — os cookies funcionam por lá) — **63 caminhos / 82 operações** |
+| Swagger | <http://127.0.0.1:8000/docs> (mesma origem do backend — os cookies funcionam por lá) — **64 caminhos / 83 operações** |
 | Saúde da API | <http://127.0.0.1:8000/health> deve responder `{"status":"ok","versao":"0.1.0"}` |
 | Login | `admin@jadilson.adv` + a senha do administrador (conta já existente, provisionada pelo seed) |
 | Dados no banco | Seed idempotente (`python -m app.seed`) cria/promove **apenas a conta admin** (`CASOS_DEMO=[]` — sem casos/prazos fictícios). Cadastre dados fictícios pela própria demonstração |
@@ -127,7 +125,7 @@ npm run dev
 
 - [ ] `GET http://127.0.0.1:8000/health` → `{"status":"ok","versao":"0.1.0"}`
 - [ ] `http://127.0.0.1:8000/docs` abre com os **63 caminhos**
-- [ ] `alembic current` = `0013_configuracoes_escritorio` (senão, ver §1 — banco real pode estar em `0007`)
+- [ ] `alembic current` = `0014_andamentos_origem` (banco MySQL em dia com o repositório)
 - [ ] `http://127.0.0.1:5173` abre a tela de login
 - [ ] Login funcional com o administrador (sem estourar o rate limit)
 - [ ] MySQL80 em execução (`Get-Service MySQL80`)

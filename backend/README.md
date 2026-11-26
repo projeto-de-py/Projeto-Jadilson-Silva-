@@ -179,7 +179,7 @@ Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/api/auth/login `
 
 ```powershell
 python -m pip install -r requirements-dev.txt
-python -m pytest          # 637 testes (unit + API + Fases 1-7 + migrations) — rodam em SQLite em memoria
+python -m pytest          # 641 testes (unit + API + Fases 1-7 + migrations) — rodam em SQLite em memoria
 ```
 
 - `tests/test_unit.py`: bcrypt, JWT (assinatura falsa/expirada), `Limiter`, services, validação de configuração de segurança
@@ -201,10 +201,12 @@ Tabelas: `usuarios` (`id, nome, email unique, senha_hash, perfil ADVOGADO|FUNCIO
 - **Produção/desenvolvimento:** MySQL (InnoDB, utf8mb4) via `DATABASE_URL` no `.env`
 - **Teste local sem MySQL:** `$env:DATABASE_URL="sqlite:///./dev.db"`
 - Migrações com **Alembic** (`alembic/versions/`) — nunca alterar tabela na mão
-- **Migrations `0009`..`0013`** criam as tabelas das Fases 5–8: `cobrancas`,
-  `assinaturas`, `eventos_webhook`, `eventos_agenda`, `notificacoes`, `uso_ia` e
-  `configuracoes_escritorio` (head = **`0013_configuracoes_escritorio`**).
-  ⚠️ O **banco real** pode ainda estar em `0007` — verifique com
+- **Migrations `0009`..`0014`** criam as tabelas das Fases 5–8: `0009` `uso_ia`,
+  `0010` `cobrancas` + `assinaturas`, `0011` `eventos_agenda` + `eventos_webhook`,
+  `0012` `notificacoes`, `0013` `configuracoes_escritorio` e `0014` colunas de
+  origem em `andamentos` (head = **`0014_andamentos_origem`**).
+  ✅ O **banco MySQL `advocacia`** está **em `0014_andamentos_origem` desde
+  26/11/2026** (cadeia completa + `alembic check` sem divergências); confira com
   `python -c "from alembic.config import main; main(['current'])"` e atualize
   **só com backup e autorização** (procedimento no `README.md` da raiz).
   Validação local sem tocar no MySQL: `tests/test_migracoes.py` ou um SQLite
@@ -317,7 +319,7 @@ Migrations `0006_prazos_compromissos` + `0007_permissoes_compromissos`
 6. ~~Financeiro, assinaturas, webhooks, eventos de agenda~~ ✅ Fase 5
 7. ~~Notificações e IA do escritório~~ ✅ Fase 6
 8. ~~Frontend das telas consumindo a API~~ ✅ Fases 5–7
-9. **Pendências:** upgrade do **banco real** para `0013` (backup + autorização);
+9. **Pendências:** ✅ upgrade do **banco MySQL** para `0014` (feito em 26/11/2026);
    UI de atribuição de casos (`/api/casos/{id}/usuarios`); documentos por caso
    (hoje só `localStorage`); módulo MinutaIA (Port/Adapter com mock)
 

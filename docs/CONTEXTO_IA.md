@@ -17,15 +17,15 @@
 > assinaturas + webhooks + eventos de agenda), Fase 6 (notificações + IA) e
 > **Fase 7 (andamentos RF06)** — docs em `docs/FASE*_*.md`.
 >
-> 🔎 **Revisão técnica de pré-entrega (15/11/2026 — Fase 8):**
-> - suíte completa: **637 testes, 0 falhas** (antes 376);
-> - head do Alembic = **`0013_configuracoes_escritorio`** (cadeia `0001`..`0013`,
->   validada em SQLite descartável: upgrade → downgrade → re-upgrade + `alembic check` OK);
-> - **⚠️ banco real `advocacia` está em `0007_permissoes_compromissos`** — faltam as
->   migrations `0009`..`0013` (tabelas `assinaturas`, `cobrancas`,
->   `configuracoes_escritorio`, `eventos_agenda`, `eventos_webhook`, `notificacoes`,
->   `uso_ia` **ausentes** no real). Upgrade exige **backup (`mysqldump`) + autorização**:
->   `python -c "from alembic.config import main; main(['upgrade','head'])"`;
+> 🔎 **Revisão técnica de pré-entrega (atualizado em 26/11/2026):**
+> - suíte completa: **641 testes aprovados, 1 ignorado (NER sem
+>   `scikit-learn`), 0 falhas** (antes 637);
+> - head do Alembic = **`0014_andamentos_origem`** (cadeia `0001`..`0014`);
+> - ✅ **banco MySQL `advocacia` em `0014_andamentos_origem`** — criado/atualizado
+>   em 26/11/2026 com a cadeia completa, `alembic check` sem divergências e 20
+>   tabelas (notificações, agenda, financeiro, assinaturas, IA, webhooks e
+>   configurações do escritório disponíveis). Toda nova alteração de schema segue
+>   o procedimento de backup do `README.md` da raiz;
 > - frontend: `npm run lint` (0 erros) e `npm run build` (OK); **todas as telas do
 >   dashboard consomem a API real** (login, casos, processos, prazos, agenda,
 >   clientes, andamentos, notificações, financeiro, configurações) — ver
@@ -33,7 +33,7 @@
 > - segurança: `PUT /api/auth/escritorio` exige **admin**; produção rejeita o
 >   `JWT_SECRET` default do repositório.
 >
-> **Pendências:** upgrade do **banco real** para `0013` (com backup+autorização);
+> **Pendências:** ✅ upgrade do **banco MySQL** para `0014`;
 > UI de atribuição de casos a usuários (backend pronto: `/api/casos/{id}/usuarios`);
 > "Cadastrar Processo" ainda não cria processo judicial via
 > `POST /api/casos/{id}/processos` (cria um Caso).
@@ -233,7 +233,14 @@ POST /api/auth/login  {email, senha}
 ### Banco/migrações
 
 - Tabela **`usuarios`**: `id, nome, email UNIQUE, senha_hash, perfil(10), ativo(bool), criado_em(datetime UTC)`.
-- Alembic no MySQL real: revisão aplicada **`0007_permissoes_compromissos`** (atualizado em 04/11/2026 com backup prévio, de `0002_casos_prazos`). **⚠️ O real está ATRÁS do repositório:** o head atual é **`0013_configuracoes_escritorio`** (faltam `0009`..`0013` — tabelas das Fases 5–8 ausentes no real). Antes de qualquer upgrade no real: `mysqldump` + autorização; validar antes em SQLite descartável (`DATABASE_URL=sqlite:///...`). Nova alteração de schema = `alembic revision --autogenerate` + `upgrade head` (com a trava do AppLocker, via `python -c ...`); procedimento de backup/upgrade no `README.md` da raiz.
+- Alembic no MySQL `advocacia`: revisão aplicada **`0014_andamentos_origem`** (cadeia
+  completa `0001`..`0014` aplicada em 26/11/2026, com `alembic check` sem
+  divergências — o banco estava vazio nesta máquina e foi criado do zero). O head
+  do repositório é **`0014_andamentos_origem`**. Nova alteração de schema =
+  `alembic revision --autogenerate` + `upgrade head` (com a trava do AppLocker, via
+  `python -c ...`); **sempre com backup (`mysqldump`) e autorização do time**;
+  validar antes em SQLite descartável (`DATABASE_URL=sqlite:///...`). Procedimento
+  completo no `README.md` da raiz.
 - Datas gravadas em **UTC sem fuso** (`utcnow()` em `models/usuario.py`) — cuidado ao exibir (UTC-3).
 
 ---
@@ -379,4 +386,4 @@ python -m pytest                      # backend em SQLite em memória
 6. Guardas de qualidade: `npm run lint` em 0 erros; testar login E2E (senha errada → alerta; certo → dashboard; recarregar a página mantém a sessão via `GET /api/auth/me`; logout → volta ao login).
 
 ---
-*Documento gerado em 16/10/2026 a partir da análise do código, do PDF de documentação e do histórico Git. Atualizado em 21/10/2026: Sistema B removido, Sistema A consolidado (§7, §8, §10, §14). Atualizado em 03/11/2026: Fases 1–4 do backend concluídas (§1 RFs, §12 roadmap, §3 migrations 0001–0007). Atualizado em 04/11/2026 (pré-entrega): suíte com **376 testes, 0 falhas**, cadeia de migrations validada em MySQL descartável, **banco real atualizado para `0007_permissoes_compromissos`** com backup, roteiro em `docs/ROTEIRO_PRE_ENTREGA.md`. Atualizado em 15/11/2026 (Fase 8 — auditoria/estabilização): Fases 5–7 reconhecidas (RF06 com endpoint + front), suíte com **637 testes, 0 falhas**, head do Alembic = **`0013_configuracoes_escritorio`** (**banco real ainda em `0007` — upgrade pendente com backup+autorização**), `PUT /api/auth/escritorio` restrito a admin, produção rejeita o `JWT_SECRET` default, frontend com estados de erro/carregamento reais. Quando o projeto mudar, atualizar as seções 1 (status dos RFs), 8 (consolidação), 11 (Git) e 12 (roadmap).*
+*Documento gerado em 16/10/2026 a partir da análise do código, do PDF de documentação e do histórico Git. Atualizado em 21/10/2026: Sistema B removido, Sistema A consolidado (§7, §8, §10, §14). Atualizado em 03/11/2026: Fases 1–4 do backend concluídas (§1 RFs, §12 roadmap, §3 migrations 0001–0007). Atualizado em 04/11/2026 (pré-entrega): suíte com **376 testes, 0 falhas**, cadeia de migrations validada em MySQL descartável, **banco real atualizado para `0007_permissoes_compromissos`** com backup, roteiro em `docs/ROTEIRO_PRE_ENTREGA.md`. Atualizado em 15/11/2026 (Fase 8 — auditoria/estabilização): Fases 5–7 reconhecidas (RF06 com endpoint + front), `PUT /api/auth/escritorio` restrito a admin, produção rejeita o `JWT_SECRET` default, frontend com estados de erro/carregamento reais. Atualizado em 26/11/2026: suíte com **641 testes aprovados, 1 ignorado (NER sem scikit-learn), 0 falhas**, head do Alembic = **`0014_andamentos_origem`** e **banco MySQL `advocacia` em dia** (cadeia `0001`..`0014` aplicada, `alembic check` sem divergências). Quando o projeto mudar, atualizar as seções 1 (status dos RFs), 8 (consolidação), 11 (Git) e 12 (roadmap).*
