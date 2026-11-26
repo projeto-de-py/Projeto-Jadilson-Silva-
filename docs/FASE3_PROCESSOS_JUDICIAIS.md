@@ -1,5 +1,8 @@
 # Fase 3 — Gerenciamento de Processos Judiciais
 
+> Documento histórico da Fase 3. Estado final consolidado em
+> [RELATORIO_ENTREGA.md](RELATORIO_ENTREGA.md).
+
 Evolução do sistema de gestão de escritório: cadastrar, consultar, atualizar,
 arquivar e auditar **processos judiciais** vinculados aos casos, preservando
 integralmente as Fases 1 e 2.

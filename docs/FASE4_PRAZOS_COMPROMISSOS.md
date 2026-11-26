@@ -1,5 +1,8 @@
 # Fase 4 — Prazos e Compromissos de Agenda
 
+> Documento histórico da Fase 4. Estado final consolidado em
+> [RELATORIO_ENTREGA.md](RELATORIO_ENTREGA.md).
+
 Evolução do sistema de gestão de escritório: completar os **prazos**
 (entidade própria, com vencimento, status e auditoria) e criar os
 **compromissos de agenda** (audiências, reuniões, atendimentos), preservando

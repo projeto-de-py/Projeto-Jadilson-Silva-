@@ -1,5 +1,9 @@
 # Arquitetura das integrações (APIs externas)
 
+> Documento de arquitetura/estudo. Integrações pagas com contas reais ficaram
+> fora do fluxo entregue; estado final em
+> [RELATORIO_ENTREGA.md](RELATORIO_ENTREGA.md).
+
 Este documento é para quem vai **manter** o projeto. Explica onde cada API fica, como os arquivos conversam e
 como adicionar uma API nova sem bagunçar o que existe.
 

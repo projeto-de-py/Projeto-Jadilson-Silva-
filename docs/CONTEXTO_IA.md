@@ -18,29 +18,37 @@
 > assinaturas + webhooks + eventos de agenda), Fase 6 (notificações + IA) e
 > **Fase 7 (andamentos RF06)** — docs em `docs/FASE*_*.md`.
 >
-> 🔎 **Revisão técnica de pré-entrega (atualizado em 26/11/2026):**
+> 🔎 **Revisão técnica final (atualizado em 26/11/2026 — fechamento da entrega):**
 > - suíte completa: **650 testes aprovados, 1 ignorado (NER sem
->   `scikit-learn`), 0 falhas** (antes 641);
+>   `scikit-learn`), 0 falhas** — inclui `tests/test_fluxo_completo.py` (E2E do
+>   fluxo principal em SQLite);
 > - head do Alembic = **`0015_documentos`** (cadeia `0001`..`0015`);
 > - ✅ **banco MySQL `advocacia` em `0015_documentos`** — criado/atualizado
 >   em 26/11/2026 com a cadeia completa, `alembic check` sem divergências e 21
 >   tabelas (documentos, notificações, agenda, financeiro, assinaturas, IA, webhooks e
 >   configurações do escritório disponíveis). Toda nova alteração de schema segue
 >   o procedimento de backup do `README.md` da raiz;
-> - frontend: `npm run lint` (0 erros) e `npm run build` (OK); **todas as telas do
->   dashboard consomem a API real** (login, clientes, casos, processos, prazos,
->   agenda, documentos, usuários, andamentos, notificações, financeiro,
->   configurações) — ver `docs/ROTEIRO_PRE_ENTREGA.md`;
+> - frontend: `npm test` (3/3), `npm run lint` (0 erros) e `npm run build` (OK);
+>   **todas as telas do dashboard consomem a API real** (login, clientes, casos,
+>   processos, prazos, agenda, documentos, usuários, andamentos, notificações,
+>   financeiro, configurações) — ver `docs/ROTEIRO_PRE_ENTREGA.md`;
+> - smoke MySQL versionado: `backend/scripts/smoke_mysql.py` valida o fluxo na
+>   API real, confere filtros RF09 no banco, grava notificação por evento e
+>   remove só os registros criados; última execução: `cliente=6 caso=8
+>   processo=5 prazo=5 andamento=5 documento=5 aviso=16`, com contagens
+>   originais restauradas;
 > - segurança: `PUT /api/auth/escritorio` exige **admin**; produção rejeita o
->   `JWT_SECRET` default do repositório.
+>   `JWT_SECRET` default do repositório; constantes 422 deprecadas substituídas
+>   em 9 arquivos de rotas; chave JWT fraca de teste trocada por ≥32 bytes.
 >
 > **Pendências:** ✅ upgrade do **banco MySQL** para `0015`; ✅ UI de atribuição de
 > casos a usuários; ✅ "Cadastrar Processo" cria processo judicial via
 > `POST /api/casos/{id}/processos`; ✅ RF09: filtros enviados ao servidor
-> (`src/data/consulta.js`) em Processos/Prazos/Clientes; ✅ notificações gravadas
-> por eventos e varredura periódica (`notificacao_agendador.py`), sem depender
-> da abertura da tela; ✅ CI em `.github/workflows/ci.yml`. Resta apenas o
-> gate final (suíte completa + smoke MySQL) antes da entrega.
+> (`src/data/consulta.js` + `src/data/queryString.js`) em Processos/Prazos/Clientes;
+> ✅ notificações gravadas por eventos e varredura periódica
+> (`notificacao_agendador.py`), sem depender da abertura da tela; ✅ CI em
+> `.github/workflows/ci.yml` com pytest + `npm test` + lint + build; ✅ gate final
+> (suíte completa + smoke MySQL + varredura visual) executado.
 
 ---
 
@@ -55,7 +63,7 @@
 
 ### Requisitos funcionais (resumo executivo)
 
-| Código | Requisito | Status em 03/11/2026 |
+| Código | Requisito | Status consolidado em 26/11/2026 |
 |---|---|---|
 | RF01 | Login por e-mail/senha | ✅ implementado (duas vezes — ver §8) |
 | RF02 | Perfis Admin (advogado principal) e Padrão | ✅ backend (Sistema A) / parcial no B |
@@ -65,7 +73,7 @@
 | RF06 | Autenticado registra andamentos | ✅ **Fase 7** (`GET/POST /api/casos/{id}/andamentos`, painel no front) |
 | RF07 | Somente Admin edita caso | ✅ Fase 2 (admin **ou** responsável; funcionário nunca) |
 | RF08 | Somente Admin exclui caso | ✅ Fase 2 — decisão: **arquivamento lógico** do admin (sem exclusão física) |
-| RF09 | Filtros (status, tipo, responsável, nº processo, cliente) | ✅ Fases 1–4 (casos, clientes, processos, prazos, compromissos) |
+| RF09 | Filtros (status, tipo, responsável, nº processo, cliente) | ✅ Fases 1–5: filtros e paginação no servidor (`queryString.js` + `useConsultaPaginada`), testados em `queryString.test.js` e no smoke MySQL |
 | RF10 | Agenda de prazos do usuário | ✅ **backend Fase 4** (`/api/prazos`, `/api/agenda`) + **tela Prazos ligada à API** |
 | RF11 | Destacar prazos vencidos/próximos | ✅ **backend Fase 4** (`/api/prazos/urgentes` VENCIDO/HOJE/PROXIMO) + **tela Prazos ligada à API** |
 
@@ -110,7 +118,7 @@ Projeto-Jadilson-Silva-/
 │   ├── projeto                   # placeholder de 1 linha
 │   └── CONTEXTO_IA.md            # ESTE documento
 ├── backend/
-│   ├── main.py                   # ⚠️ HOJE é o app do Sistema B (ver §8)
+│   ├── main.py                   # removido na Fase 5; único app é `app/main.py` (Sistema A)
 │   ├── app/                      # ✅ SISTEMA A — arquitetura em camadas (ver §6)
 │   │   ├── main.py               #   fábrica create_app + CORS + routers
 │   │   ├── config.py             #   Settings pydantic-settings (.env)
@@ -123,25 +131,27 @@ Projeto-Jadilson-Silva-/
 │   │   ├── services/             #   AuthService (login), UsuarioService (cadastro)
 │   │   └── api/                  #   deps.py (get_current_user, require_admin) + routes/
 │   │       └── routes/{auth,usuarios}.py
-│   ├── alembic/                  # migrações (versions/0001..0013: usuarios → casos/prazos → Fase 1 → casos → processos → prazos+compromissos → permissão → financeiro/assinaturas → eventos de agenda → notificações → config. escritório)
+│   ├── alembic/                  # migrações (versions/0001..0015: usuarios → casos/prazos → Fase 1 → casos → processos → prazos+compromissos → permissão → financeiro/assinaturas → eventos de agenda → notificações → config. escritório → documentos)
 │   ├── .env                      # LOCAL: DATABASE_URL, JWT_SECRET, CORS (não versionado)
 │   ├── .env.example              # template com placeholders
 │   ├── requirements.txt / requirements-dev.txt / requirements-lock.txt
 │   ├── README.md                 # instruções da API
-│   └── tests/                    # pytest: test_unit + test_api (SQLite em memória)
+│   ├── scripts/smoke_mysql.py    # smoke versionado contra MySQL real (limpa o que criou)
+│   └── tests/                    # pytest: test_unit + test_api + test_fluxo_completo (SQLite em memória)
 └── frontend/frontend-jadilson/
     ├── vite.config.js            # alias @→src, proxy /api→8000, strictPort 5173
     ├── jsconfig.json             # paths p/ editor
     ├── index.html                # título "Jadilson Silva Adv."
     └── src/
         ├── main.jsx              # root React (StrictMode)
-        ├── App.jsx               # ⚠️ roteamento + fluxo de login ativo (ver §8)
+        ├── App.jsx               # roteamento + guard de sessão ativos (Sistema A)
         ├── index.css             # @theme Tailwind (tokens de cor)
         ├── styles/               # globals.css + tokens.css (do design system)
-        ├── lib/api.js            # ⚠️ client HTTP do Sistema B (cookies + CSRF)
+        ├── lib/api.js            # cliente HTTP ativo (cookies HttpOnly + CSRF)
         ├── lib/{cn,motion}.js    # cn = tailwind-merge/clsx; helpers de motion
-        ├── api/client.js         # ✅ client HTTP do Sistema A (JWT Bearer) — órfão hoje
-        ├── context/auth-context.js + AuthProvider.jsx   # ✅ contexto JWT (Sistema A) — órfão hoje
+        ├── data/queryString.js   # filtros RF09 testados por tests/queryString.test.js
+        ├── api/client.js         # removido na Fase 5 (código morto)
+        ├── context/auth-context.js + AuthProvider.jsx   # removidos na Fase 5
         ├── app/layouts/DashboardLayout.jsx + app/navigation.js   # layout do dashboard
         ├── components/layout/{Sidebar,Topbar}.jsx
         ├── components/ui/        # ~24 componentes: Button, Input, Table, Modal, Tabs,
@@ -151,7 +161,8 @@ Projeto-Jadilson-Silva-/
         ├── pages/
         │   ├── Login/AuthPage.jsx        # tela de login (design + integração ativa)
         │   ├── DesignSystem/DesignSystemPage.jsx  # galeria de componentes (/design-system)
-        │   └── DashBoard/{Home,Processos,Prazos,Agenda,Clientes,Configuracoes}/  # telas
+        │   └── DashBoard/{Home,Processos,Prazos,Agenda,Clientes,Documentos,Usuarios,Configuracoes,Financeiro}/  # telas
+        ├── tests/queryString.test.js  # node:test (npm test)
         └── assets/images/        # Logo_Jadilson.png, favicon.ico
 ```
 
@@ -332,12 +343,17 @@ remoto origin/main:
 branch extra remota: origin/integracao/mysql-autenticacao
 ```
 
-**Primeiro passo da próxima sessão (antes de codar):**
+**Conferência padrão antes de mexer no código:**
 ```powershell
-npm install                           # dependências podem ter mudado
-npm run lint                          # conferir
-python -m pytest                      # backend em SQLite em memória
+python -m pytest -q                   # backend em SQLite em memória
+npm ci                                # frontend (package-lock versionado)
+npm test                              # filtros RF09 (node:test)
+npm run lint
+npm run build
 ```
+Fora da suíte, com API e MySQL no ar:
+`.\.venv\Scripts\python.exe -m scripts.smoke_mysql` (use `--manter` para
+conservar os dados criados pelo smoke).
 
 **Histórico de integração (lição):** em 12/10 houve conflitos pesados entre nosso login e o dashboard do colega; resolvemos com `git pull --rebase` + resolução manual preservando os dois lados (App.jsx = roteamento deles + guard nosso; AuthPage = design deles + submit real nosso). Workflow recomendado agora: branches `feat/*` + Pull Request em vez de push direto no `main`.
 
@@ -353,7 +369,7 @@ python -m pytest                      # backend em SQLite em memória
 6. ~~**Fase 4 — Prazos e agenda (RF10/RF11):** `prazos` evoluída + `compromissos`, urgentes VENCIDO/HOJE/PROXIMO, permissão própria `pode_gerenciar_compromissos`, agenda com sobreposição, auditoria + **atomicidade**, migrations 0006/0007~~ ✅ **backend + front** (`docs/FASE4_PRAZOS_COMPROMISSOS.md`)
 7. ~~**Fase 5–6:** financeiro, assinaturas, webhooks, eventos de agenda, notificações e IA~~ ✅
 8. ~~**Fase 7 — Andamentos (RF06):** `GET/POST /api/casos/{id}/andamentos` + `PainelAndamentos` no front~~ ✅ (30/30 testes da fase)
-9. **Pendências:** upgrade do **banco real** para `0013` (backup + autorização); UI de atribuição de casos (`/api/casos/{id}/usuarios`); "Cadastrar Processo" criar processo judicial real (`POST /api/casos/{id}/processos`).
+9. ~~**Fase 8–F6:** auditoria/estabilização, filtros RF09 no servidor, notificações automáticas, documentos no banco, UI de usuários, CI e higiene final~~ ✅ (banco real em `0015_documentos`; commits F0–F6 publicados).
 
 ### Diretriz arquitetural MinutaIA (já discutida e aceita)
 
@@ -380,18 +396,24 @@ python -m pytest                      # backend em SQLite em memória
 
 ---
 
-## 14. Gate final de entrega (26/11/2026)
+## 14. Gate final de entrega (26/11/2026) — executado
 
-1. `python -m pytest -q` (backend, SQLite em memória), `npm run lint` e `npm run build`.
-2. `alembic check` e `alembic current` no MySQL `advocacia` — head `0015_documentos`.
-3. Smoke no MySQL: login → cliente → caso → processo CNJ → prazo → andamento → documento.
-4. Verificação visual no navegador: login, Processos/Prazos/Clientes com filtros no
-   servidor (`?q=...`) e Documentos (`GET/POST/PATCH /api/documentos`).
-5. CI `.github/workflows/ci.yml` cobre backend (pytest) e frontend (lint/build).
+1. ✅ `python -m pytest -q` (backend, SQLite em memória): **650 passed, 1 skipped,
+   0 failed**; `npm test` (3/3), `npm run lint` (0 erros) e `npm run build` (OK).
+2. ✅ `alembic check` e `alembic current` no MySQL `advocacia` — head `0015_documentos`.
+3. ✅ Smoke versionado no MySQL: login → cliente → caso → processo CNJ → prazo →
+   andamento → documento → filtros RF09 no banco → aviso gravado por evento;
+   limpeza automática confirmada.
+4. ✅ Verificação visual no navegador: login, Processos/Prazos/Clientes com filtros
+   no servidor (`?q=...`), Documentos (incluindo `/documentos/:id`), Usuários,
+   Agenda, Financeiro, Configurações, Design System e busca global (`Ctrl+K`),
+   sem erros de console.
+5. ✅ CI `.github/workflows/ci.yml` cobre backend (pytest) e frontend
+   (`npm test` + lint + build); YAML validado e jobs disparados pelo push.
 
 Itens vencidos: Sistema B removido, resíduos limpos, código morto do frontend
-removido, migrations `0001`..`0015` aplicadas e documentos migrados do
-`localStorage` para o banco.
+removido, migrations `0001`..`0015` aplicadas, documentos migrados do
+`localStorage` para o banco e constantes 422 deprecadas substituídas.
 
 ---
-*Documento gerado em 16/10/2026 a partir da análise do código, do PDF de documentação e do histórico Git. Atualizado em 21/10/2026: Sistema B removido, Sistema A consolidado (§7, §8, §10, §14). Atualizado em 03/11/2026: Fases 1–4 do backend concluídas (§1 RFs, §12 roadmap, §3 migrations 0001–0007). Atualizado em 04/11/2026 (pré-entrega): suíte com **376 testes, 0 falhas**, cadeia de migrations validada em MySQL descartável, **banco real atualizado para `0007_permissoes_compromissos`** com backup, roteiro em `docs/ROTEIRO_PRE_ENTREGA.md`. Atualizado em 15/11/2026 (Fase 8 — auditoria/estabilização): Fases 5–7 reconhecidas (RF06 com endpoint + front), `PUT /api/auth/escritorio` restrito a admin, produção rejeita o `JWT_SECRET` default, frontend com estados de erro/carregamento reais. Atualizado em 26/11/2026: suíte com **650 testes aprovados, 1 ignorado (NER sem scikit-learn), 0 falhas**, head do Alembic = **`0015_documentos`** e **banco MySQL `advocacia` em dia** (cadeia `0001`..`0015` aplicada, `alembic check` sem divergências), Fases 1–5 (filtros RF09, notificações automáticas, CI e higiene) concluídas. Quando o projeto mudar, atualizar as seções 1 (status dos RFs), 8 (consolidação), 11 (Git) e 12 (roadmap).*
+*Documento gerado em 16/10/2026 a partir da análise do código, do PDF de documentação e do histórico Git. Atualizado em 21/10/2026: Sistema B removido, Sistema A consolidado (§7, §8, §10, §14). Atualizado em 03/11/2026: Fases 1–4 do backend concluídas (§1 RFs, §12 roadmap, §3 migrations 0001–0007). Atualizado em 04/11/2026 (pré-entrega): suíte com **376 testes, 0 falhas**, cadeia de migrations validada em MySQL descartável, **banco real atualizado para `0007_permissoes_compromissos`** com backup, roteiro em `docs/ROTEIRO_PRE_ENTREGA.md`. Atualizado em 15/11/2026 (Fase 8 — auditoria/estabilização): Fases 5–7 reconhecidas (RF06 com endpoint + front), `PUT /api/auth/escritorio` restrito a admin, produção rejeita o `JWT_SECRET` default, frontend com estados de erro/carregamento reais. Atualizado em 26/11/2026 (fechamento): suíte com **650 testes aprovados, 1 ignorado (NER sem scikit-learn), 0 falhas**, `npm test` 3/3, head do Alembic = **`0015_documentos`** e **banco MySQL `advocacia` em dia** (cadeia `0001`..`0015` aplicada, `alembic check` sem divergências), Fases 1–5 (filtros RF09, notificações automáticas, CI e higiene) e F6 (smoke versionado, E2E do fluxo, testes de query params, correção do editor `/documentos/:id` e push) concluídas. Quando o projeto mudar, atualizar as seções 1 (status dos RFs), 8 (consolidação), 11 (Git) e 12 (roadmap).*

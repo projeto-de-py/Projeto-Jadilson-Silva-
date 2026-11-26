@@ -1,5 +1,8 @@
 # FASE 1 — Cadastros e Controle de Acesso
 
+> Documento histórico da Fase 1. Estado final consolidado em
+> [RELATORIO_ENTREGA.md](RELATORIO_ENTREGA.md).
+
 Implementação da base de cadastro (usuários, clientes) e do controle de acesso
 por caso, seguindo a arquitetura em camadas do projeto (Router → Service →
 Repository → Models, com DI do FastAPI e Pydantic como DTO).

@@ -65,8 +65,10 @@ sino é aberto"; (d) "o documento saiu do navegador e virou registro do caso".
 # backend
 cd backend
 .\.venv\Scripts\python.exe -m pytest -q
+.\.venv\Scripts\python.exe -m scripts.smoke_mysql   # API no ar; apaga o que criou
 # frontend
 cd frontend\frontend-jadilson
+npm.cmd test
 npm.cmd run lint
 npm.cmd run build
 ```
@@ -77,7 +79,9 @@ npm.cmd run build
 - [ ] filtros de Processos/Prazos/Clientes mandam `?q=` na rede (aba Network)
 - [ ] documento criado pela UI aparece em `GET /api/documentos`
 - [ ] prazo criado gera aviso sem abrir o painel de notificações
-- [ ] `npm.cmd run lint` sem erros e `npm.cmd run build` OK
+- [ ] `npm.cmd test` (3/3), `npm.cmd run lint` sem erros e `npm.cmd run build` OK
+- [ ] `/documentos/:id` abre o editor direto (sem cair na lista) e salva no MySQL
+- [ ] `Ctrl+K` encontra cliente/caso/prazo e navega
 
 ## 5. Se algo der errado
 

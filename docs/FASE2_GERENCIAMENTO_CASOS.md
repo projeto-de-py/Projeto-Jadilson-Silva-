@@ -1,5 +1,8 @@
 # Fase 2 — Gerenciamento de Casos Jurídicos
 
+> Documento histórico da Fase 2. Estado final consolidado em
+> [RELATORIO_ENTREGA.md](RELATORIO_ENTREGA.md).
+
 Evolução do sistema de gestão de escritório: cadastrar, consultar, atualizar,
 arquivar e auditar casos vinculados a clientes, preservando integralmente a
 Fase 1 (cadastros e controle de acesso).

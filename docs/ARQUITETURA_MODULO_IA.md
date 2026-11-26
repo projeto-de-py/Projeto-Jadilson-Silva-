@@ -1,5 +1,8 @@
 # Arquitetura: módulo de IA (NER jurídico)
 
+> Documento de arquitetura/estudo. IA real, NER e MinutaIA **não** participam do
+> fluxo entregue; estado final em [RELATORIO_ENTREGA.md](RELATORIO_ENTREGA.md).
+
 Projeto Integrador de IA. Como o app era, como o módulo novo entra e por quê.
 
 > Histórico: a primeira ideia foi um classificador de área (Trabalhista, Bancário, Previdenciário). Foi **descartada**: o advogado já escolhe a área ao criar o documento e o LLM se adapta a ela, então não resolvia problema real. O protótipo de coleta (`ai-model/scripts/coletar_dados.py`) mostrou dados viáveis, mas ficou como experimento. Ver `ai-model/README.md`.
