@@ -1,5 +1,6 @@
 """Regras de criação e leitura dos avisos internos do usuário."""
 
+import logging
 from datetime import date, datetime, timedelta
 from uuid import uuid4
 
@@ -209,6 +210,38 @@ def sincronizar_notificacoes_automaticas(repo: NotificacaoRepository, usuario: U
     GeradorNotificacaoPrazo(repo).gerar_para(usuario)
     GeradorNotificacaoAudiencia(repo).gerar_para(usuario)
     GeradorNotificacaoRelatorioSemanal(repo).gerar_para(usuario)
+
+
+_LOG_VARREDURA = logging.getLogger(__name__)
+
+
+def sincronizar_notificacoes_para_todos(
+    db, *, somente_prazos: bool = False
+) -> int:
+    """Grava avisos automáticos para todos os usuários ativos.
+
+    Esta é a rotina chamada pelo agendador e pelos eventos de negócio (criação
+    ou alteração de prazo). Antes os avisos só nasciam quando alguém abria a
+    tela de notificações: agora o registro acontece no servidor, mesmo sem
+    nenhuma sessão aberta. A deduplicação por chave torna a rotina idempotente.
+
+    Cada usuário é tratado isoladamente: uma falha pontual não impede os
+    demais nem derruba a requisição que disparou a sincronização.
+    """
+    repo = NotificacaoRepository(db)
+    usuarios = list(db.scalars(select(Usuario).where(Usuario.ativo.is_(True))).all())
+    for usuario in usuarios:
+        try:
+            if somente_prazos:
+                GeradorNotificacaoPrazo(repo).gerar_para(usuario)
+            else:
+                sincronizar_notificacoes_automaticas(repo, usuario)
+        except Exception:  # noqa: BLE001 - varredura nunca quebra o fluxo do usuario
+            db.rollback()
+            _LOG_VARREDURA.exception(
+                "Falha ao gerar notificacoes automaticas para usuario %s", usuario.id
+            )
+    return len(usuarios)
 
 
 class GeradorNotificacaoAcao:

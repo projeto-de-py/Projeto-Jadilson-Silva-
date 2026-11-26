@@ -22,7 +22,8 @@ import { exportarProcessoPdf } from "@/lib/exportarPdf";
 import { PainelDataJud } from "@/components/consultas/PainelDataJud";
 import { PainelAndamentos } from "@/components/andamentos/PainelAndamentos";
 import { useArea } from "@/context/area-context";
-import { useCarteira } from "@/data/escritorio";
+import { ETAPA_PARA_STATUS_API, mapearCasoApi } from "@/data/escritorio";
+import { useConsultaPaginada } from "@/data/consulta";
 import { cn } from "@/lib/cn";
 
 const ETAPAS = [
@@ -34,17 +35,9 @@ const ETAPAS = [
 ];
 const TOM = Object.fromEntries(ETAPAS.map((e) => [e.id, e.tom]));
 
-function normalizarTexto(texto = "") {
-  return String(texto)
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-}
-
 export function Processos() {
   const { area } = useArea();
   const { user } = useOutletContext();
-  const { processos, setProcessos, carregando, erro } = useCarteira();
   const [modalAberto, setModalAberto] = useState(false);
   const [casoAcesso, setCasoAcesso] = useState(null);
   const navegar = useNavigate();
@@ -54,23 +47,19 @@ export function Processos() {
   const [filtroStatus, setFiltroStatus] = useState("TODOS");
   const [visao, setVisao] = useState("lista");
 
-  const processosFiltrados = useMemo(() => {
-    const termo = busca.toLowerCase();
-    return processos.filter((p) => {
-      const matchArea =
-        !area ||
-        area === "todas" ||
-        normalizarTexto(p.area).includes(normalizarTexto(area)) ||
-        normalizarTexto(p.tipoAcao).includes(normalizarTexto(area));
-      const matchStatus = filtroStatus === "TODOS" || p.status === filtroStatus;
-      const matchBusca =
-        p.numero.toLowerCase().includes(termo) ||
-        p.cliente.toLowerCase().includes(termo) ||
-        p.tipoAcao.toLowerCase().includes(termo) ||
-        p.vara.toLowerCase().includes(termo);
-      return matchArea && matchStatus && matchBusca;
-    });
-  }, [processos, area, busca, filtroStatus]);
+  // RF09: busca, estágio e área são enviados ao servidor — a tela não filtra
+  // mais só os primeiros 100 casos carregados na memória.
+  const consulta = useConsultaPaginada("casos", {
+    q: busca.trim() || undefined,
+    status: ETAPA_PARA_STATUS_API[filtroStatus],
+    area: area && area !== "todas" ? area : undefined,
+  });
+  const processos = useMemo(
+    () => consulta.itens.map(mapearCasoApi),
+    [consulta.itens],
+  );
+  const processosFiltrados = processos;
+  const { carregando, erro } = consulta;
 
   function editarDocumento(proc) {
     const existente = docs.find((d) => d.processoId === proc.id || d.html.includes(proc.numero));
@@ -310,11 +299,8 @@ export function Processos() {
         )}
       </Drawer>
 
-      <ModalCadastrarProcesso
-        open={modalAberto}
-        onOpenChange={setModalAberto}
-        onProcessoSalvo={(novo) => setProcessos((prev) => [novo, ...prev])}
-      />
+      {/* O modal emite `dados:atualizar`; o hook de consulta recarrega sozinho. */}
+      <ModalCadastrarProcesso open={modalAberto} onOpenChange={setModalAberto} />
       <ModalAcessoCaso
         key={casoAcesso?.id ?? "fechado"}
         open={Boolean(casoAcesso)}

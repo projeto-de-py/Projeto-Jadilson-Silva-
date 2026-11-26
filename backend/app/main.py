@@ -30,6 +30,7 @@ from app.config import get_settings, eh_producao, validar_configuracao_seguranca
 from app.core import security
 from app.core.ratelimit import Limiter
 from app.core.revogados import TokenRevogados
+from app.services.notificacao_agendador import iniciar_varredura, parar_varredura
 
 settings = get_settings()
 
@@ -41,7 +42,14 @@ async def lifespan(app: FastAPI):
     # Em producao, aborta o startup se a config de seguranca estiver fraca
     # (ex.: JWT_SECRET default, cookie sem Secure). Em dev, so avisa.
     validar_configuracao_seguranca()
-    yield
+    # Avisos de prazo/audiência/relatório são gravados pelo servidor mesmo
+    # quando ninguém abre o painel; os eventos de negócio complementam a
+    # varredura para que o aviso apareça imediatamente após a alteração.
+    tarefa_notificacoes = iniciar_varredura()
+    try:
+        yield
+    finally:
+        await parar_varredura(tarefa_notificacoes)
 
 
 def create_app() -> FastAPI:

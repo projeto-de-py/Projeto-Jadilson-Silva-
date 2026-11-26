@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   IconCalendar,
@@ -29,6 +29,7 @@ import {
 import { useArea } from "@/context/area-context";
 import { useSessao } from "@/context/sessao";
 import { mapearPrazoApi, notificarAtualizacaoDados, useCarteira } from "@/data/escritorio";
+import { useConsultaPaginada } from "@/data/consulta";
 import { apiJson } from "@/lib/api";
 import { classificar } from "@/lib/prazos";
 import { cn } from "@/lib/cn";
@@ -87,96 +88,31 @@ export function Prazos() {
   const { area } = useArea();
   const { processos } = useCarteira();
 
-  // `brutos` guarda o PrazoOut exatamente como a API devolve (fonte da
-  // verdade local); `prazos` abaixo e a versao ja casada com o caso para exibir.
-  const [brutos, setBrutos] = useState([]);
-  const [total, setTotal] = useState(0);
-  const [paginaAtual, setPaginaAtual] = useState(1);
-  const [carregando, setCarregando] = useState(true);
-  const [falha, setFalha] = useState("");
   const [carregandoMais, setCarregandoMais] = useState(false);
   const [emTransicao, setEmTransicao] = useState(null);
   const [busca, setBusca] = useState("");
   const [filtroArea, setFiltroArea] = useState("TODAS");
   const [modal, setModal] = useState({ aberto: false, prazo: null });
 
-  // Busca de página sem efeito colateral: quem chama aplica o resultado.
-  const buscar = useCallback(async (pagina = 1) => {
-    const res = await apiJson(`prazos?pagina=${pagina}&limite=${LIMITE_PAGINA}`);
-    return {
-      itens: Array.isArray(res?.itens) ? res.itens : [],
-      total: Number(res?.total ?? 0),
-    };
-  }, []);
+  // RF09: `q` é filtrado no banco (com debounce no hook). Área e a faceta
+  // global continuam locais: /api/prazos não filtra pela área do caso.
+  const consulta = useConsultaPaginada(
+    "prazos",
+    { q: busca.trim() || undefined },
+    { limite: LIMITE_PAGINA },
+  );
+  // `brutos` é o PrazoOut exatamente como a API devolve (fonte da verdade);
+  // `prazos` abaixo é a versão já casada com o caso para exibir.
+  const brutos = consulta.itens;
+  const total = consulta.total;
+  const falha = consulta.erro;
+  const carregando = consulta.carregando;
+  const recarregar = consulta.recarregar;
 
-  // Recarga disparada por usuario (botao "Tentar novamente" e evento
-  // `dados:atualizar`): seta o estado de carregamento antes de buscar.
-  const recarregar = useCallback(async ({ suave = false } = {}) => {
-    if (!suave) {
-      setCarregando(true);
-      setFalha("");
-    }
-    try {
-      const { itens, total } = await buscar();
-      setBrutos(itens);
-      setTotal(total);
-      setPaginaAtual(1);
-      setFalha("");
-    } catch (erro) {
-      // Recarga em segundo plano falhou: mantem a lista atual na tela.
-      if (!suave) {
-        setBrutos([]);
-        setTotal(0);
-        setFalha(erro.message || "Não foi possível carregar os prazos.");
-      }
-    } finally {
-      if (!suave) setCarregando(false);
-    }
-  }, [buscar]);
-
-  useEffect(() => {
-    let cancelado = false;
-    // Carga inicial: `carregando` ja nasce `true` e o resultado e aplicado
-    // nos callbacks da promise (mesmo padrao de `useCarteira`).
-    buscar()
-      .then(({ itens, total }) => {
-        if (cancelado) return;
-        setBrutos(itens);
-        setTotal(total);
-        setPaginaAtual(1);
-        setFalha("");
-      })
-      .catch((erro) => {
-        if (cancelado) return;
-        setBrutos([]);
-        setTotal(0);
-        setFalha(erro.message || "Não foi possível carregar os prazos.");
-      })
-      .finally(() => {
-        if (!cancelado) setCarregando(false);
-      });
-
-    // Outras telas (cadastro de caso com prazo, edicao de cliente...) avisam
-    // que os dados mudaram; aqui apenas recarregamos do servidor.
-    const handler = () => recarregar({ suave: true });
-    window.addEventListener("dados:atualizar", handler);
-    return () => {
-      cancelado = true;
-      window.removeEventListener("dados:atualizar", handler);
-    };
-  }, [buscar, recarregar]);
-
-  const carregarMais = useCallback(async () => {
+  async function carregarMais() {
     setCarregandoMais(true);
     try {
-      const proxima = paginaAtual + 1;
-      const res = await apiJson(`prazos?pagina=${proxima}&limite=${LIMITE_PAGINA}`);
-      const novos = Array.isArray(res?.itens) ? res.itens : [];
-      setBrutos((atuais) => {
-        const vistos = new Set(atuais.map((p) => p.id));
-        return [...atuais, ...novos.filter((p) => !vistos.has(p.id))];
-      });
-      setPaginaAtual(proxima);
+      await consulta.carregarMais();
     } catch (erro) {
       toast({
         tipo: "erro",
@@ -186,17 +122,17 @@ export function Prazos() {
     } finally {
       setCarregandoMais(false);
     }
-  }, [paginaAtual, toast]);
+  }
 
   async function transicionar(prazo, acao) {
     if (emTransicao) return;
     setEmTransicao(prazo.id);
     try {
-      const atualizado = await apiJson(`prazos/${prazo.id}/${acao}`, {
+      await apiJson(`prazos/${prazo.id}/${acao}`, {
         method: "PATCH",
         csrf,
       });
-      setBrutos((atuais) => atuais.map((p) => (p.id === prazo.id ? atualizado : p)));
+      consulta.recarregar();
       notificarAtualizacaoDados();
       toast({ tipo: "sucesso", titulo: TRANSICOES[acao].ok, descricao: prazo.titulo });
     } catch (erro) {
@@ -210,13 +146,10 @@ export function Prazos() {
     }
   }
 
-  function aplicarSalvamento(bruto, { edicao } = {}) {
-    setBrutos((atuais) =>
-      edicao
-        ? atuais.map((p) => (p.id === bruto.id ? bruto : p))
-        : [bruto, ...atuais.filter((p) => p.id !== bruto.id)],
-    );
-    if (!edicao) setTotal((atual) => atual + 1);
+  function aplicarSalvamento() {
+    // O modal/gravador já emite `dados:atualizar`; recarregamos do servidor
+    // para manter `total` e a paginação coerentes com os filtros ativos.
+    consulta.recarregar();
     notificarAtualizacaoDados();
   }
 

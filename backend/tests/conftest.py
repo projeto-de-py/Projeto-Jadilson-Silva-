@@ -57,6 +57,9 @@ def isolar_integracoes_externas(monkeypatch):
     """
     cfg = get_settings()
     monkeypatch.setattr(cfg, "ia_provedor", "simulado")
+    # A varredura usa SessionLocal (banco real). Nos testes ela e substituida
+    # pelas chamadas explicitas as rotinas de geracao nos proprios testes.
+    monkeypatch.setattr(cfg, "notificacoes_varredura_minutos", 0)
     for campo in (
         "openrouter_api_key", "zapsign_api_token", "zapsign_webhook_secret",
         "asaas_api_key", "asaas_webhook_token",

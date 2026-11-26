@@ -27,6 +27,7 @@ from app.services.andamento_service import AndamentoService
 from app.services.caso_service import CasoService
 from app.services.compromisso_service import CompromissoService
 from app.services.documento_service import DocumentoService
+from app.services.notificacao_service import sincronizar_notificacoes_para_todos
 from app.services.permissao_service import PermissaoCasoService
 from app.services.prazo_service import PrazoService
 from app.services.processo_service import ProcessoJudicialService
@@ -137,6 +138,7 @@ def get_prazo_service(
     permissoes: UsuarioCasoRepository = Depends(get_usuario_caso_repo),
     usuarios: UsuarioRepository = Depends(get_usuario_repo),
     processos: ProcessoJudicialRepository = Depends(get_processo_repo),
+    db: Session = Depends(get_db),
 ) -> PrazoService:
     return PrazoService(
         prazos=prazos,
@@ -145,6 +147,11 @@ def get_prazo_service(
         permissoes=permissoes,
         usuarios=usuarios,
         processos=processos,
+        # Evento de negócio: avisos de marco entram no banco no mesmo instante
+        # da escrita, sem depender de ninguém abrir a tela de notificações.
+        notificar_prazos=lambda: sincronizar_notificacoes_para_todos(
+            db, somente_prazos=True
+        ),
     )
 
 

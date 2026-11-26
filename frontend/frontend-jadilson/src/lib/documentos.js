@@ -58,7 +58,9 @@ function deApi(d) {
 
 function paraApi(dados) {
   const corpo = {};
-  if (dados.titulo !== undefined) corpo.titulo = dados.titulo;
+  // O campo de titulo pode ficar vazio enquanto o usuario reescreve; nao
+  // envie um titulo vazio (o backend exige min 1) — o proximo keystroke salva.
+  if (dados.titulo) corpo.titulo = dados.titulo;
   if (dados.area !== undefined) corpo.area = dados.area;
   if (dados.tipo !== undefined) corpo.tipo = dados.tipo;
   if (dados.html !== undefined) corpo.html = dados.html;

@@ -61,6 +61,10 @@ class Settings(BaseSettings):
     # escapar do rate limit por IP.
     trust_proxy_headers: bool = False
 
+    # Notificações automáticas: varredura em segundo plano independente da
+    # abertura da tela. 0 desliga (usado nos testes com SQLite em memória).
+    notificacoes_varredura_minutos: int = 5
+
     # Senha inicial do Admin criada pelo seed (backend/app/seed.py).
     # Se vazio, o seed gera uma senha aleatoria forte e imprime uma unica vez.
     admin_senha_inicial: str | None = None

@@ -28,13 +28,14 @@ import {
 } from "@/components/ui";
 import { ModalCadastrarCliente } from "@/components/modais/ModalCadastrarCliente";
 import { useSessao } from "@/context/sessao";
-import { notificarAtualizacaoDados, useCarteira } from "@/data/escritorio";
+import { mapearClienteApi, notificarAtualizacaoDados, useCarteira } from "@/data/escritorio";
+import { useConsultaPaginada } from "@/data/consulta";
 import { apiJson } from "@/lib/api";
 
 export function Clientes() {
   const { csrf } = useSessao();
   const { toast } = useToast();
-  const { clientes, setClientes, carregando, erro } = useCarteira();
+  const { processos } = useCarteira();
   const [modalAberto, setModalAberto] = useState(false);
   const [clienteEmEdicao, setClienteEmEdicao] = useState(null);
   const [paraRemover, setParaRemover] = useState(null);
@@ -42,18 +43,23 @@ export function Clientes() {
   const [busca, setBusca] = useState("");
   const [filtroTipo, setFiltroTipo] = useState("TODOS");
 
-  const clientesFiltrados = useMemo(() => {
-    return clientes.filter((c) => {
-      const matchTipo = filtroTipo === "TODOS" || c.tipo === filtroTipo;
-      const termo = busca.toLowerCase();
-      const matchBusca =
-        c.nome.toLowerCase().includes(termo) ||
-        c.documento.toLowerCase().includes(termo) ||
-        c.email.toLowerCase().includes(termo) ||
-        c.cidade.toLowerCase().includes(termo);
-      return matchTipo && matchBusca;
-    });
-  }, [clientes, busca, filtroTipo]);
+  // RF09: a busca vem do banco; só PF/PJ (derivado do CPF/CNPJ) continua local.
+  const consulta = useConsultaPaginada("clientes", {
+    q: busca.trim() || undefined,
+  });
+  const clientes = useMemo(
+    () => consulta.itens.map((cli) => mapearClienteApi(cli, processos)),
+    [consulta.itens, processos],
+  );
+  const { carregando, erro } = consulta;
+
+  const clientesFiltrados = useMemo(
+    () =>
+      clientes.filter(
+        (c) => filtroTipo === "TODOS" || c.tipo === filtroTipo,
+      ),
+    [clientes, filtroTipo],
+  );
 
   function handleAbrirCriacao() {
     setClienteEmEdicao(null);
@@ -65,16 +71,9 @@ export function Clientes() {
     setModalAberto(true);
   }
 
-  function handleClienteSalvo(clienteSalvo) {
-    setClientes((prev) => {
-      const index = prev.findIndex((c) => c.id === clienteSalvo.id);
-      if (index >= 0) {
-        const atualizados = [...prev];
-        atualizados[index] = { ...prev[index], ...clienteSalvo };
-        return atualizados;
-      }
-      return [clienteSalvo, ...prev];
-    });
+  function handleClienteSalvo() {
+    // O modal já emite `dados:atualizar`; o hook recarrega do servidor.
+    consulta.recarregar();
   }
 
   async function confirmarRemocao() {
@@ -85,7 +84,7 @@ export function Clientes() {
         method: "DELETE",
         csrf,
       });
-      setClientes((prev) => prev.filter((c) => c.id !== paraRemover.id));
+      consulta.recarregar();
       notificarAtualizacaoDados();
       toast({
         tipo: "sucesso",

@@ -21,7 +21,7 @@ Regras principais:
 
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta
-from typing import Any
+from typing import Any, Callable
 
 from app.core.tempo import hoje_brasilia
 from app.models.caso import Caso
@@ -70,6 +70,7 @@ class PrazoService:
         permissoes: UsuarioCasoRepository,
         usuarios: UsuarioRepository,
         processos: ProcessoJudicialRepository,
+        notificar_prazos: Callable[[], None] | None = None,
     ):
         self.prazos = prazos
         self.historico = historico
@@ -77,6 +78,13 @@ class PrazoService:
         self.permissoes = permissoes
         self.usuarios = usuarios
         self.processos = processos
+        # Injetado pela DI: grava os avisos de marco no mesmo instante em que
+        # o prazo muda, sem esperar a proxima varredura nem a leitura da tela.
+        self.notificar_prazos = notificar_prazos
+
+    def _notificar(self) -> None:
+        if self.notificar_prazos is not None:
+            self.notificar_prazos()
 
     # ------------------------------------------------------------- leitura
 
@@ -212,6 +220,7 @@ class PrazoService:
         with self._transacao():
             prazo = self.prazos.criar(prazo)
             self.historico.registrar(prazo.id, operador.id, OP_CRIACAO)
+        self._notificar()
         return self._serializar(prazo)
 
     # ---------------------------------------------------------- atualizacao
@@ -283,6 +292,7 @@ class PrazoService:
                     OP_MUDANCA_VENCIMENTO,
                     {"data_vencimento": alteracoes["data_vencimento"]},
                 )
+        self._notificar()
         return self._serializar(prazo)
 
     # --------------------------------------------------- transicoes de fim
@@ -307,6 +317,7 @@ class PrazoService:
                 OP_CONCLUSAO,
                 {"status": {"antes": antes, "depois": prazo.status}},
             )
+        self._notificar()
         return self._serializar(prazo)
 
     def reabrir(self, prazo_id: int, operador: Usuario) -> dict:
@@ -330,6 +341,7 @@ class PrazoService:
                 OP_REABERTURA,
                 {"status": {"antes": antes, "depois": prazo.status}},
             )
+        self._notificar()
         return self._serializar(prazo)
 
     def cancelar(self, prazo_id: int, operador: Usuario) -> dict:
@@ -350,6 +362,7 @@ class PrazoService:
                 OP_CANCELAMENTO,
                 {"status": {"antes": antes, "depois": prazo.status}},
             )
+        self._notificar()
         return self._serializar(prazo)
 
     # ------------------------------------------------------------- privado
