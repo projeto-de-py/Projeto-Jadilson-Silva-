@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useOutletContext } from "react-router-dom";
 import { motion } from "motion/react";
 import {
   IconFolderBadgePlus,
@@ -10,10 +10,12 @@ import {
   IconListBullet,
   IconRectangle3Group,
   IconPerson,
+  IconPerson2,
   IconScalemass,
 } from "symbols-react";
 import { Card, Button, Badge, Input, Select, Drawer, HairlineEmptyState } from "@/components/ui";
 import { ModalCadastrarProcesso } from "@/components/modais/ModalCadastrarProcesso";
+import { ModalAcessoCaso } from "@/components/modais/ModalAcessoCaso";
 import { MODELOS, preencherModelo } from "@/data/modelos";
 import { useDocumentos } from "@/lib/documentos";
 import { exportarProcessoPdf } from "@/lib/exportarPdf";
@@ -41,8 +43,10 @@ function normalizarTexto(texto = "") {
 
 export function Processos() {
   const { area } = useArea();
+  const { user } = useOutletContext();
   const { processos, setProcessos, carregando, erro } = useCarteira();
   const [modalAberto, setModalAberto] = useState(false);
+  const [casoAcesso, setCasoAcesso] = useState(null);
   const navegar = useNavigate();
   const { docs, criar } = useDocumentos();
   const [processoLinha, setProcessoLinha] = useState(null);
@@ -99,6 +103,16 @@ export function Processos() {
         <IconClockBadgeCheckmark className="size-3.5" fill="currentColor" />
         Andamentos
       </Button>
+      {user?.administrador && (
+        <Button
+          variant="ghost"
+          className="h-8 gap-2 px-4 text-12"
+          onClick={() => setCasoAcesso(proc)}
+        >
+          <IconPerson2 className="size-3.5" fill="currentColor" />
+          Acesso ao caso
+        </Button>
+      )}
       <Button variant="ghost" className="h-8 gap-2 px-4 text-12" onClick={() => exportarProcessoPdf(proc)}>
         <IconArrowDownDocument className="size-3.5" fill="currentColor" />
         PDF
@@ -300,6 +314,13 @@ export function Processos() {
         open={modalAberto}
         onOpenChange={setModalAberto}
         onProcessoSalvo={(novo) => setProcessos((prev) => [novo, ...prev])}
+      />
+      <ModalAcessoCaso
+        key={casoAcesso?.id ?? "fechado"}
+        open={Boolean(casoAcesso)}
+        onOpenChange={(aberto) => !aberto && setCasoAcesso(null)}
+        casoId={casoAcesso?.id}
+        casoTitulo={casoAcesso ? `${casoAcesso.numero} · ${casoAcesso.cliente}` : undefined}
       />
     </div>
   );

@@ -17,6 +17,8 @@ export const navegacao = [
   { to: "/documentos", rotulo: "Documentos", icone: IconDocumentOnDocument, grupo: "Visão geral" },
   { to: "/financeiro", rotulo: "Financeiro", icone: IconBanknote, grupo: "Escritório" },
   { to: "/clientes", rotulo: "Clientes", icone: IconPerson2, grupo: "Escritório" },
+  // A API de usuários exige require_admin; o menu segue a mesma trava.
+  { to: "/usuarios", rotulo: "Usuários", icone: IconPerson2, grupo: "Escritório", somenteAdmin: true },
   // Configurações alteram dados globais do escritório: o backend exige
   // administrador e o menu só o exibe para quem pode acessar.
   { to: "/configuracoes", rotulo: "Configurações", icone: IconGearshape, grupo: "Escritório", somenteAdmin: true },

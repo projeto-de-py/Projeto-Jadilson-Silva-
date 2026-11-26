@@ -14,6 +14,7 @@ import { EditorDocumento } from "./pages/DashBoard/Documentos/EditorDocumento";
 import { Financeiro } from "./pages/DashBoard/Financeiro/Financeiro";
 import { Agenda } from "./pages/DashBoard/Agenda/Agenda";
 import { Clientes } from "./pages/DashBoard/Clientes/Clientes";
+import { Usuarios } from "./pages/DashBoard/Usuarios/Usuarios";
 import { Configuracoes } from "./pages/DashBoard/Configuracoes/Configurations";
 
 function App() {
@@ -107,6 +108,17 @@ function App() {
               <Route path="/documentos/:id" element={<EditorDocumento />} />
               <Route path="/financeiro" element={<Financeiro />} />
               <Route path="/clientes" element={<Clientes />} />
+              {/* Gestão de contas é restrita ao advogado principal (require_admin na API). */}
+              <Route
+                path="/usuarios"
+                element={
+                  session?.usuario?.administrador ? (
+                    <Usuarios />
+                  ) : (
+                    <Navigate to="/home" replace />
+                  )
+                }
+              />
               {/* Configurações são dados GLOBAIS do escritorio: no backend o
                   PUT exige admin (require_admin) e aqui a rota também fica
                   reservada - o menu já esconde o item para não-administradores. */}
