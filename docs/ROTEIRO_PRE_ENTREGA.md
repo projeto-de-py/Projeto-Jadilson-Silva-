@@ -1,146 +1,92 @@
-# Roteiro de demonstração — Pré-entrega (atualizado em 26/11/2026)
+# Roteiro de demonstração — pré-entrega (26/11/2026)
 
-> Documento da **Etapa 6** da preparação para a pré-entrega.
-> Ele descreve apenas funcionalidades **realmente existentes** no sistema hoje:
-> login contra a API real, CRUD completo demonstrado pelo Swagger e telas do
-> frontend **ligadas à API real** (Fases 5–7 integraram Dashboard, Processos,
-> Prazos, Agenda, Clientes, Andamentos e Notificações). Nada aqui foi inventado.
+> Fluxo ponta a ponta **login → cliente → caso → processo → prazo/agenda →
+> andamento → documento**, com MySQL real (`advocacia`) e a API como única
+> fonte de verdade. Nada aqui depende de IA, `localStorage` de documentos ou
+> dados fictícios já semeados: use apenas dados inventados na apresentação.
 
-> ✅ **Banco MySQL em dia:** o banco `advocacia` está na revisão
-> **`0015_documentos`**, igual ao repositório (cadeia `0001`..`0015`
-> aplicada em 26/11/2026, com `alembic check` sem divergências). Antes de
-> qualquer mudança de schema no futuro, repita o procedimento de backup do §1.
+## 1. Antes de começar
 
----
-
-## 1. Pré-requisitos
-
-| Item | Detalhe |
+| Item | Como conferir |
 |---|---|
-| Banco MySQL | `advocacia` — revisão **`0015_documentos`** (igual ao repositório). Backup antes de qualquer mudança: `mysqldump -u root -p advocacia > backup.sql` + `python -c "from alembic.config import main; main(['upgrade','head'])"` |
-| Backend | `python -m uvicorn app.main:app --host 127.0.0.1 --port 8000` (dentro de `backend/` com o venv ativo) |
-| Frontend | `npm run dev` em `frontend/frontend-jadilson` → <http://127.0.0.1:5173> |
-| Swagger | <http://127.0.0.1:8000/docs> (mesma origem do backend — os cookies funcionam por lá) — **67 caminhos / 89 operações** |
-| Saúde da API | <http://127.0.0.1:8000/health> deve responder `{"status":"ok","versao":"0.1.0"}` |
-| Login | `admin@jadilson.adv` + a senha do administrador (conta já existente, provisionada pelo seed) |
-| Dados no banco | Seed idempotente (`python -m app.seed`) cria/promove **apenas a conta admin** (`CASOS_DEMO=[]` — sem casos/prazos fictícios). Cadastre dados fictícios pela própria demonstração |
+| MySQL80 | `Get-Service MySQL80` → `Running` |
+| Schema | `alembic current` dentro de `backend/` → `0015_documentos`; `alembic check` → sem divergências |
+| Backend | `.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000` |
+| Frontend | `npm.cmd run dev -- --host 127.0.0.1 --port 5173` em `frontend/frontend-jadilson` |
+| Saúde | `GET http://127.0.0.1:8000/health` → `{"status":"ok","versao":"0.1.0"}` |
+| Login | `admin@jadilson.adv` + senha definida localmente no seed (`python -m app.seed`) |
+| Swagger | `http://127.0.0.1:8000/docs` (67 caminhos / 89 operações) |
 
-**Regra de ouro durante a apresentação:** use apenas **dados fictícios**.
-Não cadastre CPF/CNPJ, nomes, e-mails ou telefones de clientes reais.
+**Mutantes** (`POST/PUT/PATCH/DELETE` sob `/api`) exigem o header
+`X-CSRF-Token` com o `csrf_token` devolvido pelo login — inclusive no Swagger.
+O cookie de sessão é HttpOnly; o frontend usa o proxy Vite `/api`.
 
-**Rate limit de login:** 20 tentativas por IP a cada 5 minutos — evite
-logins errados repetidos durante a demonstração.
+> Regra da apresentação: CPF/CNPJ, nomes e e-mails **fictícios**. Evite errar
+> a senha várias vezes (rate limit: 5 por e-mail / 20 por IP a cada 5 min).
 
----
+## 2. Roteiro em 12 passos
 
-## 2. Como usar o Swagger nas mutações (CSRF)
+| # | O que mostrar | Onde | Expectativa |
+|---|---|---|---|
+| 1 | API viva | `/health` e `/docs` | status `ok`, operações listadas |
+| 2 | Login | frontend `/` → `/home` | Dashboard carrega; recarregar mantém a sessão (`GET /api/auth/me`) |
+| 3 | Usuários | tela **Usuários** (admin) + `GET/POST/PATCH /api/usuarios` | cria usuário fictício; só admin entra na tela |
+| 4 | Cliente | tela **Clientes** + `POST /api/clientes` | 201; digitar no campo de busca dispara `GET /api/clientes?q=...` (filtro no banco) |
+| 5 | Caso | tela **Processos** → "Novo Processo" + `POST /api/casos` | 201 com `status=NOVO`; busca/estágio viram `?q=&status=` na API |
+| 6 | Permissões | botão **Acesso ao caso** no processo + `POST /api/casos/{id}/usuarios` | 5 flags granulares; sem vínculo → 403/404 |
+| 7 | Processo judicial | modal **Cadastrar Processo** + `GET /api/processos?q=<CNJ>` | CNJ validado por módulo 97, duplicidade bloqueada; busca parcial por dígitos |
+| 8 | Prazo | tela **Prazos** + `POST /api/prazos`, `/concluir`, `/reabrir`, `/cancelar` | 201; `?q=` no servidor; data `inicio > vencimento` → 422 |
+| 9 | Notificação do prazo | sino no Topbar (sem abrir a tela antes) | Aviso do marco já está gravado: escrita do prazo gera na hora; varredura cobre os próximos dias |
+| 10 | Compromisso/agenda | tela **Agenda** + `GET /api/agenda?de=&ate=` | 201 com `AGENDADO`; `data_fim > data_inicio` obrigatório |
+| 11 | Andamento | painel **Andamentos** no processo aberto | `POST /api/casos/{id}/andamentos` → trilha no caso |
+| 12 | Documento | tela **Documentos** + `GET/POST/PATCH /api/documentos` | Cria, edita e move de pasta; conteúdo no MySQL, escopo pelo caso; `PATCH .../mover` preserva `atualizado_em` |
 
-Todo `POST/PUT/PATCH/DELETE` sob `/api` exige o header **`X-CSRF-Token`**
-(exceto o próprio login). O fluxo no <http://127.0.0.1:8000/docs>:
+Falas curtas sugeridas: (a) "a busca não filtra só os 100 primeiros: o
+query param vai para o banco"; (b) "o processo real tem CNJ validado e não
+pode duplicar"; (c) "o aviso de prazo é gravado pelo servidor, não quando o
+sino é aberto"; (d) "o documento saiu do navegador e virou registro do caso".
 
-1. Abra `POST /api/auth/login` → **Try it out** → corpo de exemplo abaixo →
-   **Execute**. A resposta devolve `csrf_token` e o servidor grava o cookie
-   de sessão no navegador (mesma origem `127.0.0.1:8000`).
-2. Nas demais mutações, informe **`X-CSRF-Token`** com o valor do
-   `csrf_token` retornado pelo login (campo já documentado no OpenAPI em
-   todos os POST/PUT/PATCH/DELETE).
-3. As próximas requisições carregam o cookie automaticamente — não é
-   preciso "Authorize" extra.
+## 3. Onde cada coisa vive
 
-> Se a sessão expirar (8h) ou você fizer logout, refaça o passo 1.
-> A documentação do header é apenas OpenAPI (adicionada em `app/main.py`);
-> o comportamento de segurança da API não foi alterado.
-
----
-
-## 3. Sequência da demonstração
-
-| # | Funcionalidade | Endpoint ou tela | Dados de exemplo | Resultado esperado | Limitações |
-|---|---|---|---|---|---|
-| 1 | Acessar o sistema | Navegador: <http://127.0.0.1:5173> (e `/health`, `/docs` no backend) | — | Tela de login carrega; `/health` responde `{"status":"ok"}` | Backend e Vite precisam estar no ar |
-| 2 | Login | Tela `/` → `POST /api/auth/login` (via `src/lib/api.js`) | `admin@jadilson.adv` + senha do admin | Dashboard abre em `/home`; sessão em cookie HttpOnly; logout revoga o token | **Todas as telas do dashboard falam com a API real** (Fases 5–7) |
-| 3 | Gerenciamento de usuários | **Swagger:** `GET/POST /api/usuarios`, `PATCH /api/usuarios/{id}` | `{"nome":"Marina Demonstração","email":"marina.demo@exemplo.test","senha":"Demo123456","perfil":"FUNCIONARIO"}` | 201 com o usuário criado (sem `senha_hash`); `PATCH` alterna `ativo`/`perfil` | **Sem tela no frontend** — só API. Rota exige administrador (403 para outros) |
-| 4 | Cadastro e consulta de clientes | Tela `/clientes` **+ Swagger:** `GET/POST /api/clientes` | `{"nome":"Comércio Exemplo Ltda.","cpf_cnpj":"11.222.333/0001-81","email":"contato@exemplo.test","telefone":"(61) 99999-0000"}` | 201 e listagem paginada (`q`, `pagina`, `limite`); CPF/CNPJ formatado na resposta | A **tela grava pela API real**; documento inválido → 422 |
-| 5 | Criar e consultar um caso | Tela `/processos` **+ Swagger:** `POST/GET /api/casos` | `{"titulo":"Ação de cobrança — demonstração","cliente_id":<id do cliente>,"parte_contraria":"Empresa Exemplo S.A.","area":"PREVIDENCIARIO","prioridade":"ALTA"}` | 201 com `status=NOVO`, filtros (`q`, `cliente_id`, `status`, `ordenar`, `pagina`) e `GET /api/casos/{id}` | Tela usa a API real; o modal "Novo Processo" cria um **Caso** |
-| 6 | Associação e permissões de usuários | **Swagger:** `POST/GET /api/casos/{caso_id}/usuarios`, `DELETE .../{usuario_id}` | `{"usuario_id":<id criado>,"pode_visualizar":true,"pode_gerenciar_prazos":true,"pode_gerenciar_processos":false,"pode_gerenciar_compromissos":false}` | 201 com as flags; listagem mostra quem tem acesso; usuário sem vínculo recebe 403/404 nos recursos do caso | Sem tela no frontend — só API (RF de permissões é do backend) |
-| 7 | Processos judiciais do caso | Tela `/processos` **+ Swagger:** `POST/GET /api/casos/{caso_id}/processos`, `GET /api/processos?q=` | `{"numero_processo":"0000123-57.2026.8.26.0100","tribunal":"TJSP","instancia":"PRIMEIRA_INSTANCIA","status":"EM_ANDAMENTO"}` | 201 com CNJ normalizado; busca por CNJ parcial; **CNJ inválido** `0000000-00.2026.8.26.0100` → 422 | Leitura na tela via API; o modal "Cadastrar Processo" **não** chama este endpoint (cria um Caso) — gravação é pelo Swagger |
-| 8 | Cadastrar e consultar um prazo | Tela `/prazos` **+ Swagger:** `POST/GET /api/prazos`, `PATCH .../concluir`, `.../reabrir`, `.../cancelar` | `{"caso_id":<caso>,"titulo":"Manifestação recursal — demonstração","tipo":"PROCESSUAL","data_vencimento":"2026-11-20","prioridade":"ALTA"}` | 201; filtros (`status_prazo`, `vencidos`, `prioridade`…); conclusão muda `status` para `CONCLUIDO` | Tela grava pela API real; sem `data_inicio > data_vencimento` (422) |
-| 9 | Cadastrar e consultar um compromisso | Tela `/agenda` **+ Swagger:** `POST/GET /api/compromissos`, `PATCH .../status` | `{"titulo":"Audiência de conciliação — demonstração","tipo":"AUDIENCIA","data_inicio":"2026-11-12T09:00:00","data_fim":"2026-11-12T11:00:00","caso_id":<caso>,"local":"Fórum — sala fictícia"}` | 201 (`status=AGENDADO`); `PATCH /status` aceita `REALIZADO`/`CANCELADO`; `data_fim` menor que início → 422 (CHECK + schema) | Tela grava pela API real |
-| 10 | Agenda por período | Tela `/agenda` **+ Swagger:** `GET /api/agenda?de=&ate=` | `de=2026-11-05&ate=2026-12-05` | Lista compromissos do período (padrão: hoje +30 dias); período > 366 dias → 422 | A tela usa a API real |
-| 11 | Histórico e auditoria | **Swagger:** `GET /api/casos/{id}/historico`, `/api/processos/{id}/historico`, `/api/prazos/{id}/historico`, `/api/compromissos/{id}/historico` | ids criados nas etapas 5–9 | Cada alteração vira registro imutável com autor, data e detalhe (`origem`, `de`/`para`) | Sem tela dedicada no frontend — só API |
-
-### 3.1 Roteiro narrado (resumo em 11 falas)
-
-1. **Acessar o sistema** — abra a raiz do frontend e, em outra aba, `/health`
-   e `/docs` do backend, mostrando a API viva.
-2. **Login** — entre com `admin@jadilson.adv`; explique JWT em cookie
-   HttpOnly + CSRF + rate limit.
-3. **Usuários** — pelo Swagger, liste e cadastre um usuário fictício com
-   perfil `FUNCIONARIO` (não administrador) e mostre a proteção 403 para
-   quem não é administrador.
-4. **Clientes** — mostre a tela `/clientes` e, no Swagger, faça o cadastro
-   real e a consulta com filtro `q`.
-5. **Caso** — crie um caso vinculado ao cliente recém-criado e consulte a
-   listagem com filtros e paginação.
-6. **Associação/permissões** — vincule o usuário do passo 3 ao caso com
-   permissões granulares (`pode_visualizar`, `pode_gerenciar_prazos`…).
-7. **Processos** — vincule um processo com CNJ válido ao caso; mostre a
-   rejeição de um CNJ inválido (422) e a busca por CNJ.
-8. **Prazo** — crie um prazo para o caso, consulte os filtros
-   (`vencidos`, `status_prazo`) e conclua/reabra o prazo.
-9. **Compromisso** — crie uma audiência com período válido e mude o status
-   para `REALIZADO`.
-10. **Agenda** — consulte `/api/agenda` no período que contém o compromisso.
-11. **Histórico** — abra os quatro endpoints de histórico e mostre a trilha
-    de auditoria das ações dos passos 5–9.
-
----
-
-## 4. Onde demonstrar cada coisa (UI × API)
-
-| Área | No frontend (5173) | Na API (8000/docs) |
+| Área | Frontend | API |
 |---|---|---|
-| Login/sessão/logout | **Integral com a API real** | `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/logout` |
-| Dashboard (`/home`), Processos, Prazos, Agenda, Clientes, Notificações, Busca global | **Ligados à API real** (Fases 5–7) | CRUD real correspondente |
-| Financeiro e Assinaturas | Tela ligada à API (admin-only) | `GET/POST /api/financeiro/*`, `/api/assinaturas` |
-| Configurações do escritório | Tela restrita a **administrador** (rota + menu) | `GET/PUT /api/auth/escritorio` (**PUT exige admin**) |
-| Usuários | Tela **Usuários** (admin-only, menu Escritório) | `GET/POST/PATCH /api/usuarios` |
-| Associação de usuários ao caso e permissões | Botão **Acesso ao caso** em `/processos` (admin) | `GET/POST/DELETE /api/casos/{id}/usuarios` |
-| Histórico/auditoria | — (sem tela) | Somente API |
-| Andamentos (RF06) | **Painel de andamentos** em `/processos` (caso aberto) | `GET/POST /api/casos/{id}/andamentos` |
-| Documentos | Conteúdo no **banco**, escopo pelo caso; pastas personalizadas seguem no navegador | `GET/POST/PATCH/DELETE /api/documentos` |
-| MinutaIA / geração de minuta | — | **Não existe** (não demonstrar) |
+| Login/sessão | integral (cookie + CSRF) | `/api/auth/login|me|logout` |
+| Clientes, casos, processos, prazos | telas com filtros no servidor | `GET/POST/PATCH/DELETE` correspondentes |
+| Usuários e acesso ao caso | tela Usuários + botão no processo | `/api/usuarios`, `/api/casos/{id}/usuarios` |
+| Notificações | sino com polling de 15 s | `/api/notificacoes` (+ varredura no servidor) |
+| Documentos | tela Documentos (pastas locais) | `/api/documentos` |
+| Andamentos | painel no processo | `/api/casos/{id}/andamentos` |
+| Histórico/auditoria | sem tela dedicada | endpoints `/historico` |
+| MinutaIA / NER | não demonstrar | fora do escopo desta entrega |
 
----
-
-## 5. Checklist de 2 minutos antes da apresentação
+## 4. Gate antes da apresentação
 
 ```powershell
-# 1) backend (terminal 1)
+# backend
 cd backend
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
-
-# 2) frontend (terminal 2)
+.\.venv\Scripts\python.exe -m pytest -q
+# frontend
 cd frontend\frontend-jadilson
-npm run dev
+npm.cmd run lint
+npm.cmd run build
 ```
 
-- [ ] `GET http://127.0.0.1:8000/health` → `{"status":"ok","versao":"0.1.0"}`
-- [ ] `http://127.0.0.1:8000/docs` abre com **67 caminhos / 89 operações**
-- [ ] `alembic current` = `0015_documentos` (banco MySQL em dia com o repositório)
-- [ ] `http://127.0.0.1:5173` abre a tela de login
-- [ ] Login funcional com o administrador (sem estourar o rate limit)
-- [ ] MySQL80 em execução (`Get-Service MySQL80`)
-- [ ] `npm run lint` em 0 erros e `npm run build` OK (antes da apresentação)
-- [ ] Roteiro e este documento abertos para consulta
+- [ ] `/health` responde e `/docs` abre
+- [ ] `alembic current` = `0015_documentos` e `alembic check` limpo
+- [ ] login admin funciona e logout revoga a sessão
+- [ ] filtros de Processos/Prazos/Clientes mandam `?q=` na rede (aba Network)
+- [ ] documento criado pela UI aparece em `GET /api/documentos`
+- [ ] prazo criado gera aviso sem abrir o painel de notificações
+- [ ] `npm.cmd run lint` sem erros e `npm.cmd run build` OK
 
-## 6. Possíveis imprevistos e como contornar
+## 5. Se algo der errado
 
 | Sintoma | Causa provável | Contorno |
 |---|---|---|
-| Login 500 | Migrations não aplicadas (banco em revisão antiga) | Ver "Situação das migrações" no `README.md` da raiz (backup → `alembic current` → `upgrade head`) |
-| 401 inesperado no Swagger | Sessão expirada/logout | Refaça o login no `POST /api/auth/login` |
-| 403 no Swagger | Falta o header `X-CSRF-Token` | Use o `csrf_token` devolvido pelo login |
-| 429 no login | Rate limit (20/5min por IP) | Aguarde 5 minutos ou reinicie o backend (limiter é em memória) |
-| Porta 5173 ocupada | Vite anterior aberto | Encerre o processo antigo (`strictPort` recusa outra porta) |
-| Tela sem dados "novos" que você acabou de criar | Cache do navegador ou polling de 15s (notificações) | Recarregue a página (F5) ou aguarde o ciclo de atualização |
+| Login 500 | migrations desatualizadas | backup → `alembic upgrade head` |
+| 401 no Swagger | sessão expirada/logout | refaça `POST /api/auth/login` |
+| 403 em mutação | falta `X-CSRF-Token` | use o `csrf_token` do login |
+| 429 no login | rate limit | aguarde 5 min ou reinicie o backend |
+| Lista vazia após filtro | termo sem correspondência | limpe o campo de busca |
+| Documento some | estava em pasta local diferente | verifique a pasta na tela Documentos |
+| 5173 ocupada | Vite anterior | encerre o processo antigo (porta fixa) |

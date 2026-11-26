@@ -113,10 +113,10 @@ Abra `http://127.0.0.1:5173`. O Vite encaminha `/api` para `127.0.0.1:8000`, ent
 ```bash
 cd backend
 source .venv/bin/activate
-python -m pytest          # 641 testes (unit + API + Fases 1-7 + migrations) — SQLite em memória, sem tocar o MySQL
+python -m pytest          # suíte completa (unit + API + Fases 1-8 + migrations) — SQLite em memória, sem tocar o MySQL
 ```
 
-Suíte executada em **26/11/2026: 641 testes aprovados, 1 ignorado (NER sem
+Suíte executada em **26/11/2026: 643 testes aprovados, 1 ignorado (NER sem
 scikit-learn instalado), 0 falhas**.
 Detalhes em [`backend/README.md`](backend/README.md).
 

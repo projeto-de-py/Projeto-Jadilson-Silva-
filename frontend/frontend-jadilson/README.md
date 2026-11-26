@@ -63,10 +63,14 @@ src/
 - **Guards:** rotas exigem sessão; `/configuracoes` exige `administrador`
   (rota + menu) — **o backend também exige** (é o controle que vale).
 - **Lint:** `react-hooks/set-state-in-effect` proíbe `setState` síncrono em
-  `useEffect` — use `.then()` com flag `cancelado` (padrão em `Agenda.jsx`).
-- **Código morto confirmado (não usar):** `src/api/client.js`,
-  `src/context/AuthProvider.jsx`, `auth-context.js` — legado de um segundo
-  sistema de sessão; o ativo é `src/lib/api.js`.
+  `useEffect` — use `.then()` com flag `cancelado` ou microtarefa (padrão em
+  `Agenda.jsx` e `src/data/consulta.js`).
+- **Filtros no servidor (RF09):** `src/data/consulta.js` (`useConsultaPaginada`)
+  envia `q`, `status` etc. como query params para Processos, Prazos e Clientes.
+  As telas não filtram mais só os primeiros 100 registros em memória.
+- **Código morto removido:** `src/api/client.js`, `src/context/AuthProvider.jsx`
+  e `auth-context.js` (legado de um segundo sistema de sessão). O ativo é
+  `src/lib/api.js`.
 - `pages/DashBoard` usa grafia **`DashBoard`** (B maiúsculo) — invariante.
 
 ## Limitação conhecida

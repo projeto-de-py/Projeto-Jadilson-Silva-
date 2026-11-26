@@ -66,13 +66,16 @@ vê o quê.
 
 ### 3.2 Processos
 - Lista e **funil por etapa** (petição inicial, instrução, sentença, recursal, concluído).
+- Busca e estágio enviados ao servidor (`GET /api/casos?q=...&status=...`); a
+  página não filtra apenas os registros já carregados.
 - **Andamentos** em linha do tempo, **exportar PDF** do processo e **Editar documento**.
 - Cadastro de novo processo.
 
 ### 3.3 Prazos
 - Prazos agrupados por urgência, com a situação em palavras simples: **Vencido**, **Vence hoje**,
   **Perto de vencer** e **No prazo**.
-- Marcar como **cumprido**, filtrar por área e buscar.
+- Marcar como **concluído/reaberto/cancelado**, filtrar por área e buscar
+  (`GET /api/prazos?q=...` filtra no banco).
 - **Calculadora de prazos:** conta dias úteis ou corridos a partir da intimação, ignora feriados nacionais e
   prorroga para o próximo dia útil.
 
@@ -120,13 +123,13 @@ Pasta [`backend/app/ia/`](../backend/app/ia/):
 - Clientes e Configurações do escritório.
 
 ### 3.8 Notificações
-- O sino consulta notificações pessoais a cada 30 segundos, mostra a quantidade não lida e abre um painel dividido em Hoje e Anteriores.
+- O sino consulta notificações pessoais a cada 15 segundos, mostra a quantidade não lida e abre um painel dividido em Hoje e Anteriores.
 - Cada item pode levar à tela relacionada e ser marcado como lido; também é possível marcar todas de uma vez.
-- Prazos geram avisos nos marcos de 7, 3, 1 e 0 dias e enquanto estiverem vencidos. A geração ocorre na primeira leitura da API e é repetida com deduplicação; ainda não existe rotina cron.
+- Prazos geram avisos nos marcos de 7, 3, 1 e 0 dias e enquanto estiverem vencidos. A geração acontece **no servidor**: a escrita de prazo dispara os geradores na hora e uma varredura em segundo plano (`NOTIFICACOES_VARREDURA_MINUTOS`, padrão 5) cobre mudanças de data sem ninguém abrir a tela. A deduplicação por chave torna a rotina idempotente.
 - Criações de clientes, atribuições de casos, concessões/revogações de acesso e eventos financeiros também geram avisos sem incluir dados pessoais no texto.
 - `notificacoes` guarda proprietário, tipo, severidade, texto curto, link interno, chave de deduplicação e data de leitura. O backend aplica o escopo de usuário em toda leitura e escrita.
 
-Na implementação, `models/notificacao.py` define a tabela, `repositories/notificacao_repository.py` mantém todas as consultas por proprietário, `services/notificacao_service.py` aplica deduplicação e gera avisos de prazo/ações, e `api/routes/notificacoes.py` publica os endpoints autenticados. A migração `0012_notificacoes.py` cria o armazenamento depois da migração local de agenda `0011`. No navegador, `hooks/useNotificacoes.js` atualiza lista/contador por polling e dispara toast para itens novos; `components/layout/PainelNotificacoes.jsx`, usado pelo `Topbar`, mostra o badge e o dropdown.
+Na implementação, `models/notificacao.py` define a tabela, `repositories/notificacao_repository.py` mantém todas as consultas por proprietário, `services/notificacao_service.py` aplica deduplicação e gera avisos de prazo/ações, `services/notificacao_agendador.py` roda a varredura no `lifespan` do FastAPI, e `api/routes/notificacoes.py` publica os endpoints autenticados. A migração `0012_notificacoes.py` cria o armazenamento depois da migração local de agenda `0011`. No navegador, `hooks/useNotificacoes.js` atualiza lista/contador por polling e dispara toast para itens novos; `components/layout/PainelNotificacoes.jsx`, usado pelo `Topbar`, mostra o badge e o dropdown.
 
 ---
 
@@ -147,7 +150,7 @@ Na implementação, `models/notificacao.py` define a tabela, `repositories/notif
 | Frontend | React, Vite, Tailwind CSS, Radix UI, TipTap (editor), Motion, Recharts, ícones SF (`symbols-react`) |
 | Backend | Python, FastAPI, Uvicorn, Pydantic, SQLAlchemy, Alembic |
 | Banco | MySQL (SQLite para desenvolvimento e testes) |
-| Testes | Pytest (**641 testes** no backend) |
+| Testes | Pytest (**643 testes** no backend) |
 
 ---
 
@@ -161,7 +164,7 @@ Na implementação, `models/notificacao.py` define a tabela, `repositories/notif
 | Documentos | Salvos **no banco** via `/api/documentos`, com escopo pelo caso; pastas personalizadas continuam no navegador |
 | IA: caixa, sugestões, revisão e filtros | **Funcionando** com provedor **simulado** (sem modelo real) |
 | IA com modelo real | **Pronta no backend** (OpenRouter com modelo gratuito do Google, exige `OPENROUTER_API_KEY`); falta colar a chave e avaliar por área |
-| Notificações | **Ligadas ao backend** com deduplicação por usuário, avisos de prazo sob demanda, polling e toast no navegador |
+| Notificações | **Ligadas ao backend** com deduplicação por usuário, avisos de prazo gravados por evento/varredura (sem depender da tela), polling de 15 s e toast no navegador |
 | Assinatura eletrônica (Autentique/ZapSign) e cobrança (Asaas) | **Pronto no backend** com webhooks seguros e testes simulados; falta testar com as contas reais (sandbox). A tela Financeiro já fala com a API |
 | Integrações (DataJud, CEP, CNPJ, feriados, juros) | **Funcionando** no backend (`/api/consultas/*`) com chave de API onde necessário |
 

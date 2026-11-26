@@ -80,8 +80,8 @@ HTTP → Router (api/routes) → Service (services) → Repository (repositories
 | PUT | `/api/auth/escritorio` | **Admin** + CSRF | Atualiza dados globais do escritório (nome, OAB, assinatura, áreas) |
 | PUT | `/api/clientes/{cliente_id}` | **Admin** + CSRF | Atualiza cliente (PF/PJ, `extra="forbid"`) |
 | DELETE | `/api/clientes/{cliente_id}` | **Admin** + CSRF | Desativa cliente (soft delete) |
-| GET | `/api/notificacoes` | cookie | Notificações do usuário logado (`pagina`, `limite`, `tipos`, `nao_lidas`) — dispara a sincronização automática |
-| GET | `/api/notificacoes/nao-lidas/contagem` | cookie | Contagem de não lidas |
+| GET | `/api/notificacoes` | cookie | Notificações do usuário logado (`pagina`, `limite`, `lidas`) — também dispara a sincronização automática |
+| GET | `/api/notificacoes/nao-lidas/contagem` | cookie | Contagem de não lidas (`nao_lidas` no corpo) |
 | POST | `/api/notificacoes/{id}/lida` | cookie + CSRF | Marca uma como lida (`404` se for de outro usuário) |
 | POST | `/api/notificacoes/lidas` | cookie + CSRF | Marca todas como lidas |
 | DELETE | `/api/notificacoes` | cookie + CSRF | Limpa todas do usuário |
@@ -175,11 +175,20 @@ Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/api/auth/login `
 - CORS liberado apenas para as origens configuradas (`CORS_ORIGINS`) com `allow_credentials`; as respostas de erro do CSRF também recebem os headers CORS
 - **Fail-fast em produção** (`APP_ENV=production`): a API aborta o startup se o `JWT_SECRET` for fraco/default, se o cookie não for `Secure` ou se houver curinga no CORS; `/docs` e `/openapi.json` ficam desativados
 
+## Notificações automáticas
+
+Os geradores de prazo/audiência/relatório não esperam mais a abertura da tela:
+a escrita de prazo dispara a geração no mesmo instante (`PrazoService` →
+`sincronizar_notificacoes_para_todos`) e uma tarefa no `lifespan` do FastAPI
+(varredura a cada `NOTIFICACOES_VARREDURA_MINUTOS`, padrão 5) cobre o passar
+dos dias. A chave de dedupe (`prazo:<id>:<data>:<marco>`) torna a rotina
+idempotente; `0` desliga a varredura (usado nos testes com SQLite em memória).
+
 ## Testes
 
 ```powershell
 python -m pip install -r requirements-dev.txt
-python -m pytest          # 641 testes (unit + API + Fases 1-7 + migrations) — rodam em SQLite em memoria
+python -m pytest          # suíte completa (unit + API + Fases 1-7 + migrations) — roda em SQLite em memória
 ```
 
 - `tests/test_unit.py`: bcrypt, JWT (assinatura falsa/expirada), `Limiter`, services, validação de configuração de segurança
@@ -190,6 +199,7 @@ python -m pytest          # 641 testes (unit + API + Fases 1-7 + migrations) —
 - `tests/test_fase4.py`: prazos e compromissos — escopo, permissões (`pode_gerenciar_compromissos` própria), urgentes, agenda com sobreposição, auditoria e **atomicidade** (102 testes)
 - `tests/test_fase7.py`: andamentos RF06 — escopo, escrita, caso arquivado, auditoria (30 testes)
 - `tests/test_notificacoes.py`: propriedade, dedupe por usuário, geradores automáticos (relogio controlado — sem depender do dia da semana)
+- `tests/test_notificacoes_agendador.py`: avisos gravados sem leitura de tela (varredura + evento de criação de prazo)
 - `tests/test_validacao.py`: CPF/CNPJ/telefone/CNJ (unidade)
 - `tests/test_migracoes.py`: upgrade/downgrade/re-upgrade da cadeia completa em subprocesso (banco descartável)
 - As fixtures (`tests/conftest.py`) sobrepõem `get_db` com SQLite em memoria — **nenhum teste toca no MySQL**

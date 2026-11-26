@@ -9,8 +9,9 @@
 > HttpOnly + CSRF + rate limit + revogação de sessão). O **"Sistema B"** descrito nas
 > seções 7, 8 e 11 (scripts na raiz de `backend/`, etc.) **não está presente
 > localmente** — essas seções estão **desatualizadas**. Não siga as instruções do
-> Sistema B sem confirmar o conteúdo atual dos arquivos. (Obs.: `src/context/AuthProvider.jsx`
-> e `src/api/client.js` existem mas são **código morto** — o `App.jsx` usa `src/lib/api.js`.)
+> Sistema B sem confirmar o conteúdo atual dos arquivos. O antigo código morto
+> (`src/context/AuthProvider.jsx`, `src/context/auth-context.js`, `src/api/client.js`)
+> foi **removido** na Fase 5 — o `App.jsx` usa `src/lib/api.js` e `src/context/sessao`.)
 >
 > ➕ **Fases do backend concluídas:** Fase 1 (cadastros/permissões), Fase 2 (casos),
 > Fase 3 (processos judiciais), Fase 4 (prazos + compromissos), Fase 5 (financeiro +
@@ -18,8 +19,8 @@
 > **Fase 7 (andamentos RF06)** — docs em `docs/FASE*_*.md`.
 >
 > 🔎 **Revisão técnica de pré-entrega (atualizado em 26/11/2026):**
-> - suíte completa: **641 testes aprovados, 1 ignorado (NER sem
->   `scikit-learn`), 0 falhas** (antes 637);
+> - suíte completa: **643 testes aprovados, 1 ignorado (NER sem
+>   `scikit-learn`), 0 falhas** (antes 641);
 > - head do Alembic = **`0015_documentos`** (cadeia `0001`..`0015`);
 > - ✅ **banco MySQL `advocacia` em `0015_documentos`** — criado/atualizado
 >   em 26/11/2026 com a cadeia completa, `alembic check` sem divergências e 21
@@ -27,15 +28,19 @@
 >   configurações do escritório disponíveis). Toda nova alteração de schema segue
 >   o procedimento de backup do `README.md` da raiz;
 > - frontend: `npm run lint` (0 erros) e `npm run build` (OK); **todas as telas do
->   dashboard consomem a API real** (login, casos, processos, prazos, agenda,
->   clientes, andamentos, notificações, financeiro, configurações) — ver
->   `docs/ROTEIRO_PRE_ENTREGA.md`;
+>   dashboard consomem a API real** (login, clientes, casos, processos, prazos,
+>   agenda, documentos, usuários, andamentos, notificações, financeiro,
+>   configurações) — ver `docs/ROTEIRO_PRE_ENTREGA.md`;
 > - segurança: `PUT /api/auth/escritorio` exige **admin**; produção rejeita o
 >   `JWT_SECRET` default do repositório.
 >
 > **Pendências:** ✅ upgrade do **banco MySQL** para `0015`; ✅ UI de atribuição de
 > casos a usuários; ✅ "Cadastrar Processo" cria processo judicial via
-> `POST /api/casos/{id}/processos`; restam filtros RF09, notificações e CI/higiene.
+> `POST /api/casos/{id}/processos`; ✅ RF09: filtros enviados ao servidor
+> (`src/data/consulta.js`) em Processos/Prazos/Clientes; ✅ notificações gravadas
+> por eventos e varredura periódica (`notificacao_agendador.py`), sem depender
+> da abertura da tela; ✅ CI em `.github/workflows/ci.yml`. Resta apenas o
+> gate final (suíte completa + smoke MySQL) antes da entrega.
 
 ---
 
@@ -163,10 +168,10 @@ Projeto-Jadilson-Silva-/
 | **Dependency Injection** | FastAPI `Depends`: `get_db`, `get_usuario_repo`, `get_current_user`, `require_admin` | Injetar sessão, usuário JWT e permissões |
 | **Guard de perfil** | `app/api/deps.py → require_admin` | Autorização **sempre no servidor** (RF02/RF07/RF08) |
 | **Factory** | `app/main.py → create_app()` | App configurável/testável |
-| **Facade** | `frontend/src/api/client.js` (A) e `src/lib/api.js` (B) | Ponto único de HTTP; nenhum `fetch` solto em componente |
-| **Context (State)** | `src/context/AuthProvider.jsx` + `auth-context.js` | Sessão JWT global, `login/logout`, persistência em `localStorage` |
-| **Guard / Protected Route** | `App.jsx`: `Protegida` e `LoginOuRedirect` (A) · gate por `session` (B) | Rotas privadas; redireciona para `/` sem sessão |
-| **Separation of concerns (arquivos)** | `auth-context.js` (só contexto/hook) separado de `AuthProvider.jsx` (só componente) | Evita erro `react-refresh/only-export-components` |
+| **Facade** | `frontend/frontend-jadilson/src/lib/api.js` | Ponto único de HTTP (cookies + CSRF); nenhum `fetch` solto em componente |
+| **Context (State)** | `src/context/sessao` + `src/data/escritorio.js` | Sessão via `GET /api/auth/me`; carteira carregada da API |
+| **Guard / Protected Route** | `App.jsx`: `Protegida` e `LoginOuRedirect` | Rotas privadas; redireciona para `/` sem sessão |
+| **Consulta paginada (RF09)** | `src/data/consulta.js → useConsultaPaginada` | Filtros e paginação no banco, com debounce e abertura de página |
 | **Design System / Compound UI** | `components/ui/` com barrel `index.js` | Reuso e consistência visual |
 | **Estratégia prevista (Fase 2)** | N/A ainda — planejado em `services/visibilidade.py` | Strategy: `AdminVêTodos` vs `PadraoVêAtribuidos` (RF03/RF04) |
 | **Ports & Adapters (futuro MinutaIA)** | Planejado: `core/minuta_provider.py` (Protocol) + adapters mock/openai/ollama | Trocar provedor de IA sem tocar em regra (ver §14) |
@@ -184,7 +189,7 @@ Projeto-Jadilson-Silva-/
   - schemas de saída sufixo **`Out`** (`UsuarioOut`); erro de negócio = `class XError(Exception)` no service, traduzida para `HTTPException` na rota.
   - mensagens de erro **em PT sem acento** no Sistema A (ex.: "E-mail ou senha invalidos") — Sistema B usa com acento ("E-mail ou senha inválidos.").
 - **Frontend:**
-  - componentes/páginas `PascalCase.jsx` (`AuthPage.jsx`, `Sidebar.jsx`); não-componentes `kebab-case.js` (`auth-context.js`, `lib/api.js`).
+  - componentes/páginas `PascalCase.jsx` (`AuthPage.jsx`, `Sidebar.jsx`); não-componentes `kebab-case.js` (`lib/api.js`, `data/consulta.js`).
   - páginas em `pages/<Pagina>/<Pagina>.jsx`; pastas de página do dashboard em `pages/DashBoard/...` (⚠️ grafia **`DashBoard` com B maiúsculo** — invariante, não renomear sem revisar imports).
   - alias `@` → `src/` em imports (`@/components/ui/Button`).
   - hooks `useX` em `hooks/`; contexto `x-context.js` + `XProvider.jsx`.
@@ -273,14 +278,14 @@ Histórico: em 12/10 o repositório tinha **apenas** o Sistema A (JWT + camadas)
 **O que mudou na consolidação:**
 - Backend: removidos `auth.py`, `config.py`, `database.py`, `main.py`, `criar_usuario.py`, `smoke.db`, `banco/`, `tests/test_mysql_auth_real.py`; requirements restaurados para SQLAlchemy/PyMySQL/PyJWT/bcrypt.
 - Frontend: `App.jsx` passou de `api('session')` para `api('me')` (rota do A; `login`/`logout` já batiam). A integração ativa usa `lib/api.js` (cookies + CSRF via proxy Vite `/api` → 8000).
-- `AuthProvider`/`auth-context`/`api/client.js` (variantes antigas) **continuam no repo** — avaliar se ainda são usados ou se são código morto (lint/build acusam).
+- `AuthProvider`/`auth-context`/`api/client.js` (variantes antigas) foram **removidos** na Fase 5 (confirmado código morto por `grep` de imports + lint/build limpos).
 
 ---
 
 ## 9. Frontend — arquitetura e telas (estado atual)
 
-- **Rotas:** `/` (login) · `/login`→`/` · `/design-system` (galeria) · layout `DashboardLayout` envolve `/home`, `/processos`, `/prazos`, `/agenda`, `/clientes`, `/configuracoes` · `*` redireciona.
-- **Telas do dashboard** (`pages/DashBoard/*`): **ligadas à API real** — Home, Processos, Prazos, Agenda, Clientes, Documentos, Financeiro, Configurações, BuscaGlobal e painéis de Andamentos/Notificações consomem `/api/*` (Fases 5–7). Exceções: `Documentos` usa `localStorage` (não há endpoint de documentos) e a IA usa `PRAZOS = []` estático.
+- **Rotas:** `/` (login) · `/login`→`/` · `/design-system` (galeria) · layout `DashboardLayout` envolve `/home`, `/processos`, `/prazos`, `/agenda`, `/clientes`, `/documentos`, `/usuarios`, `/configuracoes` · `*` redireciona.
+- **Telas do dashboard** (`pages/DashBoard/*`): **ligadas à API real** — Home, Processos, Prazos, Agenda, Clientes, Documentos, Usuários, Financeiro, Configurações, BuscaGlobal e painéis de Andamentos/Notificações consomem `/api/*`. Documentos saiu do `localStorage` (Fase 3): título/conteúdo/pasta no MySQL via `/api/documentos`; apenas a pasta da UI continua em `localStorage`. Filtros RF09 (Processos/Prazos/Clientes) vão como query params ao servidor (`src/data/consulta.js`). IA/minuta permanece fora da entrega.
 - **Layout:** `app/layouts/DashboardLayout.jsx` + `app/navigation.js` ( itens de menu ) + `components/layout/Sidebar.jsx` e `Topbar.jsx` (busca, notificações, avatar "JS").
 - **Design system:** ~24 componentes em `components/ui/` exportados pelo barrel `index.js`; tokens de cor no `index.css` (`@theme` Tailwind: `--color-primary`, `--color-destructive`, etc.) + `styles/tokens.css`/`globals.css`. `lib/cn.js` = `clsx + tailwind-merge`.
 - **Prettier** adicionado (`npm run format`); lint = `npm run lint` (**deve ficar em 0 erros**; já foi gate em integrações).
@@ -375,14 +380,18 @@ python -m pytest                      # backend em SQLite em memória
 
 ---
 
-## 14. Checklist da próxima sessão de IA (ordem sugerida)
+## 14. Gate final de entrega (26/11/2026)
 
-1. `npm install` + `npm run lint` + `python -m pytest` (guardas de qualidade após a consolidação de 21/10).
-2. ~~Levantar a questão do §8 com o time~~ — **resolvido**: Sistema A consolidado, B removido (§7/§8).
-3. Conferir schema real das tabelas (`SHOW TABLES`/`DESCRIBE usuarios`) — **limpar resíduos do B** no MySQL se existirem (`sistema.usuarios`, `sistema.sessoes`, coluna `atualizado_em`) e conferir o stamp do Alembic.
-4. Avaliar `AuthProvider`/`auth-context`/`api/client.js` no frontend: são usados ou são código morto pós-consolidação?
-5. Só então Fase 2 (casos) seguindo as convenções da §5 e os padrões da §4.
-6. Guardas de qualidade: `npm run lint` em 0 erros; testar login E2E (senha errada → alerta; certo → dashboard; recarregar a página mantém a sessão via `GET /api/auth/me`; logout → volta ao login).
+1. `python -m pytest -q` (backend, SQLite em memória), `npm run lint` e `npm run build`.
+2. `alembic check` e `alembic current` no MySQL `advocacia` — head `0015_documentos`.
+3. Smoke no MySQL: login → cliente → caso → processo CNJ → prazo → andamento → documento.
+4. Verificação visual no navegador: login, Processos/Prazos/Clientes com filtros no
+   servidor (`?q=...`) e Documentos (`GET/POST/PATCH /api/documentos`).
+5. CI `.github/workflows/ci.yml` cobre backend (pytest) e frontend (lint/build).
+
+Itens vencidos: Sistema B removido, resíduos limpos, código morto do frontend
+removido, migrations `0001`..`0015` aplicadas e documentos migrados do
+`localStorage` para o banco.
 
 ---
-*Documento gerado em 16/10/2026 a partir da análise do código, do PDF de documentação e do histórico Git. Atualizado em 21/10/2026: Sistema B removido, Sistema A consolidado (§7, §8, §10, §14). Atualizado em 03/11/2026: Fases 1–4 do backend concluídas (§1 RFs, §12 roadmap, §3 migrations 0001–0007). Atualizado em 04/11/2026 (pré-entrega): suíte com **376 testes, 0 falhas**, cadeia de migrations validada em MySQL descartável, **banco real atualizado para `0007_permissoes_compromissos`** com backup, roteiro em `docs/ROTEIRO_PRE_ENTREGA.md`. Atualizado em 15/11/2026 (Fase 8 — auditoria/estabilização): Fases 5–7 reconhecidas (RF06 com endpoint + front), `PUT /api/auth/escritorio` restrito a admin, produção rejeita o `JWT_SECRET` default, frontend com estados de erro/carregamento reais. Atualizado em 26/11/2026: suíte com **641 testes aprovados, 1 ignorado (NER sem scikit-learn), 0 falhas**, head do Alembic = **`0014_andamentos_origem`** e **banco MySQL `advocacia` em dia** (cadeia `0001`..`0014` aplicada, `alembic check` sem divergências). Quando o projeto mudar, atualizar as seções 1 (status dos RFs), 8 (consolidação), 11 (Git) e 12 (roadmap).*
+*Documento gerado em 16/10/2026 a partir da análise do código, do PDF de documentação e do histórico Git. Atualizado em 21/10/2026: Sistema B removido, Sistema A consolidado (§7, §8, §10, §14). Atualizado em 03/11/2026: Fases 1–4 do backend concluídas (§1 RFs, §12 roadmap, §3 migrations 0001–0007). Atualizado em 04/11/2026 (pré-entrega): suíte com **376 testes, 0 falhas**, cadeia de migrations validada em MySQL descartável, **banco real atualizado para `0007_permissoes_compromissos`** com backup, roteiro em `docs/ROTEIRO_PRE_ENTREGA.md`. Atualizado em 15/11/2026 (Fase 8 — auditoria/estabilização): Fases 5–7 reconhecidas (RF06 com endpoint + front), `PUT /api/auth/escritorio` restrito a admin, produção rejeita o `JWT_SECRET` default, frontend com estados de erro/carregamento reais. Atualizado em 26/11/2026: suíte com **643 testes aprovados, 1 ignorado (NER sem scikit-learn), 0 falhas**, head do Alembic = **`0015_documentos`** e **banco MySQL `advocacia` em dia** (cadeia `0001`..`0015` aplicada, `alembic check` sem divergências), Fases 1–5 (filtros RF09, notificações automáticas, CI e higiene) concluídas. Quando o projeto mudar, atualizar as seções 1 (status dos RFs), 8 (consolidação), 11 (Git) e 12 (roadmap).*
