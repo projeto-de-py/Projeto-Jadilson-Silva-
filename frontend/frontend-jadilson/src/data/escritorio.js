@@ -58,6 +58,17 @@ export const ETAPA_PARA_STATUS_API = {
   "Concluído": "CONCLUIDO",
 };
 
+// `ProcessoJudicial` tem enum de situacao PROPRIO (distinto do status do Caso).
+// Usado ao criar o processo real via POST /api/casos/{id}/processos.
+export const ETAPA_PARA_STATUS_PROCESSO = {
+  "Petição inicial": "DISTRIBUIDO",
+  "Instrução": "EM_ANDAMENTO",
+  "Sentença": "AGUARDANDO_SENTENCA",
+  "Recursal": "EM_ANDAMENTO",
+  "Execução": "EM_ANDAMENTO",
+  "Concluído": "BAIXADO",
+};
+
 export function extrairAreaCodigo(tipoAcao = "") {
   const texto = String(tipoAcao)
     .normalize("NFD")

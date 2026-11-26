@@ -13,6 +13,7 @@ import { useSessao } from "@/context/sessao";
 import { apiJson } from "@/lib/api";
 import {
   ETAPA_PARA_STATUS_API,
+  ETAPA_PARA_STATUS_PROCESSO,
   extrairAreaCodigo,
   mapearCasoApi,
   notificarAtualizacaoDados,
@@ -51,6 +52,26 @@ function formatarNumeroProcesso(valor) {
   return `${numero}${digitos.length > 7 ? `-${digito}` : ""}${digitos.length > 9 ? `.${ano}` : ""}${digitos.length > 13 ? `.${ramo}` : ""}${digitos.length > 14 ? `.${tribunal}` : ""}${digitos.length > 16 ? `.${origem}` : ""}`;
 }
 
+function digitosDoCnj(valor) {
+  return String(valor || "").replace(/\D/g, "");
+}
+
+// Mesmo módulo 97 do backend (`app/core/validacao.py`). BigInt é obrigatório:
+// 20 dígitos ultrapassam a precisão inteira de `Number` no JavaScript.
+function cnjEhValido(valor) {
+  const digitos = digitosDoCnj(valor);
+  if (digitos.length !== 20 || /^(\d)\1{19}$/.test(digitos)) return false;
+  let resto = 0n;
+  for (const digito of digitos) resto = (resto * 10n + BigInt(digito)) % 97n;
+  return resto === 1n;
+}
+
+function formatarCnj(valor) {
+  const digitos = digitosDoCnj(valor);
+  if (digitos.length !== 20) return String(valor || "").trim();
+  return `${digitos.slice(0, 7)}-${digitos.slice(7, 9)}.${digitos.slice(9, 13)}.${digitos.slice(13, 14)}.${digitos.slice(14, 16)}.${digitos.slice(16, 20)}`;
+}
+
 function formatarValorCausa(valor) {
   const digitos = valor.replace(/\D/g, "").slice(0, 15);
   if (!digitos) return "";
@@ -58,6 +79,14 @@ function formatarValorCausa(valor) {
     style: "currency",
     currency: "BRL",
   }).format(Number(digitos) / 100);
+}
+
+// A máscara de valor guarda centavos; a API espera Decimal (reais).
+function valorDaCausa(valor) {
+  const digitos = digitosDoCnj(valor).slice(0, 15);
+  if (!digitos) return null;
+  const reais = Number(digitos) / 100;
+  return reais > 0 ? reais : null;
 }
 
 export function ModalCadastrarProcesso({ open, onOpenChange, onProcessoSalvo }) {
@@ -102,8 +131,14 @@ export function ModalCadastrarProcesso({ open, onOpenChange, onProcessoSalvo }) 
 
   function validar() {
     const novosErros = {};
-    if (!form.numeroProcesso.trim()) {
+    const digitos = digitosDoCnj(form.numeroProcesso);
+    if (!digitos) {
       novosErros.numeroProcesso = "Informe o número do processo (CNJ).";
+    } else if (!cnjEhValido(digitos)) {
+      novosErros.numeroProcesso =
+        digitos.length !== 20
+          ? "O CNJ deve ter 20 dígitos (formato 0000000-00.0000.0.00.0000)."
+          : "CNJ inválido: os dígitos verificadores não conferem.";
     }
     if (!form.cliente.trim()) {
       novosErros.cliente = "Informe o nome do cliente vinculado.";
@@ -133,21 +168,60 @@ export function ModalCadastrarProcesso({ open, onOpenChange, onProcessoSalvo }) 
 
     setSalvando(true);
     try {
+      const digitos = digitosDoCnj(form.numeroProcesso);
+      const numeroFormatado = formatarCnj(digitos);
+
+      // Unicidade conferida ANTES de criar o Caso: sem isso um CNJ duplicado
+      // deixaria um Caso órfão (a API não tem DELETE de caso, só arquivar).
+      try {
+        const consulta = await apiJson(`processos?q=${digitos}&limite=1`);
+        if (Number(consulta?.total) > 0) {
+          setErros((prev) => ({
+            ...prev,
+            numeroProcesso: "Já existe um processo com este número CNJ.",
+          }));
+          setSalvando(false);
+          return;
+        }
+      } catch {
+        // Consulta de unicidade é best-effort; o POST valida novamente no banco.
+      }
+
       const clienteId = await resolverClienteId(form.cliente);
 
+      // O Caso continua sendo a unidade que alimenta a listagem de Processos
+      // do dashboard; guardamos o CNJ formatado nele para exibição.
       const criado = await apiJson("casos", {
         method: "POST",
         csrf,
         body: {
           titulo: form.tipoAcao,
           cliente_id: clienteId,
-          numero_processo: form.numeroProcesso.trim() || null,
+          numero_processo: numeroFormatado,
           area: extrairAreaCodigo(form.tipoAcao),
           tipo_demanda: "JUDICIAL",
           status: ETAPA_PARA_STATUS_API[form.status] || "NOVO",
           vara: form.vara,
           observacoes: form.valorCausa.trim() || null,
           descricao: form.descricao.trim() || null,
+        },
+      });
+
+      // Processo judicial REAL (antes o CNJ era só texto do Caso e nunca
+      // virava registro em `processos_judiciais`).
+      const codigoTribunal = digitos.slice(14, 16);
+      const processo = await apiJson(`casos/${criado.id}/processos`, {
+        method: "POST",
+        csrf,
+        body: {
+          numero_processo: digitos,
+          tribunal: codigoTribunal ? `Tribunal ${codigoTribunal}` : null,
+          orgao_julgador: form.vara,
+          instancia: "PRIMEIRA_INSTANCIA",
+          assunto: form.tipoAcao,
+          status: ETAPA_PARA_STATUS_PROCESSO[form.status] || "DISTRIBUIDO",
+          valor_causa: valorDaCausa(form.valorCausa),
+          observacoes: form.descricao.trim() || null,
         },
       });
 
@@ -158,6 +232,7 @@ export function ModalCadastrarProcesso({ open, onOpenChange, onProcessoSalvo }) 
             csrf,
             body: {
               caso_id: criado.id,
+              processo_id: processo.id,
               titulo: form.prazoTitulo.trim(),
               // Contrato de PrazoCreate: `data_vencimento` (nao ha `data_limite`
               // nem tipo AUDIENCIA - ambos respondem 422 com extra="forbid").
@@ -166,7 +241,7 @@ export function ModalCadastrarProcesso({ open, onOpenChange, onProcessoSalvo }) 
             },
           });
         } catch (falha) {
-          // O caso ja foi salvo; apenas avisa que o prazo opcional falhou
+          // O caso e o processo já foram salvos; avisa que o prazo opcional falhou
           // (antes o `.catch(() => {})` engolia o erro e o usuario via
           // "Processo salvo" mesmo sem o prazo criado).
           toast({
@@ -179,7 +254,12 @@ export function ModalCadastrarProcesso({ open, onOpenChange, onProcessoSalvo }) 
         }
       }
 
-      const novoProcesso = mapearCasoApi(criado);
+      const novoProcesso = {
+        ...mapearCasoApi(criado),
+        numero: processo.numero_formatado || numeroFormatado,
+        processoJudicialId: processo.id,
+        statusProcesso: processo.status,
+      };
 
       if (onProcessoSalvo) {
         onProcessoSalvo(novoProcesso);
@@ -191,7 +271,7 @@ export function ModalCadastrarProcesso({ open, onOpenChange, onProcessoSalvo }) 
       toast({
         tipo: "sucesso",
         titulo: "Processo salvo no banco de dados",
-        descricao: `O processo ${novoProcesso.numero} foi adicionado à carteira.`,
+        descricao: `CNJ ${novoProcesso.numero} cadastrado e vinculado ao caso.`,
       });
 
       setForm({
@@ -208,6 +288,11 @@ export function ModalCadastrarProcesso({ open, onOpenChange, onProcessoSalvo }) 
       });
       onOpenChange(false);
     } catch (erro) {
+      // 422 de CNJ/duplicidade volta com a mensagem do servidor: devolve o
+      // detalhe para o campo em vez de só mostrar um toast genérico.
+      if (erro.status === 422 && /cnj|numero_processo/i.test(erro.message || "")) {
+        setErros((prev) => ({ ...prev, numeroProcesso: erro.message }));
+      }
       toast({
         tipo: "erro",
         titulo: "Erro ao cadastrar processo",
