@@ -64,7 +64,7 @@ Fases entregues:
 
 | Gate | Resultado |
 |---|---|
-| `python -m pytest -q` (suíte completa) | **650 passed, 1 skipped, 0 failed** (E2E incluso; NER sem `scikit-learn`) |
+| `python -m pytest -q` (suíte completa) | **651 passed, 1 skipped, 0 failed** (E2E incluso; NER sem `scikit-learn`) |
 | `python -m pytest tests/test_fluxo_completo.py tests/test_unit.py -q` | **43 passed**, 2 avisos conhecidos |
 | `npm test` (`node --test`) | **3 passed, 0 failed** (query params RF09) |
 | `npm.cmd run lint` | 0 erros |

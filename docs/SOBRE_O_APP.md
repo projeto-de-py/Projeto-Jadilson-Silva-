@@ -150,7 +150,7 @@ Na implementação, `models/notificacao.py` define a tabela, `repositories/notif
 | Frontend | React, Vite, Tailwind CSS, Radix UI, TipTap (editor), Motion, Recharts, ícones SF (`symbols-react`) |
 | Backend | Python, FastAPI, Uvicorn, Pydantic, SQLAlchemy, Alembic |
 | Banco | MySQL (SQLite para desenvolvimento e testes) |
-| Testes | Pytest (**650 testes** no backend) |
+| Testes | Pytest (**651 testes** no backend, 1 ignorado) |
 
 ---
 

@@ -19,7 +19,7 @@
 > **Fase 7 (andamentos RF06)** — docs em `docs/FASE*_*.md`.
 >
 > 🔎 **Revisão técnica final (atualizado em 26/11/2026 — fechamento da entrega):**
-> - suíte completa: **650 testes aprovados, 1 ignorado (NER sem
+> - suíte completa: **651 testes aprovados, 1 ignorado (NER sem
 >   `scikit-learn`), 0 falhas** — inclui `tests/test_fluxo_completo.py` (E2E do
 >   fluxo principal em SQLite);
 > - head do Alembic = **`0015_documentos`** (cadeia `0001`..`0015`);
@@ -398,7 +398,7 @@ conservar os dados criados pelo smoke).
 
 ## 14. Gate final de entrega (26/11/2026) — executado
 
-1. ✅ `python -m pytest -q` (backend, SQLite em memória): **650 passed, 1 skipped,
+1. ✅ `python -m pytest -q` (backend, SQLite em memória): **651 passed, 1 skipped,
    0 failed**; `npm test` (3/3), `npm run lint` (0 erros) e `npm run build` (OK).
 2. ✅ `alembic check` e `alembic current` no MySQL `advocacia` — head `0015_documentos`.
 3. ✅ Smoke versionado no MySQL: login → cliente → caso → processo CNJ → prazo →
@@ -416,4 +416,4 @@ removido, migrations `0001`..`0015` aplicadas, documentos migrados do
 `localStorage` para o banco e constantes 422 deprecadas substituídas.
 
 ---
-*Documento gerado em 16/10/2026 a partir da análise do código, do PDF de documentação e do histórico Git. Atualizado em 21/10/2026: Sistema B removido, Sistema A consolidado (§7, §8, §10, §14). Atualizado em 03/11/2026: Fases 1–4 do backend concluídas (§1 RFs, §12 roadmap, §3 migrations 0001–0007). Atualizado em 04/11/2026 (pré-entrega): suíte com **376 testes, 0 falhas**, cadeia de migrations validada em MySQL descartável, **banco real atualizado para `0007_permissoes_compromissos`** com backup, roteiro em `docs/ROTEIRO_PRE_ENTREGA.md`. Atualizado em 15/11/2026 (Fase 8 — auditoria/estabilização): Fases 5–7 reconhecidas (RF06 com endpoint + front), `PUT /api/auth/escritorio` restrito a admin, produção rejeita o `JWT_SECRET` default, frontend com estados de erro/carregamento reais. Atualizado em 26/11/2026 (fechamento): suíte com **650 testes aprovados, 1 ignorado (NER sem scikit-learn), 0 falhas**, `npm test` 3/3, head do Alembic = **`0015_documentos`** e **banco MySQL `advocacia` em dia** (cadeia `0001`..`0015` aplicada, `alembic check` sem divergências), Fases 1–5 (filtros RF09, notificações automáticas, CI e higiene) e F6 (smoke versionado, E2E do fluxo, testes de query params, correção do editor `/documentos/:id` e push) concluídas. Quando o projeto mudar, atualizar as seções 1 (status dos RFs), 8 (consolidação), 11 (Git) e 12 (roadmap).*
+*Documento gerado em 16/10/2026 a partir da análise do código, do PDF de documentação e do histórico Git. Atualizado em 21/10/2026: Sistema B removido, Sistema A consolidado (§7, §8, §10, §14). Atualizado em 03/11/2026: Fases 1–4 do backend concluídas (§1 RFs, §12 roadmap, §3 migrations 0001–0007). Atualizado em 04/11/2026 (pré-entrega): suíte com **376 testes, 0 falhas**, cadeia de migrations validada em MySQL descartável, **banco real atualizado para `0007_permissoes_compromissos`** com backup, roteiro em `docs/ROTEIRO_PRE_ENTREGA.md`. Atualizado em 15/11/2026 (Fase 8 — auditoria/estabilização): Fases 5–7 reconhecidas (RF06 com endpoint + front), `PUT /api/auth/escritorio` restrito a admin, produção rejeita o `JWT_SECRET` default, frontend com estados de erro/carregamento reais. Atualizado em 26/11/2026 (fechamento): suíte com **651 testes aprovados, 1 ignorado (NER sem scikit-learn), 0 falhas**, `npm test` 3/3, head do Alembic = **`0015_documentos`** e **banco MySQL `advocacia` em dia** (cadeia `0001`..`0015` aplicada, `alembic check` sem divergências), Fases 1–5 (filtros RF09, notificações automáticas, CI e higiene) e F6 (smoke versionado, E2E do fluxo, testes de query params, correção do editor `/documentos/:id` e push) concluídas. Quando o projeto mudar, atualizar as seções 1 (status dos RFs), 8 (consolidação), 11 (Git) e 12 (roadmap).*
