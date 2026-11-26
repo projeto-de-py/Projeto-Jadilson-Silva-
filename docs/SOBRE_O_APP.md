@@ -158,7 +158,7 @@ Na implementação, `models/notificacao.py` define a tabela, `repositories/notif
 | Login, sessão, usuários, permissões | **Funcionando** com a API e o banco |
 | API e telas de clientes, casos, processos, prazos, compromissos, andamentos (RF06) e histórico | **Ligadas** (Fases 5–7) — telas e API reais |
 | Telas de Início, Processos, Prazos, Agenda, Clientes, Notificações | **Ligadas à API real** |
-| Documentos | Salvos **no navegador** (localStorage); falta guardar no banco |
+| Documentos | Salvos **no banco** via `/api/documentos`, com escopo pelo caso; pastas personalizadas continuam no navegador |
 | IA: caixa, sugestões, revisão e filtros | **Funcionando** com provedor **simulado** (sem modelo real) |
 | IA com modelo real | **Pronta no backend** (OpenRouter com modelo gratuito do Google, exige `OPENROUTER_API_KEY`); falta colar a chave e avaliar por área |
 | Notificações | **Ligadas ao backend** com deduplicação por usuário, avisos de prazo sob demanda, polling e toast no navegador |
@@ -167,10 +167,10 @@ Na implementação, `models/notificacao.py` define a tabela, `repositories/notif
 
 ## 7. Próximos passos
 
-1. Guardar os documentos no banco, com versões e controle de edição simultânea (hoje é `localStorage`).
+1. ✅ Guardar os documentos no banco (feito em 26/11/2026); falta histórico de versões e edição simultânea.
 2. Ligar o modelo de IA real e rodar a avaliação por área.
-3. Perfil do usuário e convite de colaboradores (já existe pela API: `/api/casos/{id}/usuarios` — falta a tela).
-4. ✅ Aplicar as migrations `0009`..`0014` no **banco MySQL** (feito em 26/11/2026).
-5. UI de atribuição de usuários aos casos e "Cadastrar Processo" criando processo judicial real.
+3. ✅ Perfil do usuário e convite de colaboradores (tela de Usuários + "Acesso ao caso" concluídas).
+4. ✅ Aplicar as migrations `0009`..`0015` no **banco MySQL** (feito em 26/11/2026).
+5. ✅ "Cadastrar Processo" cria `ProcessoJudicial` com CNJ validado.
 
 > **Aviso:** a IA é uma ferramenta de apoio. Toda peça deve ser revisada e assumida pelo advogado responsável.

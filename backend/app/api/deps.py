@@ -16,6 +16,7 @@ from app.repositories.compromisso_historico_repository import (
     CompromissoHistoricoRepository,
 )
 from app.repositories.compromisso_repository import CompromissoRepository
+from app.repositories.documento_repository import DocumentoRepository
 from app.repositories.prazo_historico_repository import PrazoHistoricoRepository
 from app.repositories.prazo_repository import PrazoRepository
 from app.repositories.processo_historico_repository import ProcessoHistoricoRepository
@@ -25,6 +26,7 @@ from app.repositories.usuario_repository import UsuarioRepository
 from app.services.andamento_service import AndamentoService
 from app.services.caso_service import CasoService
 from app.services.compromisso_service import CompromissoService
+from app.services.documento_service import DocumentoService
 from app.services.permissao_service import PermissaoCasoService
 from app.services.prazo_service import PrazoService
 from app.services.processo_service import ProcessoJudicialService
@@ -78,6 +80,10 @@ def get_compromisso_historico_repo(
 
 def get_usuario_caso_repo(db: Session = Depends(get_db)) -> UsuarioCasoRepository:
     return UsuarioCasoRepository(db)
+
+
+def get_documento_repo(db: Session = Depends(get_db)) -> DocumentoRepository:
+    return DocumentoRepository(db)
 
 
 def get_andamento_repo(db: Session = Depends(get_db)) -> AndamentoRepository:
@@ -158,6 +164,14 @@ def get_compromisso_service(
         usuarios=usuarios,
         processos=processos,
     )
+
+
+def get_documento_service(
+    documentos: DocumentoRepository = Depends(get_documento_repo),
+    casos: CasoRepository = Depends(get_caso_repo),
+    permissoes: UsuarioCasoRepository = Depends(get_usuario_caso_repo),
+) -> DocumentoService:
+    return DocumentoService(documentos=documentos, casos=casos, permissoes=permissoes)
 
 
 def get_andamento_service(

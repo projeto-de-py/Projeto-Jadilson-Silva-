@@ -61,10 +61,10 @@ Cadeia versionada: `0001` (usuários) → `0002` (casos/prazos) → `0003` (Fase
 `0004` (Fase 2) → `0005` (Fase 3) → `0006` (Fase 4) → `0007` (permissão de
 compromissos) → `0009` (uso de IA) → `0010` (financeiro/assinaturas) → `0011`
 (eventos de agenda) → `0012` (notificações) → `0013` (configurações do
-escritório) → **`0014` (origem dos andamentos)** — head atual.
+escritório) → `0014` (origem dos andamentos) → **`0015` (documentos no banco)** — head atual.
 
 **Banco MySQL `advocacia` em dia desde 26/11/2026:** a base foi criada/ atualizada
-com **a cadeia completa até `0014`**, e `alembic check` confirmou **sem
+com **a cadeia completa até `0015`**, e `alembic check` confirmou **sem
 divergências entre models e migrations** no MySQL (20 tabelas). A cadeia também foi
 **validada em SQLite descartável** (upgrade → downgrade → re-upgrade) e em
 `tests/test_migracoes.py`.
@@ -76,7 +76,7 @@ do time**:
 # 1) backup (ajuste usuário/senha; NUNCA commite o arquivo gerado)
 mysqldump -u root -p advocacia > backup_advocacia_antes_upgrade.sql
 
-# 2) revisão aplicada NO banco (deve imprimir 0014_andamentos_origem; se
+# 2) revisão aplicada NO banco (deve imprimir 0015_documentos; se
 #    imprimir outra coisa, o banco está atrás do repositório)
 python -c "from alembic.config import main; main(['current'])"
 
@@ -140,8 +140,9 @@ npm run lint              # ESLint (0 erros)
 > (login/sessão/logout pelo proxy `/api`) e, desde as Fases 5–7, **todas as
 > telas do dashboard consomem a API real** (dashboard, processos, prazos,
 > agenda, clientes, andamentos, notificações, financeiro, configurações).
-> Exceções: **Documentos** usa `localStorage` (não há endpoint de documentos)
-> e a IA usa lista de prazos estática — ambos descritos em
+> **Documentos** também passaram a usar a API real (`/api/documentos`), com o
+> conteúdo no banco e escopo pelo caso; as **pastas personalizadas** seguem no
+> navegador. A IA usa lista de prazos estática — descrita em
 > [`docs/ROTEIRO_PRE_ENTREGA.md`](docs/ROTEIRO_PRE_ENTREGA.md).
 
 ## Sessões e produção futura

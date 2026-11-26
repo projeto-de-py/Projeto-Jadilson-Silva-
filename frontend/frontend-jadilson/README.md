@@ -71,6 +71,7 @@ src/
 
 ## Limitação conhecida
 
-A tela **Documentos** guarda conteúdo em `localStorage` (não há endpoint de
-documentos no backend); a **IA** usa `PRAZOS = []` estático no resumo. Ambos
-estão registrados em `docs/ROTEIRO_PRE_ENTREGA.md`.
+A tela **Documentos** salva o conteúdo no backend (`/api/documentos`); apenas
+as **pastas personalizadas** continuam em `localStorage`. A **IA** usa
+`PRAZOS = []` estático no resumo. Ambos estão registrados em
+`docs/ROTEIRO_PRE_ENTREGA.md`.

@@ -1,72 +1,240 @@
-import { useCallback, useEffect, useState } from "react";
-import { MODELOS, preencherModelo } from "@/data/modelos";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
+import { useSessao } from "@/context/sessao";
+import { useToast } from "@/components/ui";
+import { apiJson } from "@/lib/api";
 
-// Documentos ficam no navegador (localStorage) até existir um endpoint no backend.
-const CHAVE = "documentos-v1";
+// ---------------------------------------------------------------------------
+// Documentos vivem no banco (/api/documentos). Este modulo guarda uma copia
+// compartilhada em memoria para que as telas tenham a MESMA lista sem ler
+// localStorage (antes cada hook lia o navegador por conta propria).
+//
+// `criar` continua sincrono e devolve o documento: as telas navegam para
+// /documentos/:id logo depois. Por isso o documento ganha um id temporario,
+// trocado pelo id do banco quando o POST responde — o id visivel nao muda,
+// evitando remontar o editor no meio da digitacao.
+// ---------------------------------------------------------------------------
 
-function ler() {
-  try {
-    const bruto = localStorage.getItem(CHAVE);
-    if (bruto) return JSON.parse(bruto);
-  } catch {
-    /* sem acesso ao armazenamento */
-  }
-  return null;
+let docs = [];
+let carregado = false;
+let carregandoDocs = false;
+let carregandoPromise = null;
+let sequencia = 0;
+const ouvintes = new Set();
+const idsServidor = new Map(); // id visível -> id do banco
+const criacoesPendentes = new Map(); // id temporario -> Promise do POST
+
+function notificar() {
+  for (const ouvinte of ouvintes) ouvinte(docs);
 }
 
-function gravar(docs) {
-  try {
-    localStorage.setItem(CHAVE, JSON.stringify(docs));
-  } catch {
-    /* armazenamento cheio ou bloqueado */
-  }
+function assinar(ouvinte) {
+  ouvintes.add(ouvinte);
+  return () => ouvintes.delete(ouvinte);
 }
 
-function exemplos() {
-  const agora = Date.now();
-  const novo = (id, modelo, titulo, dados, atraso, processoId) => ({
-    id,
-    processoId,
-    titulo,
-    area: modelo.area,
-    tipo: modelo.rotulo,
-    html: preencherModelo(modelo.html, dados),
-    atualizadoEm: agora - atraso,
-  });
-  const m = (id) => MODELOS.find((x) => x.id === id);
-  return [
-    novo("doc-exemplo-1", m("revisional-contrato"), "Revisional – Maria da Conceição Silva",
-      { cliente: "Maria da Conceição Silva", numero: "0000001-12.2026.8.00.0100" }, 3600_000, 1),
-    novo("doc-exemplo-2", m("auxilio-incapacidade"), "Auxílio por incapacidade – Carlos Eduardo Lima",
-      { cliente: "Carlos Eduardo Lima", numero: "0000311-88.2026.8.00.0100" }, 86_400_000, 5),
-  ];
+function instantaneo() {
+  return docs;
+}
+
+function instantaneoCarregando() {
+  return carregandoDocs;
+}
+
+function deApi(d) {
+  const documento = {
+    id: String(d.id),
+    titulo: d.titulo,
+    area: d.area,
+    tipo: d.tipo,
+    html: d.html,
+    atualizadoEm: new Date(d.atualizado_em).getTime(),
+  };
+  // O frontend chama de `processoId` o vinculo com o CASO da carteira.
+  if (d.caso_id != null) documento.processoId = d.caso_id;
+  if (d.cliente_id != null) documento.clienteId = d.cliente_id;
+  if (d.pasta_id != null) documento.pastaId = d.pasta_id;
+  return documento;
+}
+
+function paraApi(dados) {
+  const corpo = {};
+  if (dados.titulo !== undefined) corpo.titulo = dados.titulo;
+  if (dados.area !== undefined) corpo.area = dados.area;
+  if (dados.tipo !== undefined) corpo.tipo = dados.tipo;
+  if (dados.html !== undefined) corpo.html = dados.html;
+  if ("processoId" in dados) corpo.caso_id = dados.processoId ? Number(dados.processoId) : null;
+  if ("clienteId" in dados) corpo.cliente_id = dados.clienteId != null ? Number(dados.clienteId) : null;
+  if ("pastaId" in dados) corpo.pasta_id = dados.pastaId || null;
+  return corpo;
+}
+
+async function carregar() {
+  if (carregandoPromise) return carregandoPromise;
+  carregandoDocs = true;
+  notificar();
+  carregandoPromise = apiJson("documentos?limite=200")
+    .then((resposta) => {
+      const itens = Array.isArray(resposta?.itens) ? resposta.itens : [];
+      docs = itens.map(deApi);
+      idsServidor.clear();
+      itens.forEach((d) => idsServidor.set(String(d.id), d.id));
+      carregado = true;
+      notificar();
+    })
+    .catch(() => {
+      // Sem banco, a tela mostra a lista vazia e o toast de falha nas acoes.
+      carregado = true;
+      notificar();
+    })
+    .finally(() => {
+      carregandoDocs = false;
+      carregandoPromise = null;
+      notificar();
+    });
+  return carregandoPromise;
 }
 
 export function useDocumentos() {
-  const [docs, setDocs] = useState(() => ler() ?? exemplos());
+  const lista = useSyncExternalStore(assinar, instantaneo, instantaneo);
+  const carregando = useSyncExternalStore(
+    assinar,
+    instantaneoCarregando,
+    instantaneoCarregando,
+  );
+  const { csrf } = useSessao();
+  const { toast } = useToast();
 
   useEffect(() => {
-    gravar(docs);
-  }, [docs]);
-
-  const criar = useCallback((dados) => {
-    const doc = { id: `doc-${Date.now()}`, atualizadoEm: Date.now(), ...dados };
-    setDocs((atual) => [doc, ...atual]);
-    return doc;
+    if (!carregado) carregar();
   }, []);
 
-  const atualizar = useCallback((id, parcial) => {
-    setDocs((atual) => atual.map((d) => (d.id === id ? { ...d, ...parcial, atualizadoEm: Date.now() } : d)));
+  const avisarErro = useCallback(
+    (falha, titulo) => {
+      toast({
+        tipo: "erro",
+        titulo,
+        descricao: falha?.message || "Não foi possível conectar ao servidor.",
+      });
+    },
+    [toast],
+  );
+
+  const criar = useCallback(
+    (dados) => {
+      const id = `temp-${Date.now()}-${++sequencia}`;
+      const doc = { id, atualizadoEm: Date.now(), ...dados };
+      docs = [doc, ...docs];
+      notificar();
+
+      const promessa = apiJson("documentos", {
+        method: "POST",
+        csrf,
+        body: paraApi(dados),
+      })
+        .then((criado) => {
+          idsServidor.set(id, criado.id);
+          // Mantem `id` (o da URL) e so sincroniza os dados do servidor.
+          docs = docs.map((d) =>
+            d.id === id ? { ...deApi(criado), id } : d,
+          );
+          notificar();
+          return criado;
+        })
+        .catch((falha) => {
+          docs = docs.filter((d) => d.id !== id);
+          idsServidor.delete(id);
+          notificar();
+          avisarErro(falha, "Não foi possível criar o documento");
+        });
+      criacoesPendentes.set(id, promessa);
+      return doc;
+    },
+    [csrf, avisarErro],
+  );
+
+  /** Espera o POST (quando ainda pendente) e devolve o id do banco. */
+  function idServidor(id) {
+    return (criacoesPendentes.get(id) ?? Promise.resolve()).then(() => {
+      const sid = idsServidor.get(id);
+      if (sid == null) throw new Error("Documento não foi salvo no servidor.");
+      return sid;
+    });
+  }
+
+  const atualizar = useCallback(
+    (id, parcial) => {
+      docs = docs.map((d) =>
+        d.id === id ? { ...d, ...parcial, atualizadoEm: Date.now() } : d,
+      );
+      notificar();
+      idServidor(id)
+        .then((sid) =>
+          apiJson(`documentos/${sid}`, {
+            method: "PATCH",
+            csrf,
+            body: paraApi(parcial),
+          }),
+        )
+        .catch((falha) => avisarErro(falha, "Não foi possível salvar o documento"));
+    },
+    [csrf, avisarErro],
+  );
+
+  const excluir = useCallback(
+    (id) => {
+      const anterior = docs;
+      docs = docs.filter((d) => d.id !== id);
+      notificar();
+      idServidor(id)
+        .then((sid) => apiJson(`documentos/${sid}`, { method: "DELETE", csrf }))
+        .then(() => {
+          criacoesPendentes.delete(id);
+          idsServidor.delete(id);
+        })
+        .catch((falha) => {
+          docs = anterior;
+          notificar();
+          avisarErro(falha, "Não foi possível excluir o documento");
+        });
+    },
+    [csrf, avisarErro],
+  );
+
+  /** Muda a pasta sem alterar `atualizadoEm` (não é edição de conteúdo). */
+  const mover = useCallback(
+    (id, destino) => {
+      docs = docs.map((d) => (d.id === id ? { ...d, ...destino } : d));
+      notificar();
+      idServidor(id)
+        .then((sid) =>
+          apiJson(`documentos/${sid}/mover`, {
+            method: "PATCH",
+            csrf,
+            body: {
+              cliente_id: destino.clienteId ?? null,
+              pasta_id: destino.pastaId ?? null,
+            },
+          }),
+        )
+        .catch((falha) => avisarErro(falha, "Não foi possível mover o documento"));
+    },
+    [csrf, avisarErro],
+  );
+
+  const recarregar = useCallback(async () => {
+    carregado = false;
+    await carregar();
   }, []);
 
-  const excluir = useCallback((id) => setDocs((atual) => atual.filter((d) => d.id !== id)), []);
-
-  /** Muda o documento de pasta (`destino`: pastaId e clienteId) sem alterar a data de edição. */
-  const mover = useCallback((id, destino) => {
-    setDocs((atual) => atual.map((d) => (d.id === id ? { ...d, ...destino } : d)));
-  }, []);
-
-  return { docs, criar, atualizar, excluir, mover };
+  return {
+    docs: lista,
+    carregando,
+    criar,
+    atualizar,
+    excluir,
+    mover,
+    recarregar,
+  };
 }
 
 // ---------- Exportação em PDF (diálogo de impressão: "Salvar como PDF") ----------

@@ -20,10 +20,10 @@
 > 🔎 **Revisão técnica de pré-entrega (atualizado em 26/11/2026):**
 > - suíte completa: **641 testes aprovados, 1 ignorado (NER sem
 >   `scikit-learn`), 0 falhas** (antes 637);
-> - head do Alembic = **`0014_andamentos_origem`** (cadeia `0001`..`0014`);
-> - ✅ **banco MySQL `advocacia` em `0014_andamentos_origem`** — criado/atualizado
->   em 26/11/2026 com a cadeia completa, `alembic check` sem divergências e 20
->   tabelas (notificações, agenda, financeiro, assinaturas, IA, webhooks e
+> - head do Alembic = **`0015_documentos`** (cadeia `0001`..`0015`);
+> - ✅ **banco MySQL `advocacia` em `0015_documentos`** — criado/atualizado
+>   em 26/11/2026 com a cadeia completa, `alembic check` sem divergências e 21
+>   tabelas (documentos, notificações, agenda, financeiro, assinaturas, IA, webhooks e
 >   configurações do escritório disponíveis). Toda nova alteração de schema segue
 >   o procedimento de backup do `README.md` da raiz;
 > - frontend: `npm run lint` (0 erros) e `npm run build` (OK); **todas as telas do
@@ -33,10 +33,9 @@
 > - segurança: `PUT /api/auth/escritorio` exige **admin**; produção rejeita o
 >   `JWT_SECRET` default do repositório.
 >
-> **Pendências:** ✅ upgrade do **banco MySQL** para `0014`;
-> UI de atribuição de casos a usuários (backend pronto: `/api/casos/{id}/usuarios`);
-> "Cadastrar Processo" ainda não cria processo judicial via
-> `POST /api/casos/{id}/processos` (cria um Caso).
+> **Pendências:** ✅ upgrade do **banco MySQL** para `0015`; ✅ UI de atribuição de
+> casos a usuários; ✅ "Cadastrar Processo" cria processo judicial via
+> `POST /api/casos/{id}/processos`; restam filtros RF09, notificações e CI/higiene.
 
 ---
 

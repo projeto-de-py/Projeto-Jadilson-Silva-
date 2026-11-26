@@ -17,6 +17,7 @@ from app.api.routes import (
     clientes,
     compromissos,
     consultas,
+    documentos,
     financeiro,
     ia,
     notificacoes,
@@ -128,6 +129,9 @@ def create_app() -> FastAPI:
         processos.router, prefix=f"{prefix}/processos", tags=["processos"]
     )
     app.include_router(clientes.router, prefix=f"{prefix}/clientes", tags=["clientes"])
+    app.include_router(
+        documentos.router, prefix=f"{prefix}/documentos", tags=["documentos"]
+    )
     app.include_router(prazos.router, prefix=f"{prefix}/prazos", tags=["prazos"])
     app.include_router(ia.router, prefix=f"{prefix}/ia", tags=["ia"])
     app.include_router(consultas.router, prefix=f"{prefix}/consultas", tags=["consultas"])

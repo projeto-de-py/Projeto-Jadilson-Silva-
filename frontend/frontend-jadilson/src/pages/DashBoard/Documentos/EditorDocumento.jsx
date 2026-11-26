@@ -88,8 +88,17 @@ const seletor = "h-8 rounded-[8px] px-3 text-13";
 
 export function EditorDocumento() {
   const { id } = useParams();
-  const { docs, atualizar } = useDocumentos();
+  const { docs, carregando, atualizar } = useDocumentos();
   const doc = useMemo(() => docs.find((d) => d.id === id), [docs, id]);
+  // A lista vem da API: durante o carregamento (ex.: F5 dentro do editor) a
+  // lista ainda esta vazia e redirecionar aqui perderia o documento.
+  if (!doc && carregando) {
+    return (
+      <div className="flex h-full items-center justify-center text-13 text-ink-muted">
+        Carregando documento…
+      </div>
+    );
+  }
   if (!doc) return <Navigate to="/documentos" replace />;
   return <Editor key={doc.id} doc={doc} atualizar={atualizar} />;
 }

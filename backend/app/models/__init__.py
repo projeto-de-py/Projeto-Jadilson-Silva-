@@ -8,6 +8,7 @@ from app.models.caso_historico import CasoHistorico
 from app.models.processo_judicial import ProcessoJudicial
 from app.models.processo_historico import ProcessoHistorico
 from app.models.andamento import Andamento
+from app.models.documento import Documento
 from app.models.prazo import Prazo
 from app.models.prazo_historico import PrazoHistorico
 from app.models.compromisso import Compromisso
@@ -30,6 +31,7 @@ __all__ = [
     "ProcessoJudicial",
     "ProcessoHistorico",
     "Andamento",
+    "Documento",
     "Prazo",
     "PrazoHistorico",
     "Compromisso",

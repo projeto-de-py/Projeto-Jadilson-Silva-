@@ -17,6 +17,7 @@ from app.models.andamento import Andamento
 from app.models.caso import Caso
 from app.models.cliente import Cliente
 from app.models.compromisso import Compromisso
+from app.models.documento import Documento
 from app.models.prazo import Prazo
 from app.models.processo_judicial import ProcessoJudicial
 from app.models.usuario import Usuario
@@ -64,6 +65,18 @@ def condicao_andamento_visivel(usuario: Usuario) -> ColumnElement[bool]:
     if usuario.administrador:
         return true()
     return Andamento.caso_id.in_(casos_autorizados(usuario))
+
+
+def condicao_documento_visivel(usuario: Usuario) -> ColumnElement[bool]:
+    """Documentos herdam o escopo do caso (Fase 3).
+
+    Pecas SEM caso nao tem como herdar permissao: ficam visiveis somente ao
+    advogado principal. Assim um documento avulso nunca vira porta de entrada
+    para dados de um cliente que o usuario nao pode ver.
+    """
+    if usuario.administrador:
+        return true()
+    return Documento.caso_id.in_(casos_autorizados(usuario))
 
 
 def condicao_compromisso_visivel(usuario: Usuario) -> ColumnElement[bool]:

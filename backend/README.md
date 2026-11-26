@@ -201,11 +201,11 @@ Tabelas: `usuarios` (`id, nome, email unique, senha_hash, perfil ADVOGADO|FUNCIO
 - **Produção/desenvolvimento:** MySQL (InnoDB, utf8mb4) via `DATABASE_URL` no `.env`
 - **Teste local sem MySQL:** `$env:DATABASE_URL="sqlite:///./dev.db"`
 - Migrações com **Alembic** (`alembic/versions/`) — nunca alterar tabela na mão
-- **Migrations `0009`..`0014`** criam as tabelas das Fases 5–8: `0009` `uso_ia`,
+- **Migrations `0009`..`0015`** criam as tabelas das Fases 5–8: `0009` `uso_ia`,
   `0010` `cobrancas` + `assinaturas`, `0011` `eventos_agenda` + `eventos_webhook`,
-  `0012` `notificacoes`, `0013` `configuracoes_escritorio` e `0014` colunas de
-  origem em `andamentos` (head = **`0014_andamentos_origem`**).
-  ✅ O **banco MySQL `advocacia`** está **em `0014_andamentos_origem` desde
+  `0012` `notificacoes`, `0013` `configuracoes_escritorio`, `0014` colunas de
+  origem em `andamentos` e `0015` `documentos` (head = **`0015_documentos`**).
+  ✅ O **banco MySQL `advocacia`** está **em `0015_documentos` desde
   26/11/2026** (cadeia completa + `alembic check` sem divergências); confira com
   `python -c "from alembic.config import main; main(['current'])"` e atualize
   **só com backup e autorização** (procedimento no `README.md` da raiz).
@@ -319,9 +319,9 @@ Migrations `0006_prazos_compromissos` + `0007_permissoes_compromissos`
 6. ~~Financeiro, assinaturas, webhooks, eventos de agenda~~ ✅ Fase 5
 7. ~~Notificações e IA do escritório~~ ✅ Fase 6
 8. ~~Frontend das telas consumindo a API~~ ✅ Fases 5–7
-9. **Pendências:** ✅ upgrade do **banco MySQL** para `0014` (feito em 26/11/2026);
-   UI de atribuição de casos (`/api/casos/{id}/usuarios`); documentos por caso
-   (hoje só `localStorage`); módulo MinutaIA (Port/Adapter com mock)
+9. **Pendências:** ✅ upgrade do **banco MySQL** para `0015` (feito em 26/11/2026);
+   ✅ UI de atribuição de casos e ✅ documentos no banco (`/api/documentos`);
+   módulo MinutaIA (Port/Adapter com mock)
 
 ## Casos e prazos
 

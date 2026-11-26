@@ -7,7 +7,7 @@
 > Prazos, Agenda, Clientes, Andamentos e Notificações). Nada aqui foi inventado.
 
 > ✅ **Banco MySQL em dia:** o banco `advocacia` está na revisão
-> **`0014_andamentos_origem`**, igual ao repositório (cadeia `0001`..`0014`
+> **`0015_documentos`**, igual ao repositório (cadeia `0001`..`0015`
 > aplicada em 26/11/2026, com `alembic check` sem divergências). Antes de
 > qualquer mudança de schema no futuro, repita o procedimento de backup do §1.
 
@@ -17,10 +17,10 @@
 
 | Item | Detalhe |
 |---|---|
-| Banco MySQL | `advocacia` — revisão **`0014_andamentos_origem`** (igual ao repositório). Backup antes de qualquer mudança: `mysqldump -u root -p advocacia > backup.sql` + `python -c "from alembic.config import main; main(['upgrade','head'])"` |
+| Banco MySQL | `advocacia` — revisão **`0015_documentos`** (igual ao repositório). Backup antes de qualquer mudança: `mysqldump -u root -p advocacia > backup.sql` + `python -c "from alembic.config import main; main(['upgrade','head'])"` |
 | Backend | `python -m uvicorn app.main:app --host 127.0.0.1 --port 8000` (dentro de `backend/` com o venv ativo) |
 | Frontend | `npm run dev` em `frontend/frontend-jadilson` → <http://127.0.0.1:5173> |
-| Swagger | <http://127.0.0.1:8000/docs> (mesma origem do backend — os cookies funcionam por lá) — **64 caminhos / 83 operações** |
+| Swagger | <http://127.0.0.1:8000/docs> (mesma origem do backend — os cookies funcionam por lá) — **67 caminhos / 89 operações** |
 | Saúde da API | <http://127.0.0.1:8000/health> deve responder `{"status":"ok","versao":"0.1.0"}` |
 | Login | `admin@jadilson.adv` + a senha do administrador (conta já existente, provisionada pelo seed) |
 | Dados no banco | Seed idempotente (`python -m app.seed`) cria/promove **apenas a conta admin** (`CASOS_DEMO=[]` — sem casos/prazos fictícios). Cadastre dados fictícios pela própria demonstração |
@@ -104,9 +104,11 @@ Todo `POST/PUT/PATCH/DELETE` sob `/api` exige o header **`X-CSRF-Token`**
 | Dashboard (`/home`), Processos, Prazos, Agenda, Clientes, Notificações, Busca global | **Ligados à API real** (Fases 5–7) | CRUD real correspondente |
 | Financeiro e Assinaturas | Tela ligada à API (admin-only) | `GET/POST /api/financeiro/*`, `/api/assinaturas` |
 | Configurações do escritório | Tela restrita a **administrador** (rota + menu) | `GET/PUT /api/auth/escritorio` (**PUT exige admin**) |
-| Usuários, Associação de usuários ao caso, Permissões, Histórico/auditoria | — (sem tela) | **Somente API** |
+| Usuários | Tela **Usuários** (admin-only, menu Escritório) | `GET/POST/PATCH /api/usuarios` |
+| Associação de usuários ao caso e permissões | Botão **Acesso ao caso** em `/processos` (admin) | `GET/POST/DELETE /api/casos/{id}/usuarios` |
+| Histórico/auditoria | — (sem tela) | Somente API |
 | Andamentos (RF06) | **Painel de andamentos** em `/processos` (caso aberto) | `GET/POST /api/casos/{id}/andamentos` |
-| Documentos | Tela usa **`localStorage`** (não há endpoint de documentos) | — |
+| Documentos | Conteúdo no **banco**, escopo pelo caso; pastas personalizadas seguem no navegador | `GET/POST/PATCH/DELETE /api/documentos` |
 | MinutaIA / geração de minuta | — | **Não existe** (não demonstrar) |
 
 ---
@@ -124,8 +126,8 @@ npm run dev
 ```
 
 - [ ] `GET http://127.0.0.1:8000/health` → `{"status":"ok","versao":"0.1.0"}`
-- [ ] `http://127.0.0.1:8000/docs` abre com os **63 caminhos**
-- [ ] `alembic current` = `0014_andamentos_origem` (banco MySQL em dia com o repositório)
+- [ ] `http://127.0.0.1:8000/docs` abre com **67 caminhos / 89 operações**
+- [ ] `alembic current` = `0015_documentos` (banco MySQL em dia com o repositório)
 - [ ] `http://127.0.0.1:5173` abre a tela de login
 - [ ] Login funcional com o administrador (sem estourar o rate limit)
 - [ ] MySQL80 em execução (`Get-Service MySQL80`)
