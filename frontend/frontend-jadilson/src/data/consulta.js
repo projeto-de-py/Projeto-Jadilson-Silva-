@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { apiJson } from "@/lib/api";
+import { queryString } from "@/data/queryString";
 
 // ---------------------------------------------------------------------------
 // Filtros no servidor (RF09): as telas antes baixavam os 100 primeiros
@@ -8,17 +9,6 @@ import { apiJson } from "@/lib/api";
 // Processos, Prazos e Clientes; cada tela continua mapeando o DTO da API para
 // o formato que ja usava (mapearCasoApi/mapearPrazoApi/mapearClienteApi).
 // ---------------------------------------------------------------------------
-
-/** Monta a query string ignorando valores vazios (o select "TODOS" some). */
-export function queryString(params = {}) {
-  const busca = new URLSearchParams();
-  for (const [chave, valor] of Object.entries(params)) {
-    if (valor === undefined || valor === null || valor === "") continue;
-    busca.set(chave, String(valor));
-  }
-  const texto = busca.toString();
-  return texto ? `?${texto}` : "";
-}
 
 function useDebounce(valor, ms) {
   const [atrasado, setAtrasado] = useState(valor);

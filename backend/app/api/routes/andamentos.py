@@ -42,7 +42,7 @@ def _mapear_erros_andamento(exc: Exception) -> HTTPException:
     if isinstance(exc, AndamentoSemPermissaoError):
         return HTTPException(http_status.HTTP_403_FORBIDDEN, str(exc))
     if isinstance(exc, DadosInvalidosError):
-        return HTTPException(http_status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
+        return HTTPException(http_status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc))
     raise exc  # nao mapeado: propaga como erro interno
 
 

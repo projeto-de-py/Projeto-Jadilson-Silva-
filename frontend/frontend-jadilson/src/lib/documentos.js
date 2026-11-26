@@ -40,6 +40,10 @@ function instantaneoCarregando() {
   return carregandoDocs;
 }
 
+function instantaneoCarregado() {
+  return carregado;
+}
+
 function deApi(d) {
   const documento = {
     id: String(d.id),
@@ -102,6 +106,11 @@ export function useDocumentos() {
     assinar,
     instantaneoCarregando,
     instantaneoCarregando,
+  );
+  const jaCarregado = useSyncExternalStore(
+    assinar,
+    instantaneoCarregado,
+    instantaneoCarregado,
   );
   const { csrf } = useSessao();
   const { toast } = useToast();
@@ -231,6 +240,7 @@ export function useDocumentos() {
   return {
     docs: lista,
     carregando,
+    carregado: jaCarregado,
     criar,
     atualizar,
     excluir,

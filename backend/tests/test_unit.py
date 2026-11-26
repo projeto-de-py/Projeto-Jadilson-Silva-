@@ -69,7 +69,11 @@ class TestToken:
             options={"verify_signature": False},
         )
         payload["sub"] = "999"  # atacante troca o id
-        forjado = jwt.encode(payload, "segredo-do-atacante", algorithm="HS256")
+        # Chave com >= 32 bytes evita InsecureKeyLengthWarning do PyJWT; o
+        # teste continua validando que um segredo diferente é rejeitado.
+        forjado = jwt.encode(
+            payload, "segredo-do-atacante-bem-grande-para-hs256", algorithm="HS256"
+        )
         assert security.decodificar_token(forjado) is None
 
     def test_token_expirado_retorna_none(self):

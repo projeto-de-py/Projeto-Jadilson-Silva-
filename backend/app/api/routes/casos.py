@@ -61,9 +61,9 @@ def _mapear_erros_caso(exc: Exception) -> HTTPException:
     if isinstance(exc, ClienteNaoEncontradoError):
         return HTTPException(http_status.HTTP_404_NOT_FOUND, str(exc))
     if isinstance(exc, ResponsavelInvalidoError):
-        return HTTPException(http_status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
+        return HTTPException(http_status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc))
     if isinstance(exc, (DadosInvalidosError, DadosInvalidosUsuarioError)):
-        return HTTPException(http_status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
+        return HTTPException(http_status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc))
     if isinstance(exc, PermissaoEdicaoNegadaError):
         return HTTPException(http_status.HTTP_403_FORBIDDEN, str(exc))
     if isinstance(exc, NumeroProcessoDuplicadoError):
@@ -289,7 +289,7 @@ def conceder_acesso(
     except AutoConcessaoNegadaError as exc:
         raise HTTPException(http_status.HTTP_403_FORBIDDEN, str(exc))
     except (DadosInvalidosError, DadosInvalidosUsuarioError) as exc:
-        raise HTTPException(http_status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
+        raise HTTPException(http_status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc))
     except PermissaoJaExistenteError as exc:
         raise HTTPException(http_status.HTTP_409_CONFLICT, str(exc))
 

@@ -34,7 +34,7 @@ def _mapear_erro(exc: Exception) -> HTTPException:
     if isinstance(exc, DocumentoSemPermissaoError):
         return HTTPException(http_status.HTTP_403_FORBIDDEN, str(exc))
     if isinstance(exc, DadosInvalidosError):
-        return HTTPException(http_status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
+        return HTTPException(http_status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc))
     raise exc
 
 

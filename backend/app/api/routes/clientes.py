@@ -89,15 +89,15 @@ def criar_cliente(
         return cliente
     except DocumentoInvalidoError as exc:
         raise HTTPException(
-            http_status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)
+            http_status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)
         )
     except TelefoneInvalidoError as exc:
         raise HTTPException(
-            http_status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)
+            http_status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)
         )
     except DadosInvalidosError as exc:
         raise HTTPException(
-            http_status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)
+            http_status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)
         )
     except DocumentoJaCadastradoError as exc:
         raise HTTPException(http_status.HTTP_409_CONFLICT, str(exc))
@@ -148,7 +148,7 @@ def editar_cliente(
         DadosInvalidosError,
     ) as exc:
         raise HTTPException(
-            http_status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)
+            http_status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)
         )
     except DocumentoJaCadastradoError as exc:
         raise HTTPException(http_status.HTTP_409_CONFLICT, str(exc))

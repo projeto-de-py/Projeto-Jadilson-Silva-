@@ -53,7 +53,7 @@ def _mapear_erros_processo(exc: Exception) -> HTTPException:
     if isinstance(exc, ProcessoSemPermissaoError):
         return HTTPException(http_status.HTTP_403_FORBIDDEN, str(exc))
     if isinstance(exc, (DadosInvalidosError, DadosInvalidosUsuarioError)):
-        return HTTPException(http_status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
+        return HTTPException(http_status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc))
     if isinstance(
         exc, (ProcessoNumeroDuplicadoError, ProcessoJaArquivadoError)
     ):

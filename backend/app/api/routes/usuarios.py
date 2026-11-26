@@ -51,7 +51,7 @@ def criar(
     except EmailJaCadastradoError as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc))
     except DadosInvalidosError as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc))
 
 
 @router.patch(
@@ -77,4 +77,4 @@ def atualizar(
     except UsuarioNaoEncontradoError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc))
     except DadosInvalidosError as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc))

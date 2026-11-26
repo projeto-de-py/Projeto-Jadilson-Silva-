@@ -61,7 +61,7 @@ def criar_evento(
     if dados.destinatario_id is not None:
         destinatario = db.get(Usuario, dados.destinatario_id)
         if destinatario is None or not destinatario.ativo:
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Contribuidor inválido ou inativo")
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Contribuidor inválido ou inativo")
     evento = EventoAgenda(**dados.model_dump(), criado_por_id=usuario.id)
     db.add(evento)
     db.commit()

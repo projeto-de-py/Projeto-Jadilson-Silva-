@@ -54,7 +54,7 @@ def _mapear_erros_prazo(exc: Exception) -> HTTPException:
     if isinstance(exc, PrazoSemPermissaoError):
         return HTTPException(http_status.HTTP_403_FORBIDDEN, str(exc))
     if isinstance(exc, (DadosInvalidosError, ResponsavelInvalidoError)):
-        return HTTPException(http_status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc))
+        return HTTPException(http_status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc))
     if isinstance(exc, PrazoEstadoInvalidoError):
         return HTTPException(http_status.HTTP_409_CONFLICT, str(exc))
     raise exc  # nao mapeado: propaga como erro interno

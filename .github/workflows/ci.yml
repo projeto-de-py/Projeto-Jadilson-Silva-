@@ -6,7 +6,7 @@ on:
   pull_request:
 
 # Um job por camada: o backend roda em SQLite em memoria (nao precisa de MySQL),
-# o frontend valida lint e build de producao.
+# o frontend valida teste de filtros, lint e build de producao.
 jobs:
   backend:
     name: Backend (pytest)
@@ -49,6 +49,9 @@ jobs:
 
       - name: Instalar dependencias
         run: npm ci
+
+      - name: Testes (filtros RF09)
+        run: npm test
 
       - name: Lint
         run: npm run lint
