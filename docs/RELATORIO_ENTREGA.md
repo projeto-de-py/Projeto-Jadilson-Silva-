@@ -19,7 +19,7 @@ Fases entregues:
 | F3 | Documentos no banco (`/api/documentos`), escopo por caso, contrato do hook preservado | `277f624` |
 | F4 | Filtros RF09 no servidor (`useConsultaPaginada`) + notificações gravadas por evento e varredura | `d3101e1` |
 | F5 | CI, higiene de dependências/código morto, code splitting e documentação final | `3b75d26` / `8187a1e` |
-| F6 | Higiene final, smoke MySQL versionado, E2E do fluxo, testes de query params, correção do editor e fechamento da entrega | `83ec6ff` / `9710703` |
+| F6 | Higiene final, smoke MySQL versionado, E2E do fluxo, testes de query params, correção do editor e fechamento da entrega | `83ec6ff` (docs alinhados em commit separado) |
 
 ## 2. O que mudou em F4/F5/F6
 
