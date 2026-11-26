@@ -46,7 +46,7 @@ Fases entregues:
 
 | Gate | Resultado |
 |---|---|
-| `python -m pytest -q` (643 testes) | **643 passed, 1 skipped, 0 failed** (NER sem `scikit-learn`) |
+| `python -m pytest -q` | **650 passed, 1 skipped, 0 failed** (NER sem `scikit-learn`; 21 min 39 s) |
 | `npm.cmd run lint` | 0 erros |
 | `npm.cmd run build` | OK — chunks separados, sem avisos de tamanho |
 | `alembic current` / `alembic check` | `0015_documentos (head)` / "No new upgrade operations detected" |
