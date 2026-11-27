@@ -153,3 +153,99 @@ class TestProtecaoNoFluxoDaIA:
 
         monkeypatch.setattr(get_settings(), "ia_mascarar_nomes", False)
         assert "Carlos" in servico_ia._proteger("O Sr. Carlos, CPF 123.456.789-09")
+
+
+class TestPseudonimizacaoReversivel:
+    def test_mesma_pessoa_recebe_mesmo_marcador_e_restaura_fielmente(self, servico_com_modelo):
+        from app.ia.guardrails.pseudonimizador import CofreAnonimizacao
+
+        cofre = CofreAnonimizacao()
+        texto = (
+            "O Sr. Carlos Silva (CPF 123.456.789-09) processou a Sra. Maria Souza. "
+            "Mais tarde, o Sr. Carlos Silva apresentou novo documento."
+        )
+        protegido = cofre.proteger(texto, ner=servico_com_modelo, mascarar_nomes=True, confianca_minima=0.0)
+
+        assert "Carlos Silva" not in protegido
+        assert "Maria Souza" not in protegido
+        assert "123.456.789-09" not in protegido
+        assert protegido.count("[PESSOA_1]") == 2
+        assert "[PESSOA_2]" in protegido
+        assert "[CPF_1]" in protegido
+        assert cofre.restaurar(protegido) == texto
+
+    def test_fluxo_sugerir_protege_na_ida_e_restaura_na_volta(self, servico_com_modelo, monkeypatch):
+        import json
+        from types import SimpleNamespace
+
+        from app.config import get_settings
+        from app.ia import servico as servico_ia
+        from app.ia.schemas import SugerirRequest, TarefaIA
+
+        recebido = {}
+
+        class ProvedorEspiao:
+            nome = "espiao"
+            simulado = True
+
+            def gerar(self, pedido):
+                recebido["usuario"] = pedido.usuario
+                recebido["caso"] = pedido.contexto["caso"]
+                return json.dumps(
+                    {
+                        "sugestoes": [
+                            {
+                                "titulo": "Qualificacao de [PESSOA_1]",
+                                "previa": "Requerente [PESSOA_1], CPF [CPF_1].",
+                                "acao": "substituir",
+                                "trecho": "O Sr. [PESSOA_1], CPF [CPF_1], trabalhou na empresa.",
+                                "motivo": "Melhorar a redacao juridica de [PESSOA_1].",
+                                "html": "<p><strong>[PESSOA_1]</strong>, inscrito no CPF [CPF_1], vem requerer.</p>",
+                            }
+                        ],
+                        "perguntas": ["Qual a data da demissao de [PESSOA_1]?"],
+                    }
+                )
+
+        class UsoFake:
+            def registrar(self, **kwargs):
+                pass
+
+        monkeypatch.setattr(get_settings(), "ia_mascarar_nomes", True)
+        monkeypatch.setattr(servico_ia, "obter_servico_ner", lambda: servico_com_modelo)
+
+        caso = SimpleNamespace(
+            numero_processo="0001-2026",
+            titulo="Acao Trabalhista",
+            cliente="Carlos Silva",
+            area="Trabalhista",
+            tipo_demanda="Reclamacao",
+            status="Em andamento",
+            observacoes="Contato: (75) 99999-1234",
+            prazos=[],
+        )
+        usuario = SimpleNamespace(id=1)
+        req = SugerirRequest(
+            tarefa=TarefaIA.LIVRE,
+            pedido="Redija a qualificacao de Carlos Silva.",
+            texto_documento="O Sr. Carlos Silva, CPF 123.456.789-09, trabalhou na empresa.",
+        )
+
+        resp = servico_ia.IAServico(ProvedorEspiao(), UsoFake()).sugerir(req, usuario, caso=caso)
+
+        # Na ida para o OpenRouter: nenhum dado pessoal vazou
+        assert "Carlos Silva" not in recebido["usuario"]
+        assert "123.456.789-09" not in recebido["usuario"]
+        assert recebido["caso"]["cliente"] == "[PESSOA_1]"
+        assert "[PESSOA_1]" in recebido["usuario"]
+        assert "[CPF_1]" in recebido["usuario"]
+
+        # Na volta para o advogado: dados reais restaurados automaticamente
+        assert "Carlos Silva" in resp.sugestoes[0].html
+        assert "123.456.789-09" in resp.sugestoes[0].html
+        assert "[PESSOA_1]" not in resp.sugestoes[0].html
+        assert resp.sugestoes[0].titulo == "Qualificacao de Carlos Silva"
+        assert resp.sugestoes[0].acao == "substituir"
+        assert resp.sugestoes[0].trecho == "O Sr. Carlos Silva, CPF 123.456.789-09, trabalhou na empresa."
+        assert resp.sugestoes[0].motivo == "Melhorar a redacao juridica de Carlos Silva."
+        assert resp.perguntas == ["Qual a data da demissao de Carlos Silva?"]

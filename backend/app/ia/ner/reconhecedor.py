@@ -80,8 +80,8 @@ def agrupar_entidades(etiquetas: list[tuple[str, float]], tokens: list[Token], t
 class ReconhecedorEntidades:
     def __init__(self, conjunto: str = "completo", alpha: float = 1e-6, min_freq: int = 3, semente: int = 42, max_iter: int = 100):
         self.conjunto = conjunto
-        self.alpha = alpha  # regularização: menor = ajusta mais aos exemplos
-        self.min_freq = min_freq  # descarta atributos raros: modelo menor
+        self.alpha = alpha 
+        self.min_freq = min_freq  
         self.semente = semente
         self.max_iter = max_iter
         self.vetorizador = None

@@ -13,6 +13,8 @@ Procure, e classifique cada achado em `categoria`:
   Proponha uma redação objetiva, mas respeite citações literais de prova.
 - `risco`: prazo mencionado errado, contradição entre fatos e pedidos, pedido incompatível com o rito.
 
-Para cada achado informe o `trecho` original, a correção em `html` e o `motivo`.
+Para cada achado em que um trecho existente deva ser corrigido ou reescrito, use `"acao": "substituir"`,
+copie em `trecho` o texto exato e literal como aparece no DOCUMENTO, coloque a correção completa em `html`
+e explique o `motivo`. Para itens que faltam na peça (ex.: valor da causa ou fecho ausentes), use `"acao": "inserir"`.
 Não reescreva o texto inteiro: aponte só o que precisa mudar. Se o texto estiver bom, devolva `sugestoes` vazio.
 - Se o PEDIDO DO ADVOGADO trouxer instruções específicas (tema, tom, tamanho, foco), siga-as.

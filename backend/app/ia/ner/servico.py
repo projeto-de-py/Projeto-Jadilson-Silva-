@@ -67,7 +67,7 @@ class ServicoEntidades:
 
     def mascarar_nomes(self, texto: str, confianca_minima: float = LIMITE_MEDIA) -> str:
         pessoas = [e for e in self.extrair(texto) if e.tipo == "PESSOA" and e.confianca >= confianca_minima]
-        for pessoa in reversed(pessoas):  # do fim para o começo: as posições anteriores não se deslocam
+        for pessoa in reversed(pessoas): 
             texto = texto[: pessoa.inicio] + "[NOME]" + texto[pessoa.fim :]
         return texto
 

@@ -28,6 +28,7 @@ class TarefaIA(str, Enum):
 Categoria = Literal["digitacao", "gramatica", "estilo", "juridico", "tom", "risco", "conteudo"]
 Severidade = Literal["info", "atencao", "critica"]
 TipoSugestao = Literal["Trecho", "Resumo", "Revisão", "Aviso"]
+AcaoSugestao = Literal["inserir", "substituir"]
 
 MAX_TEXTO_DOCUMENTO = 60_000
 MAX_PEDIDO = 2_000
@@ -67,9 +68,10 @@ class Sugestao(BaseModel):
     previa: str = Field(default="", max_length=400)
     html: str = Field(default="", max_length=20_000)
     tipo: TipoSugestao = "Trecho"
+    acao: AcaoSugestao = "inserir"
     categoria: Categoria = "conteudo"
     severidade: Severidade = "info"
-    trecho: str | None = Field(default=None, max_length=500)
+    trecho: str | None = Field(default=None, max_length=2_000)
     motivo: str | None = Field(default=None, max_length=500)
     verificar_fonte: bool = False
 
@@ -95,6 +97,40 @@ class SugerirResponse(BaseModel):
 class CompletarResponse(BaseModel):
     continuacao: str | None
     versao_prompt: str
+    simulado: bool
+
+
+class ChatMensagem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    papel: Literal["user", "assistant"]
+    conteudo: str = Field(min_length=1, max_length=4_000)
+
+
+class ChatRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    mensagens: list[ChatMensagem] = Field(min_length=1, max_length=30)
+    area: AreaIA | None = None
+    tipo_peca: str | None = Field(default=None, max_length=80)
+    caso_id: int | None = Field(default=None, ge=1)
+    texto_documento: str = Field(default="", max_length=MAX_TEXTO_DOCUMENTO)
+    contexto_processo: str = Field(default="", max_length=4_000)
+
+
+class RespostaChatModelo(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    resposta: str = Field(default="", max_length=12_000)
+    sugestoes: list[Sugestao] = Field(default_factory=list, max_length=8)
+
+
+class ChatResponse(BaseModel):
+    resposta: str
+    sugestoes: list[Sugestao] = []
+    avisos: list[str] = []
+    versao_prompt: str
+    provedor: str
     simulado: bool
 
 

@@ -33,10 +33,21 @@ import {
 import { Button, Select, Badge, useToast } from "@/components/ui";
 import { CaixaIA } from "@/components/ia/CaixaIA";
 import { CartaoSugestao } from "@/components/ia/CartaoSugestao";
+import { DiffSugestao, conteudoParaDiff } from "@/components/ia/DiffSugestao";
+import { PainelChatIA } from "@/components/ia/PainelChatIA";
 import { PainelEntidades } from "@/components/ia/PainelEntidades";
 import { ModalAssinatura } from "@/components/financeiro/ModalAssinatura";
 import { ModalCompararJuros } from "@/components/consultas/ModalCompararJuros";
-import { SugestoesIA, TextoFantasma, adicionarBlocos, definirFantasma, posicaoDoBloco, posicaoDoBlocoSalvo, removerBloco } from "@/components/ia/extensoes";
+import {
+  SugestoesIA,
+  TextoFantasma,
+  adicionarBlocos,
+  definirFantasma,
+  localizarIntervaloNoDoc,
+  obterItemSugestao,
+  posicaoDoBloco,
+  removerBloco,
+} from "@/components/ia/extensoes";
 import { completarTexto } from "@/lib/ia";
 import { CampoAuto, dadosDoProcesso, preencherCampos } from "@/lib/camposDocumento";
 import { useSessao } from "@/context/sessao";
@@ -116,6 +127,7 @@ function Editor({ doc, atualizar }) {
   const [processoId, setProcessoId] = useState(doc.processoId ? String(doc.processoId) : "");
   const [sugestoes, setSugestoes] = useState([]);
   const [iaAberta, setIaAberta] = useState(false);
+  const [chatAberto, setChatAberto] = useState(false);
   const [assinaturaAberta, setAssinaturaAberta] = useState(false);
   const [jurosAberto, setJurosAberto] = useState(false);
   const [aba, setAba] = useState("processo");
@@ -293,10 +305,47 @@ function Editor({ doc, atualizar }) {
       toast({ tipo: "info", titulo: "Nenhuma sugestão", descricao: "A IA não encontrou nada a acrescentar neste texto." });
       return;
     }
-    const pos = posicaoDoBloco(editor.state);
-    setSugestoes((atual) => [...atual, ...lista]);
-    adicionarBlocos(editor, lista.map((s) => ({ id: s.id, pos })));
-    toast({ tipo: "sucesso", titulo: `${lista.length} ${lista.length === 1 ? "sugestão pronta" : "sugestões prontas"}`, descricao: "Estão no texto, logo abaixo do parágrafo." });
+
+    const posPadrao = posicaoDoBloco(editor.state);
+    const ocupados = [];
+    const itensDecoracao = [];
+    const preparadas = [];
+    let primeiroDiffPos = null;
+
+    for (const s of lista) {
+      const querSubstituir =
+        s.tipo !== "Aviso" &&
+        Boolean(s.html?.trim()) &&
+        Boolean(s.trecho?.trim()) &&
+        (s.acao === "substituir" || s.tipo === "Revisão" || s.trecho.trim().length >= 3);
+
+      const intervalo = querSubstituir ? localizarIntervaloNoDoc(editor.state.doc, s.trecho, ocupados) : null;
+
+      if (intervalo) {
+        ocupados.push({ from: intervalo.from, to: intervalo.to });
+        itensDecoracao.push({ id: s.id, pos: intervalo.to, modo: "diff", from: intervalo.from, to: intervalo.to, inline: intervalo.inline });
+        preparadas.push({ ...s, _modo: "diff", _inline: intervalo.inline });
+        if (primeiroDiffPos === null) primeiroDiffPos = intervalo.from;
+      } else {
+        itensDecoracao.push({ id: s.id, pos: posPadrao, modo: "bloco" });
+        preparadas.push({ ...s, _modo: "bloco" });
+      }
+    }
+
+    setSugestoes((atual) => [...atual, ...preparadas]);
+    adicionarBlocos(editor, itensDecoracao);
+    if (primeiroDiffPos !== null) {
+      editor.chain().setTextSelection(primeiroDiffPos).scrollIntoView().run();
+    }
+    const nDiffs = preparadas.filter((x) => x._modo === "diff").length;
+    toast({
+      tipo: "sucesso",
+      titulo: `${lista.length} ${lista.length === 1 ? "sugestão pronta" : "sugestões prontas"}`,
+      descricao:
+        nDiffs > 0
+          ? "Alterações marcadas no texto: aprove no ✓ ou recuse no ✕."
+          : "Estão no texto, logo abaixo do parágrafo.",
+    });
   }
 
   function ignorarSugestao(sug) {
@@ -305,10 +354,18 @@ function Editor({ doc, atualizar }) {
   }
 
   function adicionarSugestao(sug) {
-    const pos = posicaoDoBlocoSalvo(editor, sug.id);
+    const item = obterItemSugestao(editor, sug.id);
     removerBloco(editor, sug.id);
     setSugestoes((atual) => atual.filter((x) => x.id !== sug.id));
-    if (pos !== null) editor.chain().focus().insertContentAt(pos, sug.html).run();
+    if (!item) return;
+
+    if (item.modo === "diff") {
+      const conteudo = conteudoParaDiff(sug.html, item.inline);
+      editor.chain().focus().insertContentAt({ from: item.from, to: item.to }, conteudo).run();
+      return;
+    }
+
+    editor.chain().focus().insertContentAt(item.pos, sug.html).run();
   }
 
   function salvarTitulo(valor) {
@@ -357,7 +414,11 @@ function Editor({ doc, atualizar }) {
             </span>
           </div>
         </div>
-        <Button variant="secondary" className="gap-2" onClick={() => setIaAberta(true)}>
+        <Button
+          variant={chatAberto ? "primary" : "secondary"}
+          className="gap-2"
+          onClick={() => setChatAberto((v) => !v)}
+        >
           <LogoIA tamanho={20} />
           Perguntar à IA
           {sugestoes.length > 0 && <span className="bg-primary text-primary-foreground text-11 flex size-5 items-center justify-center rounded-full tabular-nums">{sugestoes.length}</span>}
@@ -454,7 +515,12 @@ function Editor({ doc, atualizar }) {
           )}
         </div>
 
-        <div className="grid xl:min-h-0 xl:flex-1 xl:grid-cols-[minmax(0,1fr)_320px] xl:grid-rows-[minmax(0,1fr)]">
+        <div
+          className={cn(
+            "grid xl:min-h-0 xl:flex-1 xl:grid-rows-[minmax(0,1fr)]",
+            chatAberto ? "xl:grid-cols-[minmax(0,1fr)_390px]" : "xl:grid-cols-[minmax(0,1fr)_320px]",
+          )}
+        >
           {/* Mesa de trabalho com a folha A4 */}
           <div className="bg-surface-muted h-[70vh] overflow-auto p-6 xl:h-auto xl:min-h-0">
             <div className="mx-auto w-max" style={{ zoom: zoom / 100 }}>
@@ -462,30 +528,55 @@ function Editor({ doc, atualizar }) {
                 <EditorContent editor={editor} />
               </div>
             </div>
-            {sugestoes.map((s) => (alvos[s.id] ? createPortal(<CartaoSugestao key={s.id} sugestao={s} aoAdicionar={adicionarSugestao} aoIgnorar={ignorarSugestao} />, alvos[s.id]) : null))}
+            {sugestoes.map((s) =>
+              alvos[s.id]
+                ? createPortal(
+                    s._modo === "diff" ? (
+                      <DiffSugestao key={s.id} sugestao={s} inline={Boolean(s._inline)} aoAprovar={adicionarSugestao} aoRecusar={ignorarSugestao} />
+                    ) : (
+                      <CartaoSugestao key={s.id} sugestao={s} aoAdicionar={adicionarSugestao} aoIgnorar={ignorarSugestao} />
+                    ),
+                    alvos[s.id],
+                  )
+                : null,
+            )}
           </div>
 
           <aside className="border-border flex flex-col border-t xl:min-h-0 xl:border-t-0 xl:border-l">
-            <div role="tablist" aria-label="Painel do documento" className="border-border flex shrink-0 gap-1 border-b p-2">
-              {ABAS.map((a) => (
-                <button
-                  key={a.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={aba === a.id}
-                  onClick={() => setAba(a.id)}
-                  className={cn(
-                    "text-13 h-8 flex-1 rounded-[8px] px-3 font-medium transition-colors",
-                    aba === a.id ? "bg-surface-muted text-ink" : "text-ink-muted hover:text-ink",
-                  )}
-                >
-                  {a.rotulo}
-                  {a.id === "estrutura" && titulos.length > 0 && <span className="text-11 text-ink-muted ml-1 tabular-nums">{titulos.length}</span>}
-                </button>
-              ))}
+            <div className={cn("xl:min-h-0 xl:flex-1", chatAberto ? "flex flex-col overflow-hidden" : "hidden")}>
+              <PainelChatIA
+                docId={doc.id}
+                processo={processo}
+                textoDocumento={editor.getText()}
+                area={doc.area}
+                tipoPeca={titulo}
+                aoSugerir={receberSugestoes}
+                aoFechar={() => setChatAberto(false)}
+              />
             </div>
 
-            <div role="tabpanel" className="space-y-4 p-4 xl:min-h-0 xl:flex-1 xl:overflow-y-auto">
+            {!chatAberto && (
+              <>
+                <div role="tablist" aria-label="Painel do documento" className="border-border flex shrink-0 gap-1 border-b p-2">
+                  {ABAS.map((a) => (
+                    <button
+                      key={a.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={aba === a.id}
+                      onClick={() => setAba(a.id)}
+                      className={cn(
+                        "text-13 h-8 flex-1 rounded-[8px] px-3 font-medium transition-colors whitespace-nowrap",
+                        aba === a.id ? "bg-surface-muted text-ink" : "text-ink-muted hover:text-ink",
+                      )}
+                    >
+                      {a.rotulo}
+                      {a.id === "estrutura" && titulos.length > 0 && <span className="text-11 text-ink-muted ml-1 tabular-nums">{titulos.length}</span>}
+                    </button>
+                  ))}
+                </div>
+
+                <div role="tabpanel" className="space-y-4 p-4 xl:min-h-0 xl:flex-1 xl:overflow-y-auto">
               {aba === "processo" && (
                 <>
                   <Select value={processoId} onChange={(e) => mudarProcesso(e.target.value)} aria-label="Processo vinculado" className="text-13">
@@ -550,6 +641,8 @@ function Editor({ doc, atualizar }) {
                 </>
               )}
             </div>
+              </>
+            )}
           </aside>
         </div>
 
@@ -626,6 +719,30 @@ function Editor({ doc, atualizar }) {
         .folha-a4 .sug-motivo { margin: 6px 0 0; font-size: 13px; color: #14391f; text-indent: 0; }
         .folha-a4 .sug-fonte { margin: 10px 0 0; font-size: 12px; font-weight: 600; color: #8a5a00; text-indent: 0; }
         .folha-a4 .sug-link { margin-left: auto; background: none; border: 0; color: #4b6b55; font-size: 12px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+        .folha-a4 .sug-diff-antigo { background: #fee2e2; color: #991b1b; text-decoration: line-through; text-decoration-color: #dc2626; border-radius: 3px; padding: 1px 2px; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+        .folha-a4 .sug-diff-widget-inline { display: inline; margin-left: 4px; }
+        .folha-a4 .sug-diff-inline { display: inline; }
+        .folha-a4 .sug-diff-novo { background: #dcfce7; color: #14532d; border: 1px solid #86efac; border-radius: 4px; padding: 1px 4px; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+        .folha-a4 .sug-diff-widget-bloco { display: block; margin: 6px 0 12px; text-indent: 0; text-align: left; }
+        .folha-a4 .sug-diff-bloco { background: #f0fdf4; border: 1px solid #86efac; border-left: 3px solid #16a34a; border-radius: 10px; padding: 8px 12px; }
+        .folha-a4 .sug-diff-bloco-topo { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 11px; color: #166534; }
+        .folha-a4 .sug-diff-legenda { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .folha-a4 .sug-diff-novo-bloco { display: block; background: #dcfce7; border: 0; padding: 6px 8px; border-radius: 6px; }
+        .folha-a4 .sug-diff-novo-bloco p { margin: 0 0 6px; }
+        .folha-a4 .sug-diff-novo-bloco p:last-child { margin-bottom: 0; }
+        .folha-a4 .sug-diff-fonte { margin: 6px 0 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 11px; font-weight: 600; color: #8a5a00; text-indent: 0; }
+        .folha-a4 .sug-diff-acoes { display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; vertical-align: middle; padding: 2px; border-radius: 999px; background: #fff; border: 1px solid #d1d5db; box-shadow: 0 1px 3px rgb(0 0 0 / 0.12); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+        .folha-a4 .sug-diff-btn { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 999px; border: 0; cursor: pointer; transition: background-color .15s, color .15s, transform .1s; }
+        .folha-a4 .sug-diff-btn:active { transform: scale(0.92); }
+        .folha-a4 .sug-diff-aprovar { background: #16a34a; color: #fff; }
+        .folha-a4 .sug-diff-aprovar:hover { background: #15803d; }
+        .folha-a4 .sug-diff-recusar { background: #fee2e2; color: #dc2626; }
+        .folha-a4 .sug-diff-recusar:hover { background: #dc2626; color: #fff; }
+        .chat-ia-astryx { --color-border-primary: rgba(255, 255, 255, 0.14); --color-border-secondary: rgba(255, 255, 255, 0.1); --color-border-focus: rgba(255, 255, 255, 0.24); --color-focus-ring: rgba(255, 255, 255, 0.22); --color-surface-primary: var(--color-surface); --color-surface-secondary: var(--color-surface-muted); }
+        .chat-ia-astryx * { box-sizing: border-box; }
+        .chat-ia-astryx [role="log"] { overflow-x: hidden; }
+        .chat-ia-astryx textarea { font-size: 13px; line-height: 1.45; outline: none !important; box-shadow: none !important; }
+        .chat-ia-astryx :focus-visible { outline-width: 1px; outline-offset: 0px; }
       `}</style>
     </div>
   );
