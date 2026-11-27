@@ -17,12 +17,12 @@ import time
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(RAIZ / "backend"))  # usa o mesmo código de atributos e tokenização do app
+sys.path.insert(0, str(RAIZ / "backend")) 
 
-from seqeval.metrics import classification_report, f1_score, precision_score, recall_score  # noqa: E402
+from seqeval.metrics import classification_report, f1_score, precision_score, recall_score
 
-from app.ia.ner.atributos import CONJUNTOS  # noqa: E402
-from app.ia.ner.reconhecedor import TIPOS, ReconhecedorEntidades  # noqa: E402
+from app.ia.ner.atributos import CONJUNTOS 
+from app.ia.ner.reconhecedor import TIPOS, ReconhecedorEntidades
 
 DADOS = RAIZ / "datasets" / "lener_br"
 MODELO = RAIZ / "ai-model" / "models" / "ner_juridico.joblib"

@@ -239,6 +239,27 @@ export async function solicitarSugestoes({ pedido, acao, processo, textoDocument
   }
 }
 
+/** Chat conversacional estilo LLM com contexto do documento + sugestões opcionais de diff. */
+export async function conversarComIA({ mensagens, processo, textoDocumento, area, tipoPeca, csrf, sinal }) {
+  const r = await apiIA("chat", {
+    csrf,
+    signal: sinal,
+    body: {
+      mensagens: mensagens.slice(-20).map((m) => ({ papel: m.papel, conteudo: m.conteudo.slice(0, 4000) })),
+      area: area || null,
+      tipo_peca: tipoPeca || null,
+      texto_documento: (textoDocumento || "").slice(0, 60000),
+      contexto_processo: contextoDoProcesso(processo),
+    },
+  });
+  return {
+    resposta: r.resposta || "",
+    sugestoes: r.sugestoes || [],
+    avisos: r.avisos || [],
+    fonte: r.simulado ? "servidor-simulado" : "servidor",
+  };
+}
+
 /** Continuação curta para o texto fantasma (servidor; plano B local se ele cair). */
 export async function completarTexto({ textoAntes, area, csrf, sinal }) {
   try {

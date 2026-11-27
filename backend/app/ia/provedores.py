@@ -1,15 +1,3 @@
-"""Unica porta entre o sistema e o modelo de IA.
-
-Nada fora deste arquivo conversa com um provedor externo. Hoje existe apenas o
-provedor SIMULADO (offline, deterministico): ele devolve o mesmo formato JSON
-que um modelo real devolveria, entao todo o fluxo (validacao, guardrails,
-auditoria, front-end) ja funciona ponta a ponta.
-
-Provedores: `simulado` (padrao, offline) e `openrouter` (modelo Google
-gratuito via OpenRouter, exige OPENROUTER_API_KEY). Para outro modelo, implemente `Provedor.gerar` e registre
-em `obter_provedor`. O restante do sistema nao muda.
-"""
-
 import json
 import re
 import time
@@ -30,6 +18,8 @@ class PedidoProvedor:
     area: AreaIA | None = None
     # Dados estruturados ja mascarados (PII) - usados pelo provedor simulado.
     contexto: dict = field(default_factory=dict)
+    # Historico multi-turno (role/content) para o modo chat.
+    historico: list[dict[str, str]] = field(default_factory=list)
 
 
 class Provedor(Protocol):
@@ -173,6 +163,15 @@ class ProvedorSimulado:
             resposta = _contestacao(ctx.get("caso"), texto)
         elif pedido.tarefa == "continuar":
             resposta = _continuar(texto)
+        elif pedido.tarefa == "chat":
+            ultima = (pedido.historico[-1]["content"] if pedido.historico else "").strip()
+            resposta = {
+                "resposta": (
+                    f"Recebi sua mensagem no modo simulado ({ultima[:80]}). "
+                    "Para respostas conversacionais reais, configure IA_PROVEDOR=openrouter e OPENROUTER_API_KEY no .env."
+                ),
+                "sugestoes": [],
+            }
         elif pedido.tarefa == "livre":
             resposta = {"perguntas": [], "sugestoes": [{
                 "titulo": "Pedido livre precisa da IA real",
@@ -238,14 +237,16 @@ class ProvedorOpenRouter:
         self._http = http or httpx.Client(timeout=timeout)
 
     def gerar(self, pedido: PedidoProvedor) -> str:
+        mensagens = [{"role": "system", "content": pedido.sistema}]
+        if pedido.historico:
+            mensagens.extend(pedido.historico)
+        else:
+            mensagens.append({"role": "user", "content": pedido.usuario})
         corpo = {
             "model": self._modelo,
             "max_tokens": 300 if pedido.tarefa == "completar" else self._max_tokens,
             "temperature": 0.2,
-            "messages": [
-                {"role": "system", "content": pedido.sistema},
-                {"role": "user", "content": pedido.usuario},
-            ],
+            "messages": mensagens,
         }
         headers = {"Authorization": f"Bearer {self._key}", "Content-Type": "application/json"}
         if self._site:
